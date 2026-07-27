@@ -113,26 +113,16 @@ export default defineConfig(({ mode }) => {
 
 */
 
-			"/misapi/api/PriceVaWH": {
-							target: "http://localhost:44381",
+			"/misapi/api/currentacctbalcc": {
+							target: env.VITE_LOCAL_API,
 							changeOrigin: true,
 							secure: false,
 							rewrite: (path) => path.replace(/^\/misapi/, ""),
 						},
 
-			"/misapi/api/chequedetailsexp": {
-				target: "http://localhost:44381",
-				changeOrigin: true,
-				secure: false,
-				rewrite: (path) => path.replace(/^\/misapi/, ""),
-			},
+			
 
-			"/misapi/api/priceva": {
-				target: "http://localhost:44381",
-				changeOrigin: true,
-				secure: false,
-				rewrite: (path) => path.replace(/^\/misapi/, ""),
-			},
+			
 
 			"/misapi/api/chequesummary": {
 				target: "http://localhost:44381",
@@ -202,6 +192,13 @@ export default defineConfig(({ mode }) => {
 					secure: false,
 					rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
+				"/misapi/api/provincewiseperiodstatus/report": {
+                    target: env.VITE_LOCAL_API,
+                    changeOrigin: true,
+                    secure: false,
+                    rewrite: (path) => path.replace(/^\/misapi/, ""),
+                },
+                
 
 				"/misapi": {
 					target: env.VITE_SERVER_API,
