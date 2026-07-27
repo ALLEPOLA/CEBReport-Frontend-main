@@ -62,6 +62,8 @@ import ChequeDetailWPReport from "../mainTopics/CashBook/ChequeDetailsWP";
 import PriceVarianceWHReport from "../mainTopics/CashBook/PriceVarianceWHReport";
 import ChequeSummaryReport from "../mainTopics/CashBook/ChequeSummaryReport";
 import RegionPeriodStatusReport from "../mainTopics/CashBook/Regionperiodstatusreport";
+import ProvinceWisePeriodStatus from "../mainTopics/CashBook/ProvincePeriodStatusReport";
+import CurrentAcctBalCC from "../mainTopics/CashBook/CurrentAcctBalCC";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -305,6 +307,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"price variance wh wise" : PriceVarianceWHReport,
 	"cheque summary" : ChequeSummaryReport, 
 	"region wise period status": RegionPeriodStatusReport,
+	"province wise period status" : ProvinceWisePeriodStatus,
+    "cost center wise current account balance" : CurrentAcctBalCC,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
