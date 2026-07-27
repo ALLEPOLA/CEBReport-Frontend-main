@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DebtorsModal from "../../components/mainTopics/AnalysisDebtors/DebtorsModal";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
   AreaCode: string;
@@ -39,32 +41,37 @@ const DebtorsAnalysis: React.FC = () => {
     '#3B82F6', '#6B7280', '#9CA3AF', '#D97706'
   ];
 
-  // Region codes constant
-  const regionCodes = [
-    { code: "R1", name: "Region 01" },
-    { code: "R2", name: "Region 02" },
-    { code: "R3", name: "Region 03" },
-    { code: "R4", name: "Region 04" }
-  ];
+  // // Region codes constant
+  // const regionCodes = [
+  //   { code: "R1", name: "Region 01" },
+  //   { code: "R2", name: "Region 02" },
+  //   { code: "R3", name: "Region 03" },
+  //   { code: "R4", name: "Region 04" }
+  // ];
 
-  // Province codes constant
-  const provinceCodes = [
-    { code: "1", name: "Western Province North" },
-    { code: "2", name: "Western Province South" },
-    { code: "3", name: "Colombo City" },
-    { code: "4", name: "Northern Province" },
-    { code: "5", name: "Central Province" },
-    { code: "6", name: "Uva Province" },
-    { code: "7", name: "Eastern Province" },
-    { code: "8", name: "North Western Province" },
-    { code: "9", name: "Sabaragamuwa Province" },
-    { code: "A", name: "North Central Province" },
-    { code: "B", name: "Southern Province" },
-    { code: "C", name: "Western Province South 2" },
-    { code: "D", name: "North Western Province 2" },
-    { code: "E", name: "Central Province 2" },
-    { code: "F", name: "Southern Province 2" }
-  ];
+  // // Province codes constant
+  // const provinceCodes = [
+  //   { code: "1", name: "Western Province North" },
+  //   { code: "2", name: "Western Province South" },
+  //   { code: "3", name: "Colombo City" },
+  //   { code: "4", name: "Northern Province" },
+  //   { code: "5", name: "Central Province" },
+  //   { code: "6", name: "Uva Province" },
+  //   { code: "7", name: "Eastern Province" },
+  //   { code: "8", name: "North Western Province" },
+  //   { code: "9", name: "Sabaragamuwa Province" },
+  //   { code: "A", name: "North Central Province" },
+  //   { code: "B", name: "Southern Province" },
+  //   { code: "C", name: "Western Province South 2" },
+  //   { code: "D", name: "North Western Province 2" },
+  //   { code: "E", name: "Central Province 2" },
+  //   { code: "F", name: "Southern Province 2" }
+  // ];
+
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+  const [regionCodes, setRegionCodes] = useState<{ code: string; name: string }[]>([]);
+  const [provinceCodes, setProvinceCodes] = useState<{ code: string; name: string }[]>([]);
 
   // Main state
   const [loading, setLoading] = useState(false);
@@ -158,39 +165,64 @@ const DebtorsAnalysis: React.FC = () => {
 
   // Fetch initial data
   useEffect(() => {
-    const fetchInitialData = async () => {
-      setInitialLoading(true);
-      setError(null);
-      try {
-        // Fetch areas
-        const areaData = await fetchWithErrorHandling("/misapi/api/areas");
-        setAreas(areaData.data || []);
-        if (areaData.data?.length > 0) {
-          setFormData(prev => ({ ...prev, areaCode: areaData.data[0].AreaCode }));
-        }
-
-        // Fetch bill cycles using the same method as AgeAnalysis
-        const maxCycleData = await fetchWithErrorHandling("/misapi/api/billcycle/max");
-        if (maxCycleData.data && maxCycleData.data.BillCycles?.length > 0) {
-          const options = generateBillCycleOptions(
-            maxCycleData.data.BillCycles,
-            maxCycleData.data.MaxBillCycle
-          );
-          setBillCycleOptions(options);
-          setFormData(prev => ({ ...prev, cycle: options[0].code }));
-        } else {
-          setBillCycleOptions([]);
-          setFormData(prev => ({ ...prev, cycle: "" }));
-        }
-      } catch (err: any) {
-        setError("Error loading data: " + (err.message || err.toString()));
-      } finally {
-        setInitialLoading(false);
+  const fetchInitialData = async () => {
+    setInitialLoading(true);
+    setError(null);
+    try {
+      // Fetch all areas (no query param needed — /misapi/api/areas already
+      // returns ProvCode and Region on every row), then filter client-side.
+      const areaData = await fetchWithErrorHandling("/misapi/api/areas");
+      let filteredAreas = areaData.data || [];
+      if (locked["Region"]?.code) {
+        filteredAreas = filteredAreas.filter(
+          (a: any) => a.Region === locked["Region"]!.code
+        );
+      } else if (locked["Province"]?.code) {
+        filteredAreas = filteredAreas.filter(
+          (a: any) => a.ProvCode === locked["Province"]!.code
+        );
       }
-    };
+      setAreas(filteredAreas);
 
-    fetchInitialData();
-  }, []);
+      const regionData = await fetchWithErrorHandling("/misapi/api/ordinary/region");
+      setRegionCodes(
+        (regionData.data || []).map((r: any) => ({ code: r.RegionCode, name: r.RegionCode }))
+      );
+
+      let provinceUrl = "/misapi/api/ordinary/province";
+      if (locked["Region"]?.code) {
+        provinceUrl += `?regionCode=${locked["Region"].code}`;
+      }
+      const provinceData = await fetchWithErrorHandling(provinceUrl);
+      setProvinceCodes(
+        (provinceData.data || []).map((p: any) => ({ code: p.ProvinceCode, name: p.ProvinceName }))
+      );
+
+      const defaultAreaCode = locked["Area"]?.code
+        || (filteredAreas.length > 0 ? filteredAreas[0].AreaCode : "");
+      setFormData(prev => ({ ...prev, areaCode: defaultAreaCode }));
+
+      const maxCycleData = await fetchWithErrorHandling("/misapi/api/billcycle/max");
+      if (maxCycleData.data && maxCycleData.data.BillCycles?.length > 0) {
+        const options = generateBillCycleOptions(
+          maxCycleData.data.BillCycles,
+          maxCycleData.data.MaxBillCycle
+        );
+        setBillCycleOptions(options);
+        setFormData(prev => ({ ...prev, cycle: options[0].code }));
+      } else {
+        setBillCycleOptions([]);
+        setFormData(prev => ({ ...prev, cycle: "" }));
+      }
+    } catch (err: any) {
+      setError("Error loading data: " + (err.message || err.toString()));
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  fetchInitialData();
+}, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   const getCodeLabel = () => {
     const labels = { P: "Province Code", D: "Region Code", A: "Area Code" };
@@ -206,11 +238,11 @@ const DebtorsAnalysis: React.FC = () => {
     if (name === 'option') {
       let defaultAreaCode = "";
       if (value === "D") {
-        defaultAreaCode = "R1"; // Default to first region
+        defaultAreaCode = locked["Region"]?.code || (regionCodes[0]?.code || "");
       } else if (value === "P") {
-        defaultAreaCode = "1"; // Default to first province
-      } else if (value === "A" && areas.length > 0) {
-        defaultAreaCode = areas[0].AreaCode;
+        defaultAreaCode = locked["Province"]?.code || (provinceCodes[0]?.code || "");
+      } else if (value === "A") {
+        defaultAreaCode = locked["Area"]?.code || (areas.length > 0 ? areas[0].AreaCode : "");
       }
 
       setFormData(prev => ({
@@ -744,12 +776,19 @@ const DebtorsAnalysis: React.FC = () => {
     if (formData.option === "E") return null;
 
     if (formData.option === "D") {
-      // Region Code dropdown
+      if (locked["Region"]) {
+        return (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Region Code</label>
+            <select disabled value={locked["Region"].code} className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed">
+              <option value={locked["Region"].code}>{locked["Region"].code}</option>
+            </select>
+          </div>
+        );
+      }
       return (
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Region Code
-          </label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Region Code</label>
           <select
             name="areaCode"
             value={formData.areaCode}
@@ -767,12 +806,21 @@ const DebtorsAnalysis: React.FC = () => {
         </div>
       );
     } else if (formData.option === "P") {
-      // Province Code dropdown
+      if (locked["Province"]) {
+        return (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Province Code</label>
+            <select disabled value={locked["Province"].code} className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed">
+              <option value={locked["Province"].code}>
+                {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+              </option>
+            </select>
+          </div>
+        );
+      }
       return (
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Province Code
-          </label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Province Code</label>
           <select
             name="areaCode"
             value={formData.areaCode}
@@ -790,12 +838,21 @@ const DebtorsAnalysis: React.FC = () => {
         </div>
       );
     } else {
-      // Area Code dropdown (for Area option only)
+      if (locked["Area"]) {
+        return (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{getCodeLabel()}</label>
+            <select disabled value={locked["Area"].code} className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed">
+              <option value={locked["Area"].code}>
+                {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+              </option>
+            </select>
+          </div>
+        );
+      }
       return (
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            {getCodeLabel()}
-          </label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{getCodeLabel()}</label>
           <select
             name="areaCode"
             value={formData.areaCode}
@@ -856,10 +913,10 @@ const DebtorsAnalysis: React.FC = () => {
                 className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
                 style={{ maxHeight: '200px', fontSize: '12px' }}
               >
-                <option value="A">Area</option>
-                <option value="D">Region</option>
-                <option value="P">Province</option>
-                <option value="E">All CEB</option>
+                {allowedCategories.includes("Area") && <option value="A">Area</option>}
+                {allowedCategories.includes("Region") && <option value="D">Region</option>}
+                {allowedCategories.includes("Province") && <option value="P">Province</option>}
+                {allowedCategories.includes("Entire CEB") && <option value="E">All CEB</option>}
               </select>
             </div>
 
