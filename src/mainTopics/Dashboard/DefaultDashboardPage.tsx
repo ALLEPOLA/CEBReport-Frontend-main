@@ -538,37 +538,67 @@ const DefaultDashboardPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const fetchOrdinaryCount = async () => {
-      setCustomerCountsLoading(true); setCustomerCountsError(null);
+      setCustomerCountsLoading(true);
+      setCustomerCountsError(null);
+      setCustomerCounts((p) => ({ ...p, ordinary: 0 }));
       try {
         const res  = await fetch(withRegion(`/misapi/api/dashboard/ordinary-customers-summary?billCycle=0`), { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const json = await res.json();
+        if (!active) return;
         setCustomerCounts((p) => ({ ...p, ordinary: json?.data?.TotalCount ?? 0 }));
 
-      } catch (err: any) { setCustomerCountsError(err.message || "Failed to load ordinary customer count"); }
-      finally { setCustomerCountsLoading(false); }
+      } catch (err: any) {
+        if (!active) return;
+        setCustomerCountsError(err.message || "Failed to load ordinary customer count");
+      }
+      finally {
+        if (active) {
+          setCustomerCountsLoading(false);
+        }
+      }
     };
     fetchOrdinaryCount();
+    return () => { active = false; };
   }, [selectedRegion]);
 
   useEffect(() => {
+    let active = true;
     const fetchBulkCount = async () => {
-      setBulkCountLoading(true); setBulkCountError(null);
+      setBulkCountLoading(true);
+      setBulkCountError(null);
+      setCustomerCounts((p) => ({ ...p, bulk: 0 }));
       try {
         const res  = await fetch(withRegion("/misapi/api/dashboard/customers/active-count"), { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const json = await res.json();
+        if (!active) return;
         setCustomerCounts((p) => ({ ...p, bulk: json?.data?.activeCustomerCount ?? 0 }));
-      } catch (err: any) { setBulkCountError(err.message || "Failed to load bulk customer count"); }
-      finally { setBulkCountLoading(false); }
+      } catch (err: any) {
+        if (!active) return;
+        setBulkCountError(err.message || "Failed to load bulk customer count");
+      }
+      finally {
+        if (active) {
+          setBulkCountLoading(false);
+        }
+      }
     };
     fetchBulkCount();
+    return () => { active = false; };
   }, [selectedRegion]);
 
   useEffect(() => {
+    let active = true;
     const fetchSolarCustomerData = async () => {
-      setSolarLoading(true); setSolarError(null);
+      setSolarLoading(true);
+      setSolarError(null);
+      setCustomerCounts((p) => ({
+        ...p,
+        solar: { netMetering: 0, netAccounting: 0, netPlus: 0, netPlusPlus: 0 },
+      }));
       try {
         const maxRes = await fetch(`/misapi/api/dashboard/solar-ordinary-customers/billcycle/max`, { headers: { Accept: "application/json" } });
         if (!maxRes.ok) throw new Error(`Failed to fetch max bill cycle`);
@@ -580,6 +610,7 @@ const DefaultDashboardPage: React.FC = () => {
         ]);
         if (!r1.ok || !r2.ok || !r3.ok || !r4.ok) throw new Error("Failed to fetch one or more net-type counts");
         const [d1, d2, d3, d4] = await Promise.all([r1.json(), r2.json(), r3.json(), r4.json()]);
+        if (!active) return;
         setCustomerCounts((p) => ({
           ...p,
           solar: {
@@ -589,15 +620,26 @@ const DefaultDashboardPage: React.FC = () => {
             netPlusPlus:   d4?.data?.CustomersCount ?? 0,
           },
         }));
-      } catch (err: any) { setSolarError(err.message || "Failed to load solar customer data"); console.error("Solar data fetch error:", err); }
-      finally { setSolarLoading(false); }
+      } catch (err: any) {
+        if (!active) return;
+        setSolarError(err.message || "Failed to load solar customer data");
+        console.error("Solar data fetch error:", err);
+      }
+      finally {
+        if (active) {
+          setSolarLoading(false);
+        }
+      }
     };
     fetchSolarCustomerData();
+    return () => { active = false; };
   }, [selectedRegion]);
 
   useEffect(() => {
+    let active = true;
     const fetchBulkSolarCustomerData = async () => {
       setBulkSolarLoading(true);
+      setBulkSolarCustomers({ netMetering: 0, netAccounting: 0, netPlus: 0, netPlusPlus: 0 });
       try {
         const [r1, r2, r3, r4] = await Promise.all([
           fetch(withRegion(`/misapi/api/dashboard/solar-bulk-customers/count/net-type-1`), { headers: { Accept: "application/json" } }),
@@ -607,21 +649,33 @@ const DefaultDashboardPage: React.FC = () => {
         ]);
         if (!r1.ok || !r2.ok || !r3.ok || !r4.ok) throw new Error("Failed to fetch bulk solar net-type counts");
         const [d1, d2, d3, d4] = await Promise.all([r1.json(), r2.json(), r3.json(), r4.json()]);
+        if (!active) return;
         setBulkSolarCustomers({
           netMetering:   d1?.data?.CustomersCount ?? 0,
           netAccounting: d2?.data?.CustomersCount ?? 0,
           netPlus:       d3?.data?.CustomersCount ?? 0,
           netPlusPlus:   d4?.data?.CustomersCount ?? 0,
         });
-      } catch (err: any) { console.error("Bulk solar data fetch error:", err); }
-      finally { setBulkSolarLoading(false); }
+      } catch (err: any) {
+        if (!active) return;
+        console.error("Bulk solar data fetch error:", err);
+      }
+      finally {
+        if (active) {
+          setBulkSolarLoading(false);
+        }
+      }
     };
     fetchBulkSolarCustomerData();
+    return () => { active = false; };
   }, [selectedRegion]);
 
   useEffect(() => {
+    let active = true;
     const fetchSalesCollection = async () => {
-      setSalesCollectionLoading(true); setSalesCollectionError(null);
+      setSalesCollectionLoading(true);
+      setSalesCollectionError(null);
+      setMonthlySalesData([]);
       try {
         const normalizeSalesRecords = (records: any[] = []): SalesCollectionRecord[] => {
           return records
@@ -672,6 +726,7 @@ const DefaultDashboardPage: React.FC = () => {
           })(),
         ]);
 
+        if (!active) return;
         const ordinaryByDate = new Map(ordinaryRecords.map((rec) => [rec.Date, Number(rec.Amount) || 0]));
         const bulkByDate = new Map(bulkRecords.map((rec) => [rec.Date, Number(rec.Amount) || 0]));
         const allDates = Array.from(new Set([...ordinaryByDate.keys(), ...bulkByDate.keys()]));
@@ -690,13 +745,23 @@ const DefaultDashboardPage: React.FC = () => {
           new Date(a.month).getTime() - new Date(b.month).getTime()
         ));
         setSalesChartKey((k) => k + 1);
-      } catch (err: any) { console.error("Error fetching sales/collection data:", err); setSalesCollectionError(err.message || "Failed to load sales data."); }
-      finally { setSalesCollectionLoading(false); }
+      } catch (err: any) {
+        if (!active) return;
+        console.error("Error fetching sales/collection data:", err);
+        setSalesCollectionError(err.message || "Failed to load sales data.");
+      }
+      finally {
+        if (active) {
+          setSalesCollectionLoading(false);
+        }
+      }
     };
     fetchSalesCollection();
+    return () => { active = false; };
   }, [selectedRegion]);
 
   useEffect(() => {
+    let active = true;
     const normalizeRecords = (records: SolarGenerationCapacityApiRecord[] = []) =>
       records.map((record) => ({
         netType: String(record.NetType ?? record.netType ?? ""),
@@ -730,6 +795,7 @@ const DefaultDashboardPage: React.FC = () => {
     const fetchSolarCapacityGraph = async () => {
       setSolarCapacityLoading(true);
       setSolarCapacityError(null);
+      setSolarCapacityChartData([]);
 
       try {
         const ordinaryEndpoint = "/misapi/api/dashboard/solar-ordinary-customers/generation-capacity";
@@ -737,6 +803,7 @@ const DefaultDashboardPage: React.FC = () => {
 
         const ordinaryData = await fetchCapacityByEndpoint(ordinaryEndpoint, selectedSolarBillCycle);
 
+        if (!active) return;
         const resolvedBillCycles = ordinaryData.availableBillCycles;
         const latestBillCycle = resolvedBillCycles[0] || ordinaryData.selectedBillCycle || selectedSolarBillCycle;
 
@@ -757,6 +824,7 @@ const DefaultDashboardPage: React.FC = () => {
 
         const bulkData = await fetchCapacityByEndpoint(bulkEndpoint, resolvedBillCycle);
 
+        if (!active) return;
         const rows = new Map<string, SolarCapacityComparisonRow>();
         const addRow = (item: SolarGenerationCapacityApiRecord, isOrdinary: boolean) => {
           const netType = String(item.NetType ?? item.netType ?? "");
@@ -792,24 +860,32 @@ const DefaultDashboardPage: React.FC = () => {
 
         setSolarCapacityChartData(chartRows);
       } catch (err: any) {
+        if (!active) return;
         console.error("Solar capacity graph fetch error:", err);
         setSolarCapacityError(err?.message || "Failed to load solar capacity graph data.");
         setSolarCapacityChartData([]);
       } finally {
-        setSolarCapacityLoading(false);
+        if (active) {
+          setSolarCapacityLoading(false);
+        }
       }
     };
 
     fetchSolarCapacityGraph();
+    return () => { active = false; };
   }, [selectedSolarBillCycle, solarCapacityInitialized, selectedRegion]);
 
   const loggedUserId = (user?.Userno || "").trim().toUpperCase();
   const kioskUserId = loggedUserId.startsWith("KIOS") ? loggedUserId : "KIOS00";
 
   useEffect(() => {
+    let active = true;
     const fetchKioskWeeklyCollection = async () => {
       setKioskLoading(true);
       setKioskError(null);
+      setKioskWeeklyTotal(0);
+      setKioskDailyRecords([]);
+      setKioskDateRange({ fromDate: "", toDate: "" });
 
       try {
         const res = await fetch(
@@ -822,6 +898,7 @@ const DefaultDashboardPage: React.FC = () => {
         }
 
         const json: KioskCollectionApiResponse = await res.json();
+        if (!active) return;
 
         if (json?.errorMessage) {
           const details = json?.errorDetails ? ` (${json.errorDetails})` : "";
@@ -842,21 +919,27 @@ const DefaultDashboardPage: React.FC = () => {
           toDate: trendRecords[trendRecords.length - 1]?.TransDate ?? json?.data?.toDate ?? "",
         });
       } catch (err: any) {
+        if (!active) return;
         console.error("Error fetching kiosk collection data:", err);
         setKioskError(err?.message || "Failed to load kiosk collection data.");
         setKioskWeeklyTotal(0);
       } finally {
-        setKioskLoading(false);
+        if (active) {
+          setKioskLoading(false);
+        }
       }
     };
 
     fetchKioskWeeklyCollection();
+    return () => { active = false; };
   }, [kioskUserId, selectedRegion]);
 
   useEffect(() => {
+    let active = true;
     const fetchTopCustomers = async () => {
       setTopCustomersLoading(true);
       setTopCustomersError(null);
+      setTopCustomers([]);
 
       try {
         const res = await fetch(withRegion("/misapi/api/dashboard/top-customers/list"), {
@@ -868,6 +951,7 @@ const DefaultDashboardPage: React.FC = () => {
         }
 
         const json: TopCustomersApiResponse = await res.json();
+        if (!active) return;
 
         if (json?.errorMessage) {
           const details = json?.errorDetails ? ` (${json.errorDetails})` : "";
@@ -894,15 +978,19 @@ const DefaultDashboardPage: React.FC = () => {
         setTopCustomers(normalized);
         setTopCustomersBillCycle(billCycle);
       } catch (err: any) {
+        if (!active) return;
         console.error("Top customers fetch error:", err);
         setTopCustomersError(err?.message || "Failed to load top customers.");
         setTopCustomers([]);
       } finally {
-        setTopCustomersLoading(false);
+        if (active) {
+          setTopCustomersLoading(false);
+        }
       }
     };
 
     fetchTopCustomers();
+    return () => { active = false; };
   }, [selectedRegion]);
 
   // ── Formatters ────────────────────────────────────────────────────────────
