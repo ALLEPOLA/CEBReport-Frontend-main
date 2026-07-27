@@ -20,6 +20,7 @@ interface CashSheetDateRangePayeeItem {
 }
 
 /* ────── Constants ────── */
+const REPORT_NAME = "Cash Sheet Within Date Range for Selected Payee";
 const PAGE_SIZE = 9;
 const FETCH_TIMEOUT_MS = 240000;
 
@@ -76,7 +77,7 @@ const CashSheetDateRangePayeeReportTable: React.FC<{
   onClose: () => void;
 }> = ({ data, fromDate, toDate, payee, costCenter, departmentName, onClose }) => {
   const maroon = "text-[#7A0000]";
-  const reportTitle = `Cheque Details From ${formatDate(fromDate)} To ${formatDate(toDate)}`;
+  const reportTitle = `${REPORT_NAME} From ${formatDate(fromDate)} To ${formatDate(toDate)}`;
 
   // Sort by Payee, Cheque Date, Cheque No (matches backend ORDER BY)
   const sortedData = [...data].sort((a, b) => {
@@ -166,7 +167,7 @@ const CashSheetDateRangePayeeReportTable: React.FC<{
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `CashSheetDateRangePayee_${costCenter}_${fromDate}_${toDate}.csv`;
+    a.download = `CashSheetWithinDateRangeForSelectedPayee_${costCenter}_${fromDate}_${toDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -192,7 +193,7 @@ const CashSheetDateRangePayeeReportTable: React.FC<{
             <td class="px-3 py-2 border-l border-r border-gray-300 text-left text-xs">${it.ChqRun || ""}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(it.ChqDt)}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${it.PymtDocNo || ""}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${it.ChqNo || ""}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${it.ChqNo || ""}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-left text-xs break-words">${it.Payee || ""}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-right text-xs">${formatAmount(it.ChqAmt)}</td>
           </tr>
@@ -237,6 +238,7 @@ const CashSheetDateRangePayeeReportTable: React.FC<{
       table { border-collapse:collapse; width:100%; font-size:8.5px; }
       th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
       th { background:white; color:#1f2937; text-align:center; font-weight:bold; }
+      th.amount-col { text-align:right; }
       tr.bg-gray-50 { background:#f5f5f5; }
       @page {
         @bottom-left { content:"Printed on: ${new Date().toLocaleString("en-US", { timeZone: "Asia/Colombo" })}"; font-size:7px; color:gray; }
@@ -260,7 +262,8 @@ const CashSheetDateRangePayeeReportTable: React.FC<{
         <th style="padding:6px 8px; width:14%;">Payslips No</th>
         <th style="padding:6px 8px; width:10%;">Cheque No.</th>
         <th style="padding:6px 8px; width:32%;">Payee</th>
-        <th style="padding:6px 8px; width:20%;">Amount (LKR)</th>
+        <th class="amount-col" style="padding:6px 8px; width:20%; text-align:right;">Amount (LKR)</th>
+        <th style="padding:6px 8px; width:44%;">Cost Center Name</th>
       </tr>
     </thead>
     <tbody>${rowsHTML}</tbody>
@@ -353,7 +356,7 @@ const CashSheetDateRangePayeeReportTable: React.FC<{
                           <td className="px-4 py-2 border-l border-r border-gray-300 font-mono">{it.ChqRun}</td>
                           <td className="px-4 py-2 text-center border-r border-gray-300 font-mono">{formatDate(it.ChqDt)}</td>
                           <td className="px-4 py-2 border-r border-gray-300 font-mono">{it.PymtDocNo}</td>
-                          <td className="px-4 py-2 border-r border-gray-300 font-mono">{it.ChqNo}</td>
+                          <td className="px-4 py-2 text-center border-r border-gray-300 font-mono">{it.ChqNo}</td>
                           <td className="px-4 py-2 border-r border-gray-300 break-words max-w-[220px]">{it.Payee}</td>
                           <td className="px-4 py-2 text-right border-r border-gray-300 font-mono">{formatAmount(it.ChqAmt)}</td>
                         </tr>
@@ -411,9 +414,6 @@ const CashSheetDateRangePayeeReport: React.FC = () => {
   const epfNo = user?.Userno || "";
   const maroon = "text-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
-
-  const inputCls =
-    "px-3 py-1.5 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] focus:border-transparent transition text-xs";
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -545,7 +545,7 @@ const CashSheetDateRangePayeeReport: React.FC = () => {
       style={{ marginLeft: "2rem" }}
     >
       <h2 className={`text-xl font-bold mb-4 ${maroon}`}>
-        Cash Sheet Date Range Payee Report
+        {REPORT_NAME}
       </h2>
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">

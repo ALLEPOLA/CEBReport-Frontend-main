@@ -224,29 +224,32 @@ const TopCustomers: React.FC = () => {
     const totalAmount = reportData.reduce((s, r) => s + r.totalAmount, 0);
 
     const rowsHtml = reportData.map((r, i) => `<tr>
-      <td style="border:1px solid #999;padding:4px 6px;text-align:center">${i + 1}</td>
-      <td style="border:1px solid #999;padding:4px 6px;font-family:monospace">${escapeCsv(r.accountNumber)}</td>
-      <td style="border:1px solid #999;padding:4px 6px">${escapeCsv(r.name)}</td>
-      <td style="border:1px solid #999;padding:4px 6px">${escapeCsv(r.addressLine1)}${r.addressLine2 ? ", " + escapeCsv(r.addressLine2) : ""}</td>
-      <td style="border:1px solid #999;padding:4px 6px">${escapeCsv(r.city)}</td>
-      <td style="border:1px solid #999;padding:4px 6px;text-align:right;font-family:monospace">${fmt(r.kwh, 0)}</td>
-      <td style="border:1px solid #999;padding:4px 6px;text-align:right;font-family:monospace">${fmt(r.totalAmount)}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;text-align:center;font-size:10px">${i + 1}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;font-size:10px">${escapeCsv(r.accountNumber)}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;font-size:10px">${escapeCsv(r.name)}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;font-size:10px">${escapeCsv(r.addressLine1)}${r.addressLine2 ? ", " + escapeCsv(r.addressLine2) : ""}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;font-size:10px">${escapeCsv(r.city)}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;text-align:right;font-size:10px">${fmt(r.kwh, 0)}</td>
+      <td style="border:1px solid #ddd;padding:4px 6px;text-align:right;font-size:10px">${fmt(r.totalAmount)}</td>
     </tr>`).join("");
 
     const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title>
 <style>
-  body{font-family:Arial,sans-serif;margin:20px;color:#111}
-  h1{font-size:14px;margin:0 0 4px;color:#7A0000}
-  .sub{font-size:10px;margin:0 0 10px;color:#444}
-  table{width:100%;border-collapse:collapse;font-size:9px}
-  th,td{border:1px solid #999;padding:4px 6px;vertical-align:top}
-  th{background:#b0e0e8;text-align:left}
+  body{font-family:Arial,sans-serif;margin:10mm;font-size:10px;color:#111}
+  .header{font-weight:bold;color:#7A0000;font-size:12px;margin-bottom:5px}
+  .subheader{font-size:11px;margin-bottom:2px}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th{background:#d3d3d3;font-weight:bold;text-align:center;padding:4px 6px;border:1px solid #ddd;font-size:10px}
   th.r,td.r{text-align:right}
-  tfoot td{font-weight:bold;background:#f3f4f6}
-  @page{size:A4 landscape;margin:10mm}
+  td{padding:4px 6px;border:1px solid #ddd;font-size:10px;vertical-align:top}
+  tr:nth-child(even){background:#f9f9f9}
+  tfoot td{font-weight:bold;background:#e8e8e8}
+  @page{size:A4 landscape;margin:12mm}
 </style>
 </head><body>
-<h1>${title}</h1><p class="sub">${subtitle}</p>
+<div class="header">${title}</div>
+<div class="subheader"><strong>${subtitle}</strong></div>
+<br/>
 <table>
   <thead><tr>
     <th style="width:28px">#</th><th>Account No.</th><th>Customer Name</th>
@@ -271,7 +274,7 @@ const TopCustomers: React.FC = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
 
-      {/* ── FORM ──────────────────────────────────────────────────────────────── */}
+      {/* ── FORM (unchanged) ─────────────────────────────────────────────────── */}
       {!hasSearched && (
         <>
           <div className="mb-6">
@@ -354,16 +357,19 @@ const TopCustomers: React.FC = () => {
         </>
       )}
 
-      {/* ── REPORT ────────────────────────────────────────────────────────────── */}
+      {/* ── REPORT (restyled to match RoofTopSolarInputData) ────────────────── */}
       {hasSearched && (
-        <div>
+        <div className="mt-2">
 
           {/* Report header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
             <div>
-              <h2 className={`text-xl font-bold ${maroon}`}>
+              <h2 className={`text-lg font-bold ${maroon}`}>
                 Largest Customers – Consumption Wise
               </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Bill Cycle: {resolvedBillCycle} | Top {reportData.length} Customers
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -373,7 +379,7 @@ const TopCustomers: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search name, acc, city…"
-                className="px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent w-44"
+                className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent w-44"
               />
 
               {/* CSV */}
@@ -381,7 +387,8 @@ const TopCustomers: React.FC = () => {
                 onClick={handleExportCsv}
                 disabled={!reportData.length}
                 className={`flex items-center gap-1 px-3 py-1.5 border border-blue-400 rounded-md text-xs font-medium shadow-sm
-                  ${!reportData.length ? "text-blue-300 bg-gray-50 cursor-not-allowed" : "text-blue-700 bg-white hover:bg-blue-50"}`}
+                  focus:outline-none focus:ring-2 focus:ring-blue-200 transition
+                  ${!reportData.length ? "text-blue-300 bg-gray-50 cursor-not-allowed" : "text-blue-700 bg-white hover:bg-blue-50 hover:text-blue-800"}`}
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -395,7 +402,8 @@ const TopCustomers: React.FC = () => {
                 onClick={handleExportPdf}
                 disabled={!reportData.length}
                 className={`flex items-center gap-1 px-3 py-1.5 border border-green-400 rounded-md text-xs font-medium shadow-sm
-                  ${!reportData.length ? "text-green-300 bg-gray-50 cursor-not-allowed" : "text-green-700 bg-white hover:bg-green-50"}`}
+                  focus:outline-none focus:ring-2 focus:ring-green-200 transition
+                  ${!reportData.length ? "text-green-300 bg-gray-50 cursor-not-allowed" : "text-green-700 bg-white hover:bg-green-50 hover:text-green-800"}`}
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -423,45 +431,52 @@ const TopCustomers: React.FC = () => {
 
           {/* Table */}
           <div className="overflow-x-auto max-h-[calc(100vh-350px)] border border-gray-300 rounded-lg">
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#b0e0e8] text-gray-800 sticky top-0 z-10">
-                  <th className="border border-gray-300 px-3 py-2 text-center font-bold w-10">#</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left font-bold">Account No.</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left font-bold">Customer Name</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left font-bold">Address Line 1</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left font-bold">Address Line 2</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left font-bold">City</th>
-                  <th className="border border-gray-300 px-3 py-2 text-right font-bold">Consumption (kWh)</th>
-                  <th className="border border-gray-300 px-3 py-2 text-right font-bold">Total Amount</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredData.length === 0 ? (
+            <div className="min-w-full py-4">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-gray-100 sticky top-0">
                   <tr>
-                    <td colSpan={8} className="border border-gray-300 px-3 py-6 text-center text-gray-400">
-                      No records match your search.
-                    </td>
+                    <th className="border border-gray-300 px-2 py-1 text-center w-10">#</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">Account No.</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">Customer Name</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">Address Line 1</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">Address Line 2</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">City</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">Consumption (kWh)</th>
+                    <th className="border border-gray-300 px-2 py-1 text-center">Total Amount</th>
                   </tr>
-                ) : (
-                  filteredData.map((r, i) => (
-                    <tr key={`${r.accountNumber}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="border border-gray-300 px-3 py-1 text-center text-gray-400">
-                        {reportData.indexOf(r) + 1}
+                </thead>
+
+                <tbody>
+                  {filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="border border-gray-300 px-2 py-6 text-center text-gray-400">
+                        No records match your search.
                       </td>
-                      <td className="border border-gray-300 px-3 py-1 font-mono">{r.accountNumber}</td>
-                      <td className="border border-gray-300 px-3 py-1">{r.name}</td>
-                      <td className="border border-gray-300 px-3 py-1">{r.addressLine1}</td>
-                      <td className="border border-gray-300 px-3 py-1">{r.addressLine2}</td>
-                      <td className="border border-gray-300 px-3 py-1">{r.city}</td>
-                      <td className="border border-gray-300 px-3 py-1 text-right font-mono">{fmt(r.kwh, 0)}</td>
-                      <td className="border border-gray-300 px-3 py-1 text-right font-mono">{fmt(r.totalAmount)}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredData.map((r, i) => (
+                      <tr key={`${r.accountNumber}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <td className="border border-gray-300 px-2 py-1 text-center text-gray-400">
+                          {reportData.indexOf(r) + 1}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-1">{r.accountNumber}</td>
+                        <td className="border border-gray-300 px-2 py-1">{r.name}</td>
+                        <td className="border border-gray-300 px-2 py-1">{r.addressLine1}</td>
+                        <td className="border border-gray-300 px-2 py-1">{r.addressLine2}</td>
+                        <td className="border border-gray-300 px-2 py-1">{r.city}</td>
+                        <td className="border border-gray-300 px-2 py-1 text-right">{fmt(r.kwh, 0)}</td>
+                        <td className="border border-gray-300 px-2 py-1 text-right">{fmt(r.totalAmount)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              {filteredData.length > 0 && (
+                <p className="text-xs text-gray-500 mt-2 text-right px-2">
+                  Total records: {filteredData.length.toLocaleString()}
+                </p>
+              )}
+            </div>
           </div>
 
           {reportError && (

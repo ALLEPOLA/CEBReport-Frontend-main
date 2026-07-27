@@ -40,9 +40,9 @@ const LoginPage = () => {
         <div className="w-full max-w-md rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.15)]">
           <LoginCard />
         </div>
-		<p className="absolute bottom-4 right-4 text-xs text-gray-600 opacity-70">
-				Version 1.5
-			</p>
+        <p className="absolute bottom-4 right-4 text-xs text-gray-600 opacity-70">
+          Version 1.6
+        </p>
       </section>
     </main>
   );

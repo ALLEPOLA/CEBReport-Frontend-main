@@ -251,7 +251,7 @@ const ChequeSummaryReport: React.FC = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Cheque Details from ${fromDate} to ${toDate}`,
+			`Cheque Details From ${fromDate} To ${toDate}`,
 			`Branch - ${cctName}`,
 			`Cost center No - ${costCtrDisplay}`,
 			"",
@@ -283,26 +283,29 @@ const ChequeSummaryReport: React.FC = () => {
 		URL.revokeObjectURL(url);
 	};
 
-	/* ────── PDF print ────── */
+	/* ────── PDF print ──────
+	   NOTE: This HTML is written into a brand-new window via window.open("", "_blank"),
+	   which has NO access to the app's Tailwind stylesheet. Any Tailwind utility class
+	   (text-right, text-center, bg-white, font-mono, px-3, py-2, etc.) used here does
+	   NOTHING in that window. Every visual rule — alignment, spacing, borders, colors —
+	   must be written as inline `style="..."` or defined in the <style> block below.
+	*/
 	const printPDF = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
+		const cellBase =
+			"padding:6px 8px; border:1px solid #d1d5db; font-size:8.5px;";
+		const mono = "font-family:monospace;";
+
 		sortedData.forEach((it, i) => {
+			const rowBg = i % 2 ? "#ffffff" : "#f9fafb";
 			rows += `
-          <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-center text-xs">${
-					i + 1
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
-					it.ChqDt
-				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${
-					it.ChqNo || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					it.ChqAmt
-				)}</td>
+          <tr style="background:${rowBg};">
+            <td style="${cellBase} text-align:center;">${i + 1}</td>
+            <td style="${cellBase} text-align:center;">${formatDate(it.ChqDt)}</td>
+            <td style="${cellBase} text-align:center; ${mono}">${it.ChqNo || ""}</td>
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.ChqAmt)}</td>
           </tr>`;
 		});
 
@@ -321,7 +324,6 @@ const ChequeSummaryReport: React.FC = () => {
       th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
       tfoot td { background:#d3d3d3; font-weight:bold; }
-      .font-mono { font-family:monospace; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
 				"en-US",
@@ -333,7 +335,7 @@ const ChequeSummaryReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Cheque Details from ${fromDate} to ${toDate}</div>
+  <div class="title">Cheque Details From ${fromDate} To ${toDate}</div>
   <div class="info">
     <div><strong>Branch -</strong> ${cctName}</div>
     <div><strong>Cost center No -</strong> ${costCtrDisplay}</div>
@@ -341,9 +343,9 @@ const ChequeSummaryReport: React.FC = () => {
   <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:10%;">No.</th>
-        <th style="padding:6px 8px; width:25%;">Cheque</th>
-        <th style="padding:6px 8px; width:30%;">Cheque No</th>
+        <th style="padding:6px 8px; width:10%; text-align:center;">No.</th>
+        <th style="padding:6px 8px; width:25%; text-align:center;">Cheque</th>
+        <th style="padding:6px 8px; width:30%; text-align:center;">Cheque No</th>
         <th style="padding:6px 8px; width:35%; text-align:right;">Total Cheque Amount</th>
       </tr>
     </thead>
@@ -613,7 +615,7 @@ const ChequeSummaryReport: React.FC = () => {
 								<h2
 									className={`text-lg md:text-xl font-bold text-center md:mb-4 ${maroon}`}
 								>
-									Cheque Details from {fromDate} to {toDate}
+									Cheque Details From {fromDate} To {toDate}
 								</h2>
 								<div className="text-sm mb-3 ml-5 mr-12 space-y-1">
 									<div>
@@ -629,13 +631,13 @@ const ChequeSummaryReport: React.FC = () => {
 										<table className="w-full text-xs border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "10%"}}>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "10%"}}>
 														No.
 													</th>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "25%"}}>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "25%"}}>
 														Cheque
 													</th>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "30%"}}>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "30%"}}>
 														Cheque No
 													</th>
 													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "35%"}}>
@@ -659,7 +661,7 @@ const ChequeSummaryReport: React.FC = () => {
 														<td className="px-4 py-2 text-center border-r border-gray-300">
 															{formatDate(it.ChqDt)}
 														</td>
-														<td className="px-4 py-2 font-mono border-r border-gray-300">
+														<td className="px-4 py-2 font-mono text-center border-r border-gray-300">
 															{it.ChqNo || ""}
 														</td>
 														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">

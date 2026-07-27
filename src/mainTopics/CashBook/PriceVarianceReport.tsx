@@ -329,39 +329,48 @@ const PriceVarianceReport: React.FC = () => {
 		URL.revokeObjectURL(url);
 	};
 
-	/* ────── PDF print ────── */
+	/* ────── PDF print ──────
+	   NOTE: This HTML is written into a brand-new window via window.open("", "_blank"),
+	   which has NO access to the app's Tailwind stylesheet. Any Tailwind utility class
+	   (text-right, text-center, bg-white, font-mono, px-3, py-2, etc.) used here does
+	   NOTHING in that window. Every visual rule — alignment, spacing, borders, colors —
+	   must be written as inline `style="..."` or defined in the <style> block below.
+	*/
 	const printPDF = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
+		const cellBase =
+			"padding:6px 8px; border:1px solid #d1d5db; font-size:8.5px;";
+		const mono = "font-family:monospace;";
+
 		sortedData.forEach((it, i) => {
+			const rowBg = i % 2 ? "#ffffff" : "#f9fafb";
 			rows += `
-          <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-right text-xs">${
-					i + 1
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${
+          <tr style="background:${rowBg};">
+            <td style="${cellBase} text-align:right;">${i + 1}</td>
+            <td style="${cellBase} text-align:center; ${mono}">${
 					it.MatCd || ""
 				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs">${
+            <td style="${cellBase} text-align:center;">${
 					it.GradeCd || ""
 				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(
 					it.UnitPrice
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(
 					it.NewPrice
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(
 					it.INetChange
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(
 					it.DNetChange
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(
 					it.QtyOnHand
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(
 					it.Var
 				)}</td>
           </tr>`;
@@ -381,7 +390,6 @@ const PriceVarianceReport: React.FC = () => {
       th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
       tfoot td { background:#d3d3d3; font-weight:bold; }
-      .font-mono { font-family:monospace; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
 				"en-US",
@@ -401,9 +409,9 @@ const PriceVarianceReport: React.FC = () => {
   <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:5%;">No</th>
-        <th style="padding:6px 8px; width:13%;">Material Code</th>
-        <th style="padding:6px 8px; width:11%;">Grade Code</th>
+        <th style="padding:6px 8px; width:5%; text-align:right;">No</th>
+        <th style="padding:6px 8px; width:13%; text-align:center;">Material Code</th>
+        <th style="padding:6px 8px; width:11%; text-align:center;">Grade Code</th>
         <th style="padding:6px 8px; width:12%; text-align:right;">Unit Price</th>
         <th style="padding:6px 8px; width:12%; text-align:right;">New Price</th>
         <th style="padding:6px 8px; width:12%; text-align:right;">Increase</th>
@@ -752,10 +760,10 @@ const PriceVarianceReport: React.FC = () => {
 														<td className="px-4 py-2 border-l border-r border-gray-300 text-center">
 															{i + 1}
 														</td>
-														<td className="px-4 py-2 font-mono border-r border-gray-300">
+														<td className="px-4 py-2 font-mono text-center border-r border-gray-300">
 															{it.MatCd || ""}
 														</td>
-														<td className="px-4 py-2 border-r border-gray-300">
+														<td className="px-4 py-2 text-center border-r border-gray-300">
 															{it.GradeCd || ""}
 														</td>
 														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">

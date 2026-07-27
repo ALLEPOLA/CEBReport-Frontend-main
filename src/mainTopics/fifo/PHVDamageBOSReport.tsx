@@ -1,4 +1,4 @@
-// PHVSlowMovingWHReport.tsx
+// PHVDamageBOSReport.tsx
 import React, { useEffect, useState } from "react";
 import { Download, Printer, X, RotateCcw, Eye, Search } from "lucide-react";
 import { toast } from "react-toastify";
@@ -14,13 +14,15 @@ interface Warehouse {
   CostCenterId?: string;
 }
 
-interface SlowMovingItem {
+interface DamageBOSItem {
   DocNo: string | null;
   MatCd: string | null;
   MatNm: string | null;
   GradeCd: string | null;
-  PhvDt: string | null;
+  DamageCount: number | null;
+  BatchId: string | null;
   QtyOnHand: number | null;
+  UnitPrice: number | null;
   StockBook: number | null;
   Reason: string | null;
   CctName: string | null;
@@ -43,35 +45,11 @@ const formatNumber = (num: number | string | null | undefined): string => {
   return n < 0 ? `(${formatted})` : formatted;
 };
 
-// Matches Slow Moving sample: YYYY.MM.DD
-const formatDateDot = (dateStr: string | null): string => {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "";
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}.${month}.${day}`;
-};
-
 const csvEscape = (val: string | number | null | undefined): string => {
   if (val == null) return "";
   const str = String(val);
   if (/[,\n"]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
-};
-
-// "16/07/2026 11.14 AM" - shown at the bottom-left of the printed report
-const formatGeneratedTimestamp = (): string => {
-  const now = new Date();
-  const day = String(now.getDate()).padStart(2, "0");
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const year = now.getFullYear();
-  let hours = now.getHours();
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${day}/${month}/${year} ${String(hours).padStart(2, "0")}.${minutes} ${ampm}`;
 };
 
 const parseApiResponse = (response: any): any[] => {
@@ -86,7 +64,7 @@ const parseApiResponse = (response: any): any[] => {
 };
 
 /* ────── MAIN COMPONENT ────── */
-const PHVSlowMovingWHReport: React.FC = () => {
+const PHVDamageBOSReport: React.FC = () => {
   const { user } = useUser();
   const epfNo = user?.Userno || "";
 
@@ -113,7 +91,7 @@ const PHVSlowMovingWHReport: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   /* ── Report state ── */
-  const [reportData, setReportData] = useState<SlowMovingItem[]>([]);
+  const [reportData, setReportData] = useState<DamageBOSItem[]>([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
@@ -164,8 +142,8 @@ const PHVSlowMovingWHReport: React.FC = () => {
         const errorMessage = e.message.includes("JSON.parse")
           ? "Invalid data format received from server."
           : e.message.includes("Failed to fetch")
-          ? "Failed to connect to the server. Please check if the server is running."
-          : e.message;
+            ? "Failed to connect to the server. Please check if the server is running."
+            : e.message;
         setError(errorMessage);
         toast.error(errorMessage);
       } finally {
@@ -266,8 +244,8 @@ const PHVSlowMovingWHReport: React.FC = () => {
     return true;
   };
 
-  /* ────── Fetch report data (plain JSON, no Jasper) ──────
-     Matches SlowMovingWHController.GetReport(repYear, whCode) exactly --
+  /* ────── Fetch report data ──────
+     Matches PHVDamageBOSController.GetReport(repYear, whCode) exactly --
      the cost center is only used client-side to filter the warehouse list;
      it is not sent to the endpoint, since the SQL itself doesn't filter by it. */
   const handleViewReport = async () => {
@@ -283,7 +261,7 @@ const PHVSlowMovingWHReport: React.FC = () => {
     try {
       const repYearParam = selectedYear.toString();
       const whCodeParam = encodeURIComponent(selectedWarehouse);
-      const url = `/misapi/api/phvslowmovingwh/report/${repYearParam}/${whCodeParam}`;
+      const url = `/misapi/api/phvdamagebos/report/${repYearParam}/${whCodeParam}`;
 
       const res = await fetch(url, {
         credentials: "include",
@@ -299,7 +277,7 @@ const PHVSlowMovingWHReport: React.FC = () => {
       const json = await res.json();
       if (!json.success) throw new Error(json.message || "Failed to load data");
 
-      const items: SlowMovingItem[] = json.data || [];
+      const items: DamageBOSItem[] = json.data || [];
 
       if (items.length > MAX_RECORDS) {
         throw new Error(`Too many records (${items.length}). Please refine your search.`);
@@ -360,31 +338,31 @@ const PHVSlowMovingWHReport: React.FC = () => {
   );
 
   const grandTotalStockBook = reportData.reduce((s, r) => s + (r.StockBook || 0), 0);
-  const costCtrDisplay =
-    selectedDept ? `${selectedDept.DeptId} - ${selectedDept.DeptName} - ${selectedWarehouse}` : "";
-  const verificationDate = formatDateDot(reportData.find((r) => r.PhvDt)?.PhvDt || null);
+  const costCtrIdDisplay = selectedDept?.DeptId || "";
+  const costCtrNameDisplay = selectedDept?.DeptName || "";
 
   /* ────── CSV download ────── */
   const downloadCSV = () => {
     if (reportData.length === 0) return;
 
     const titleRows = [
-      `Statement of Slow Moving Materials in Stocks -${selectedYear} AV/6A`,
-      `Cost Center : ${costCtrDisplay}`,
-      `Date of Verification : ${verificationDate}`,
+      `Board of Survey Recommendation for Damaged Stock Items - Annual Verification of the Year-${selectedYear}`,
+      `Cost Center: ${costCtrIdDisplay} / : ${costCtrNameDisplay}`,
+      `Warehouse : ${selectedWarehouse}`,
       "",
     ];
 
     const headers = [
       "Serial",
-      "Document No",
       "Code No",
       "Description",
-      "Grade Code",
-      "Quantity (Stock Book)",
-      "Cost (Rs.) (Stock Book)",
-      "Reasons",
-      "Recommended action to be taken",
+      "Sheet No",
+      "Batch Id",
+      "Recommendation of BOS (S/D)",
+      "Quantity",
+      "Unit Price",
+      "Minimum Selling Price of Quantity",
+      "Total (Rs.)",
     ];
     const rows: string[] = [headers.join(",")];
 
@@ -392,176 +370,220 @@ const PHVSlowMovingWHReport: React.FC = () => {
       rows.push(
         [
           csvEscape(i + 1),
-          csvEscape(it.DocNo),
           csvEscape(it.MatCd),
           csvEscape(it.MatNm),
-          csvEscape(it.GradeCd),
-          csvEscape(formatNumber(it.QtyOnHand)),
-          csvEscape(formatNumber(it.StockBook)),
-          csvEscape(it.Reason),
+          csvEscape(it.DocNo),
+          csvEscape(it.BatchId),
           "",
+          csvEscape(formatNumber(it.QtyOnHand)),
+          csvEscape(formatNumber(it.UnitPrice)),
+          "",
+          csvEscape(formatNumber(it.StockBook)),
         ].join(",")
       );
     });
 
-    rows.push(`Total of Slow Moving Stocks,,,,,,${csvEscape(formatNumber(grandTotalStockBook))},,`);
+    rows.push(`Total,,,,,,,,,${csvEscape(formatNumber(grandTotalStockBook))}`);
 
     const csv = [...titleRows, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `SlowMoving_${selectedDept?.DeptId}_${selectedWarehouse}_${selectedYear}.csv`;
+    a.download = `PHV_Damage_BOS_${selectedDept?.DeptId}_${selectedWarehouse}_${selectedYear}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  /* ────── PDF print — paginated, 14 rows per page, header+footer repeated ────── */
+  /* ────── PDF print — single continuous document. Company name + topic
+     appear once at the top (no per-page repetition, no generated timestamp).
+     Table headers repeat automatically via CSS if the table spans pages. ────── */
   const printPDF = () => {
     if (reportData.length === 0) return;
 
-    const ROWS_PER_PAGE = 14;
-    const totalPages = Math.ceil(sortedData.length / ROWS_PER_PAGE) || 1;
-
-    const buildRows = (pageIndex: number) => {
-      const start = pageIndex * ROWS_PER_PAGE;
-      const pageItems = sortedData.slice(start, start + ROWS_PER_PAGE);
-
-      return pageItems
-        .map(
-          (it, i) => `
+    const rowsHtml = sortedData
+      .map(
+        (it, i) => `
           <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="cell center">${start + i + 1}</td>
-            <td class="cell mono">${it.DocNo || ""}</td>
+            <td class="cell center">${i + 1}</td>
             <td class="cell">${it.MatCd || ""}</td>
             <td class="cell">${it.MatNm || ""}</td>
-            <td class="cell center">${it.GradeCd || ""}</td>
+            <td class="cell mono">${it.DocNo || ""}</td>
+            <td class="cell mono">${it.BatchId || ""}</td>
+            <td class="cell center">&nbsp;</td>
             <td class="cell right mono">${formatNumber(it.QtyOnHand)}</td>
+            <td class="cell right mono">${formatNumber(it.UnitPrice)}</td>
+            <td class="cell center">&nbsp;</td>
             <td class="cell right mono">${formatNumber(it.StockBook)}</td>
-            <td class="cell">${it.Reason || ""}</td>
-            <td class="cell">${""}</td>
           </tr>`
-        )
-        .join("");
-    };
-
-    const buildHeader = () => `
-    <div class="title">Statement of Slow Moving Materials in Stocks -${selectedYear} AV/6A</div>
-    <div class="header-row">
-      <div class="header-left">
-        <div><strong>Cost Center :</strong> ${costCtrDisplay}</div>
-        <div><strong>Date of Verification :</strong> ${verificationDate}</div>
-      </div>
-      <div class="header-right">
-        <div>1.ORIGINAL &nbsp; : &nbsp; Deputy General Manager</div>
-        <div>2.DUPLICATE &nbsp; : &nbsp; Engineer-in-charge</div>
-        <div>3.TRIPLICATE &nbsp; : &nbsp; Store-keeper/E.S.(C.S.C)</div>
-      </div>
-    </div>`;
-
-    const buildFooter = () => `
-    <div class="certify">
-      We do hereby certify that Stocks were physically verified as per that given statement.
-    </div>
-    <div class="board-title">Board of Verifications</div>
-    <div class="sig-header">
-      <div style="width:10%;"></div>
-      <div style="width:30%;">Name</div>
-      <div style="width:30%;">Desigation</div>
-      <div style="width:30%;">Signature</div>
-    </div>
-    <div class="sig-row"><div style="width:10%;">1.</div><div style="width:30%;">................</div><div style="width:30%;">...................</div><div style="width:30%;">................</div></div>
-    <div class="sig-row"><div style="width:10%;">2.</div><div style="width:30%;">................</div><div style="width:30%;">...................</div><div style="width:30%;">................</div></div>
-    <div class="sig-row"><div style="width:10%;">3.</div><div style="width:30%;">................</div><div style="width:30%;">...................</div><div style="width:30%;">................</div></div>
-    <div class="footer-block">
-      <div></div>
-      <div style="text-align:right;">
-        <div>Agreed and certified correct.</div>
-        <div class="sig-space"></div>
-        <div>................................................</div>
-        <div>Store-keeper/Elect. Supirtendent (C.S.C.)</div>
-      </div>
-    </div>`;
-
-    let pagesHtml = "";
-    for (let p = 0; p < totalPages; p++) {
-      const isLastPage = p === totalPages - 1;
-
-      pagesHtml += `
-      <div class="page${isLastPage ? "" : " page-break"}">
-        ${buildHeader()}
-        <table>
-          <thead>
-            <tr>
-              <th style="width:4%;">Serial</th>
-              <th style="width:11%;">Document No</th>
-              <th style="width:9%;">Code No</th>
-              <th style="width:17%;">Description</th>
-              <th style="width:8%;">Grade Code</th>
-              <th style="width:12%;">Quantity<br/>(Stock Book)</th>
-              <th style="width:12%;">Cost (Rs.)<br/>(Stock Book)</th>
-              <th style="width:13%;">Reasons</th>
-              <th style="width:14%;">Recommended action<br/>to be taken</th>
-            </tr>
-          </thead>
-          <tbody>${buildRows(p)}</tbody>
-          ${
-            isLastPage
-              ? `<tfoot>
-                  <tr>
-                    <td colspan="6" class="right">Total of Slow Moving Stocks</td>
-                    <td class="right mono">${formatNumber(grandTotalStockBook)}</td>
-                    <td colspan="2"></td>
-                  </tr>
-                </tfoot>`
-              : ""
-          }
-        </table>
-        ${buildFooter()}
-      </div>`;
-    }
+      )
+      .join("");
 
     const html = `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Statement of Slow Moving Materials in Stocks - ${selectedYear} AV/6A</title>
+  <title>Board of Survey Recommendation for Damaged Stock Items - ${selectedYear}</title>
   <style>
     @media print {
       @page { margin: 10mm 8mm 14mm 8mm; }
-      body { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:10px; color:#111; }
-      .page-break { page-break-after: always; }
-      .title { text-align:center; font-weight:bold; font-size:13px; margin-bottom:6px; }
-      .header-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
-      .header-left div { margin-bottom:3px; }
-      .header-right { text-align:left; font-size:9px; }
-      .header-right div { margin-bottom:2px; }
-      table { border-collapse:collapse; width:100%; font-size:8.5px; }
-      .cell { border:1px solid #000; padding:4px 6px; word-wrap:break-word; }
+      body { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:9.5px; color:#111; }
+      .company, .topic { text-align:center; font-weight:bold; }
+      .company { font-size:13px; }
+      .topic { font-size:11px; margin-top:4px; margin-bottom:10px; }
+      .cost-center-row { font-size:9.5px; margin-bottom:12px; }
+      .cost-center-row div { margin-bottom:2px; }
+      table { border-collapse:collapse; width:100%; font-size:8px; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      .cell { border:1px solid #000; padding:4px 5px; word-wrap:break-word; }
       .center { text-align:center; }
       .right { text-align:right; }
       .mono { font-family:monospace; }
-      thead th { background:#e5e5e5; border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:center; }
-      tfoot td { font-weight:bold; border:1px solid #000; padding:5px 6px; }
-      .certify { margin-top:14px; font-size:9px; }
-      .board-title { text-align:center; font-weight:bold; margin-top:10px; margin-bottom:6px; font-size:10px; }
-      .sig-row { display:flex; justify-content:space-between; font-size:9px; margin-bottom:10px; padding: 0 4px; }
-      .sig-header { display:flex; justify-content:space-between; font-weight:bold; font-size:9px; padding: 0 4px; margin-bottom:4px; }
-      .footer-block { display:flex; justify-content:space-between; margin-top:16px; font-size:9px; padding: 0 4px;}
-      .sig-space { height:34px; }
-      @page {
-        @top-left { content: ""; }
-        @top-center { content: ""; }
-        @top-right { content: ""; }
-        @bottom-left { content: "Generated on: ${formatGeneratedTimestamp()}"; font-size:7px; color:#333; }
-        @bottom-center { content: ""; }
-        @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size:7px; color:#333; }
-      }
+      thead th { background:#e5e5e5; border:1px solid #000; padding:4px 5px; font-weight:bold; text-align:center; }
+      .certified-title { text-align:center; font-weight:bold; font-size:10px; margin-top:18px; margin-bottom:4px; page-break-inside:avoid; }
+      .cert-row { display:flex; justify-content:space-between; margin-top:10px; font-size:8.5px; text-align:center; page-break-inside:avoid; }
+      .cert-col { width:24%; }
+      .sig-space { height:26px; }
+      .board-title { text-align:center; font-weight:bold; font-size:10.5px; margin:18px 0 6px; page-break-inside:avoid; }
+      .bos-note { font-size:8.5px; text-align:justify; margin-bottom:10px; }
+      .signed-by { font-size:8.5px; margin-bottom:8px; }
+      .member-row { display:flex; align-items:baseline; font-size:8.5px; margin-bottom:8px; page-break-inside:avoid; }
+      .member-num { width:22%; }
+      .member-label { width:33%; }
+      .member-sig { width:45%; text-align:right; }
+      .final-date { font-size:8.5px; margin-top:4px; margin-bottom:12px; }
+      hr { border:none; border-top:1px solid #000; margin:10px 0; }
+      .approval-row { display:flex; justify-content:space-between; font-size:8.5px; padding:4px 0; page-break-inside:avoid; }
     }
   </style>
 </head>
 <body>
-  ${pagesHtml}
+  <div class="topic">Board of Survey Recommendation for Damaged Stock Items - Annual Verification of the Year-${selectedYear}</div>
+  <div class="cost-center-row">
+    <div><strong>Cost Center:</strong> ${costCtrIdDisplay} / : ${costCtrNameDisplay}</div>
+    <div><strong>Warehouse :</strong> ${selectedWarehouse}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:4%;">Serial<br/>No</th>
+        <th rowspan="2" style="width:9%;">Code No</th>
+        <th rowspan="2" style="width:17%;">Description</th>
+        <th rowspan="2" style="width:11%;">Sheet No</th>
+        <th rowspan="2" style="width:10%;">Batch Id</th>
+        <th style="width:12%;">Recommendation of BOS</th>
+        <th colspan="3" style="width:31%;">Quantity / Value</th>
+        <th rowspan="2" style="width:6%;">&nbsp;</th>
+      </tr>
+      <tr>
+        <th style="width:12%; font-size:7.5px;">S - Sold &nbsp; D - Destroyed</th>
+        <th style="width:9%;">STOCK Qty</th>
+        <th style="width:11%;">Unit Price</th>
+        <th style="width:11%;">Min. Selling Price</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+
+  <div class="certified-title">Certified Correct</div>
+  <div class="cert-row">
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Date</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Store keeper/E.S.</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Enginer in Charge</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Unit head</div>
+    </div>
+  </div>
+
+  <div class="board-title">Recommendation of Board Survey</div>
+  <div class="bos-note">
+    We the member ofthe Board Survey which made a thorough inspection of the items mentioned in this document
+    recommended the items aganist which the letter " S" has been marked as being beyound economic repairs and
+    should therefore to be sold the items aganist which the letter " D" has been marked should be destroyed the
+    items aganist which the letter " R" has been marked should to berepaired and used as it is advantageous
+    economailly to do so
+  </div>
+  <div class="signed-by">Singed by</div>
+
+  <div class="member-row">
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>(1).......................................</div>
+      <div>Chairman - BOS(Name)</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Signature</div>
+    </div>
+  </div>
+
+  <div class="member-row">
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>(2).......................................</div>
+      <div>Member - BOS(Name)</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Signature</div>
+    </div>
+  </div>
+
+  <div class="member-row">
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>(3).......................................</div>
+      <div>Member - BOS(Name)</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Signature</div>
+    </div>
+  </div>
+
+  <div class="member-row">
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>(4).......................................</div>
+      <div>Observer - BOS(Name)</div>
+    </div>
+    <div class="cert-col">
+      <div class="sig-space"></div>
+      <div>.......................................</div>
+      <div>Signature</div>
+    </div>
+  </div>
+  <div class="final-date">Date &nbsp; : ..................................</div>
+
+  <hr/>
+  <div class="approval-row">
+    <div>Date &nbsp; : ..................................</div>
+    <div>Director &nbsp;&nbsp; ..............................</div>
+  </div>
+  <hr/>
+  <div class="approval-row">
+    <div>Date &nbsp; : ..................................</div>
+    <div>Cheif Operative Officer  &nbsp;&nbsp; ..............................</div>
+  </div>
 </body>
 </html>`;
 
@@ -583,7 +605,7 @@ const PHVSlowMovingWHReport: React.FC = () => {
     <div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
       <div className="flex justify-between items-center mb-4">
         <h2 className={`text-xl font-bold ${maroon}`}>
-          3. Physical Verification Slow Moving WH Wise - AV/6 (FIFO)
+          5. Physical Verification Damage BOS - AV/7B/BOS
         </h2>
       </div>
 
@@ -624,11 +646,10 @@ const PHVSlowMovingWHReport: React.FC = () => {
           <button
             onClick={handleViewReport}
             disabled={!selectedDept || !selectedWarehouse || warehouseLoading}
-            className={`flex items-center gap-1 px-3 py-1.5 ${maroonGrad} text-white rounded-md text-sm font-medium hover:brightness-110 transition shadow ${
-              !selectedDept || !selectedWarehouse || warehouseLoading
+            className={`flex items-center gap-1 px-3 py-1.5 ${maroonGrad} text-white rounded-md text-sm font-medium hover:brightness-110 transition shadow ${!selectedDept || !selectedWarehouse || warehouseLoading
                 ? "opacity-50 cursor-not-allowed"
                 : ""
-            }`}
+              }`}
           >
             <Eye className="w-4 h-4" /> View
           </button>
@@ -711,13 +732,12 @@ const PHVSlowMovingWHReport: React.FC = () => {
                     <tr
                       key={`${department.DeptId}-${i}`}
                       onClick={() => setSelectedDept(department)}
-                      className={`cursor-pointer ${
-                        selectedDept?.DeptId === department.DeptId
+                      className={`cursor-pointer ${selectedDept?.DeptId === department.DeptId
                           ? "bg-[#7A0000] text-white"
                           : i % 2
-                          ? "bg-white hover:bg-gray-100"
-                          : "bg-gray-50 hover:bg-gray-100"
-                      }`}
+                            ? "bg-white hover:bg-gray-100"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
                     >
                       <td className="px-4 py-2 truncate min-w-0">{department.DeptId}</td>
                       <td className="px-4 py-2 truncate min-w-0">{department.DeptName}</td>
@@ -758,7 +778,7 @@ const PHVSlowMovingWHReport: React.FC = () => {
               <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
                 <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#7A0000]"></div>
                 <p className="text-xl font-bold text-[#7A0000]">Loading Report...</p>
-                <p className="text-sm text-gray-600">Fetching slow moving material records from server</p>
+                <p className="text-sm text-gray-600">Fetching damaged stock records from server</p>
               </div>
             )}
             {!reportLoading && reportData.length > 0 && (
@@ -784,22 +804,15 @@ const PHVSlowMovingWHReport: React.FC = () => {
                   </button>
                 </div>
 
-                <h2 className={`text-lg md:text-xl font-bold text-center md:mb-4 ${maroon}`}>
-                  Statement of Slow Moving Materials in Stocks -{selectedYear} AV/6A
-                </h2>
-                <div className="flex justify-between text-xs md:text-sm mb-4 ml-5 mr-12">
+                <div className={`text-center font-bold ${maroon} mt-1`}>
+                  Board of Survey Recommendation for Damaged Stock Items - Annual Verification of the Year-{selectedYear}
+                </div>
+                <div className="text-sm mb-4 ml-5 mr-12 mt-3 space-y-1">
                   <div>
-                    <div>
-                      <span className="font-bold">Cost Center :</span> {costCtrDisplay}
-                    </div>
-                    <div>
-                      <span className="font-bold">Date of Verification :</span> {verificationDate}
-                    </div>
+                    <span className="font-bold">Cost Center:</span> {costCtrIdDisplay} / {costCtrNameDisplay}
                   </div>
-                  <div className="text-left">
-                    <div>1.ORIGINAL : Deputy General Manager</div>
-                    <div>2.DUPLICATE : Engineer-in-charge</div>
-                    <div>3.TRIPLICATE : Store-keeper/E.S.(C.S.C)</div>
+                  <div>
+                    <span className="font-bold">Warehouse :</span> {selectedWarehouse}
                   </div>
                 </div>
 
@@ -808,63 +821,68 @@ const PHVSlowMovingWHReport: React.FC = () => {
                     <table className="w-full text-xs border-collapse">
                       <thead className={`${maroonGrad} text-white`}>
                         <tr>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "4%" }}>
-                            Serial
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "4%" }}>
+                            Serial No
                           </th>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "11%" }}>
-                            Document No
-                          </th>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "9%" }}>
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "9%" }}>
                             Code No
                           </th>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "17%" }}>
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "18%" }}>
                             Description
                           </th>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "8%" }}>
-                            Grade Code
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "11%" }}>
+                            Sheet No
                           </th>
-                          <th className="px-4 py-2 border border-gray-300 text-right" style={{ width: "12%" }}>
-                            Quantity (Stock Book)
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "10%" }}>
+                            Batch Id
                           </th>
-                          <th className="px-4 py-2 border border-gray-300 text-right" style={{ width: "12%" }}>
-                            Cost (Rs.) (Stock Book)
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "12%" }}>
+                            Recommendation of BOS (S/D)
                           </th>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "13%" }}>
-                            Reasons
+                          <th className="px-3 py-2 border border-gray-300 text-right" style={{ width: "9%" }}>
+                            Quantity
                           </th>
-                          <th className="px-4 py-2 border border-gray-300" style={{ width: "14%" }}>
-                            Recommended action to be taken
+                          <th className="px-3 py-2 border border-gray-300 text-right" style={{ width: "10%" }}>
+                            Unit Price
+                          </th>
+                          <th className="px-3 py-2 border border-gray-300" style={{ width: "11%" }}>
+                            Min. Selling Price of Quantity
+                          </th>
+                          <th className="px-3 py-2 border border-gray-300 text-right" style={{ width: "10%" }}>
+                            Total (Rs.)
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         {sortedData.map((it, i) => (
                           <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                            <td className="px-4 py-2 border-l border-r border-gray-300 text-center">{i + 1}</td>
-                            <td className="px-4 py-2 font-mono border-r border-gray-300">{it.DocNo || ""}</td>
-                            <td className="px-4 py-2 border-r border-gray-300">{it.MatCd || ""}</td>
-                            <td className="px-4 py-2 border-r border-gray-300 break-words">{it.MatNm || ""}</td>
-                            <td className="px-4 py-2 text-center border-r border-gray-300">{it.GradeCd || ""}</td>
-                            <td className="px-4 py-2 text-right font-mono border-r border-gray-300">
+                            <td className="px-3 py-2 border-l border-r border-gray-300 text-center">{i + 1}</td>
+                            <td className="px-3 py-2 border-r border-gray-300">{it.MatCd || ""}</td>
+                            <td className="px-3 py-2 border-r border-gray-300 break-words">{it.MatNm || ""}</td>
+                            <td className="px-3 py-2 font-mono border-r border-gray-300">{it.DocNo || ""}</td>
+                            <td className="px-3 py-2 font-mono border-r border-gray-300">{it.BatchId || ""}</td>
+                            <td className="px-3 py-2 border-r border-gray-300"></td>
+                            <td className="px-3 py-2 text-right font-mono border-r border-gray-300">
                               {formatNumber(it.QtyOnHand)}
                             </td>
-                            <td className="px-4 py-2 text-right font-mono border-r border-gray-300">
+                            <td className="px-3 py-2 text-right font-mono border-r border-gray-300">
+                              {formatNumber(it.UnitPrice)}
+                            </td>
+                            <td className="px-3 py-2 border-r border-gray-300"></td>
+                            <td className="px-3 py-2 text-right font-mono border-r border-gray-300">
                               {formatNumber(it.StockBook)}
                             </td>
-                            <td className="px-4 py-2 border-r border-gray-300 break-words">{it.Reason || ""}</td>
-                            <td className="px-4 py-2 border-r border-gray-300 break-words">{""}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-[#d3d3d3] font-bold">
-                          <td colSpan={6} className="px-4 py-2 text-right border border-gray-300">
-                            Total of Slow Moving Stocks
+                          <td colSpan={9} className="px-3 py-2 text-right border border-gray-300">
+                            Total
                           </td>
-                          <td className="px-4 py-2 text-right font-mono border border-gray-300">
+                          <td className="px-3 py-2 text-right font-mono border border-gray-300">
                             {formatNumber(grandTotalStockBook)}
                           </td>
-                          <td colSpan={2} className="px-4 py-2 border border-gray-300"></td>
                         </tr>
                       </tfoot>
                     </table>
@@ -874,28 +892,75 @@ const PHVSlowMovingWHReport: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="ml-5 mr-12 mt-6 text-xs md:text-sm">
-                  <p>We do hereby certify that Stocks were physically verified as per that given statement.</p>
-                  <p className={`text-center font-bold mt-4 mb-2 ${maroon}`}>Board of Verifications</p>
-                  <div className="flex justify-between font-semibold px-2 mb-2">
-                    <span className="w-[8%]"></span>
-                    <span className="w-[30%]">Name</span>
-                    <span className="w-[30%]">Desigation</span>
-                    <span className="w-[30%]">Signature</span>
+                <p className={`text-center font-bold mt-6 ${maroon}`}>Certified Correct</p>
+                <div className="flex justify-between text-center text-xs md:text-sm mt-3 ml-5 mr-12">
+                  <div className="w-1/4">
+                    <div className="h-8"></div>
+                    <div>.......................................</div>
+                    <div>Date</div>
                   </div>
-                  {[1, 2, 3].map((n) => (
-                    <div key={n} className="flex justify-between px-2 mb-2 text-gray-500">
-                      <span className="w-[8%]">{n}.</span>
-                      <span className="w-[30%]">................</span>
-                      <span className="w-[30%]">...................</span>
-                      <span className="w-[30%]">................</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-end mt-4">
-                    <div className="text-right">
-                      <p>Agreed and certified correct.</p>
-                      <p>Store-keeper/Elect. Supirtendent (C.S.C.)</p>
-                    </div>
+                  <div className="w-1/4">
+                    <div className="h-8"></div>
+                    <div>.......................................</div>
+                    <div>Store keeper/E.S.</div>
+                  </div>
+                  <div className="w-1/4">
+                    <div className="h-8"></div>
+                    <div>.......................................</div>
+                    <div>Enginer in Charge</div>
+                  </div>
+                  <div className="w-1/4">
+                    <div className="h-8"></div>
+                    <div>.......................................</div>
+                    <div>Unit head</div>
+                  </div>
+                </div>
+
+                <div className="ml-5 mr-12 mt-6 text-xs md:text-sm">
+                  <p className={`text-center font-bold mb-2 ${maroon}`}>Recommendation of Board Survey</p>
+                  <p className="text-justify">
+                    We the member ofthe Board Survey which made a thorough inspection of the items mentioned in this
+                    document recommended the items aganist which the letter " S" has been marked as being beyound
+                    economic repairs and should therefore to be sold the items aganist which the letter " D" has been
+                    marked should be destroyed the items aganist which the letter " R" has been marked should to
+                    berepaired and used as it is advantageous economailly to do so
+                  </p>
+                  <p className="mt-2">Singed by</p>
+
+                  <div className="mt-3 space-y-2">
+                    {[
+                      { n: 1, label: "Chairman - BOS(Name)" },
+                      { n: 2, label: "Member - BOS(Name)" },
+                      { n: 3, label: "Member - BOS(Name)" },
+                      { n: 4, label: "Observer - BOS(Name)" },
+                    ].map((m) => (
+                      <div key={m.n} className="flex justify-between text-gray-600">
+                        <span className="w-[10%]">({m.n})</span>
+                        <div className="w-1/2">
+                          <div className="h-8"></div>
+                          <div>.......................................</div>
+                          <div>{m.label}</div>
+                        </div>
+                        <div className="w-1/2">
+                          <div className="h-8"></div>
+                          <div>.......................................</div>
+                          <div>Signature</div>
+                        </div>
+                      </div>
+
+                    ))}
+                  </div>
+                  <div className="mt-3">Date &nbsp; : ..................................</div>
+
+                  <hr className="my-4 border-gray-400" />
+                  <div className="flex justify-between">
+                    <span>Date &nbsp; : ..................................</span>
+                    <span>Director &nbsp;&nbsp; ..............................</span>
+                  </div>
+                  <hr className="my-4 border-gray-400" />
+                  <div className="flex justify-between mb-2">
+                    <span>Date &nbsp; : ..................................</span>
+                    <span>Cheif Operative Officer &nbsp;&nbsp; ..............................</span>
                   </div>
                 </div>
               </div>
@@ -907,4 +972,4 @@ const PHVSlowMovingWHReport: React.FC = () => {
   );
 };
 
-export default PHVSlowMovingWHReport;
+export default PHVDamageBOSReport;

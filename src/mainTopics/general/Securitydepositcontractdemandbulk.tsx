@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -93,6 +95,9 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
   const [selectedBillCycleDisplay, setSelectedBillCycleDisplay] = useState<string>("");
 
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+
   const printRef = useRef<HTMLDivElement>(null);
 
   // ── Generic fetch helper ───────────────────────────────────────────────────
@@ -163,7 +168,13 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
       setIsLoadingAreas(true);
       setAreaError(null);
       try {
-        const areaData = await fetchWithErrorHandling(`/misapi/api/bulk/areas`);
+        let url = "/misapi/api/bulk/areas";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          url += `?provCode=${locked["Province"].code}`;
+        }
+        const areaData = await fetchWithErrorHandling(url);
         setAreas(areaData.data || []);
       } catch (err: any) {
         console.error("Error fetching areas:", err);
@@ -173,7 +184,7 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
       }
     };
     fetchAreas();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   // ── 3. Fetch provinces on mount ────────────────────────────────────────────
   useEffect(() => {
@@ -181,7 +192,11 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
       setIsLoadingProvinces(true);
       setProvinceError(null);
       try {
-        const provinceData = await fetchWithErrorHandling(`/misapi/api/bulk/province`);
+        let url = "/misapi/api/bulk/province";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        }
+        const provinceData = await fetchWithErrorHandling(url);
         setProvinces(provinceData.data || []);
       } catch (err: any) {
         console.error("Error fetching provinces:", err);
@@ -191,13 +206,19 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
       }
     };
     fetchProvinces();
-  }, []);
+  }, [user.Level, user.RegionCode]);
 
   // ── Reset category value when report category changes ──────────────────────
   useEffect(() => {
-    setCategoryValue("");
-    setSelectedCategoryName("");
-  }, [reportCategory]);
+    const lock = locked[reportCategory as keyof typeof locked];
+    if (lock) {
+      setCategoryValue(lock.code);
+      setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+    } else {
+      setCategoryValue("");
+      setSelectedCategoryName("");
+    }
+  }, [reportCategory, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
   // ── Guards ─────────────────────────────────────────────────────────────────
   const isCategoryValueDisabled = () => {
@@ -334,7 +355,7 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
           .meta { font-size: 11px; margin-bottom: 12px; }
           .meta span { font-weight: bold; }
           table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-          th    { background: #b0e0e8; font-weight: bold; text-align: center;
+          th    { background: #d3d3d3; font-weight: bold; text-align: center;
                   padding: 5px 4px; border: 1px solid #aaa; font-size: 10px; }
           td    { padding: 3px 4px; border: 1px solid #ccc; font-size: 10px;
                   vertical-align: top; }
@@ -373,26 +394,26 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
 
     return (
       <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr className="bg-[#b0e0e8] text-gray-800">
+        <thead className="bg-gray-100 sticky top-0">
+          <tr>
             {showProvCols && (
               <>
-                <th className="border border-gray-300 px-2 py-2 text-center font-bold">Province</th>
-                <th className="border border-gray-300 px-2 py-2 text-center font-bold">Area</th>
+                <th className="border border-gray-300 px-2 py-1 text-center">Province</th>
+                <th className="border border-gray-300 px-2 py-1 text-center">Area</th>
               </>
             )}
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Acct.<br/>Number</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Name</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Address</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">City</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Tariff</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Contract<br/>Demand</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Security<br/>Deposit</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Total KWO<br/>Units</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Total KWD<br/>Units</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Total<br/>KWP<br/>Units</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">KVA</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Monthly<br/>Charge</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Acct.<br />Number</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Name</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Address</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">City</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Tariff</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Contract<br />Demand</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Security<br />Deposit</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Total KWO<br />Units</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Total KWD<br />Units</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Total<br />KWP<br />Units</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">KVA</th>
+            <th className="border border-gray-300 px-2 py-1 text-center">Monthly<br />Charge</th>
           </tr>
         </thead>
         <tbody>
@@ -423,8 +444,6 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
               <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.MonthlyCharge || "—"}</td>
             </tr>
           ))}
-
-          
         </tbody>
       </table>
     );
@@ -434,16 +453,14 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
   // JSX
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-4 bg-white rounded-lg shadow-sm">
 
       {/* ── FORM ──────────────────────────────────────────────────────────── */}
       {!reportVisible && (
         <>
-          <div className="mb-6">
-            <h2 className={`text-xl font-bold ${maroon}`}>
-              Security Deposit vs Contract Demand - Bulk
-            </h2>
-          </div>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>
+            Security Deposit and Contract Demand - Bulk
+          </h1>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* First Row - Bill Cycle + Report Category */}
@@ -486,13 +503,15 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
                   value={reportCategory}
                   onChange={e => setReportCategory(e.target.value)}
                   disabled={!billCycle}
-                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                    !billCycle ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" : "border-gray-300"
-                  }`}
+                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${!billCycle ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" : "border-gray-300"
+                    }`}
                   required
                 >
-                  <option value="Area">Area</option>
-                  <option value="Province">Province</option>
+                  {allowedCategories
+                    .filter((cat) => cat === "Area" || cat === "Province")
+                    .map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                 </select>
               </div>
             </div>
@@ -506,7 +525,17 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
 
                 {reportCategory === "Area" && (
                   <>
-                    {isLoadingAreas ? (
+                    {locked["Area"] ? (
+                      <select
+                        disabled
+                        value={locked["Area"].code}
+                        className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={locked["Area"].code}>
+                          {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                        </option>
+                      </select>
+                    ) : isLoadingAreas ? (
                       <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                         Loading areas...
                       </div>
@@ -519,9 +548,8 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
                         value={categoryValue}
                         onChange={e => setCategoryValue(e.target.value)}
                         disabled={isCategoryValueDisabled()}
-                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                          isCategoryValueDisabled() ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" : "border-gray-300"
-                        }`}
+                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled() ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" : "border-gray-300"
+                          }`}
                         required
                       >
                         <option value="">Select Area</option>
@@ -537,7 +565,17 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
 
                 {reportCategory === "Province" && (
                   <>
-                    {isLoadingProvinces ? (
+                    {locked["Province"] ? (
+                      <select
+                        disabled
+                        value={locked["Province"].code}
+                        className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={locked["Province"].code}>
+                          {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                        </option>
+                      </select>
+                    ) : isLoadingProvinces ? (
                       <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                         Loading provinces...
                       </div>
@@ -554,9 +592,8 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
                           setSelectedCategoryName(p ? p.ProvinceName : "");
                         }}
                         disabled={isCategoryValueDisabled()}
-                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                          isCategoryValueDisabled() ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" : "border-gray-300"
-                        }`}
+                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled() ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" : "border-gray-300"
+                          }`}
                         required
                       >
                         <option value="">Select Province</option>
@@ -606,10 +643,10 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
       {reportVisible && (
         <div className="mt-6">
 
-          {/* Report Header — title + buttons together (Solar style) */}
+          {/* Report Header — title + buttons together */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <div>
-              <h2 className={`text-xl font-bold ${maroon}`}>
+              <h2 className={`text-lg font-bold ${maroon}`}>
                 Comparision of Security Deposit and Contract Demand for a {reportCategory}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -638,7 +675,7 @@ const SecurityDepositContractDemandBulk: React.FC = () => {
             </div>
           </div>
 
-          {/* Scrollable table (Solar style) */}
+          {/* Scrollable table */}
           <div className="overflow-x-auto max-h-[calc(100vh-250px)] border border-gray-300 rounded-lg">
             <div ref={printRef} className="min-w-full py-4">
               {renderTable()}

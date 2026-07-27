@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { FaFileDownload, FaPrint } from "react-icons/fa";
 
 interface FinalizedAccountsRecord {
   AccountNumber: string;
@@ -245,7 +246,7 @@ const FinalizedAccounts: React.FC = () => {
     if (!records.length) return;
     const title = 'Finalized Accounts';
     const rowsHtml = records.map((r, i) => `
-      <tr style="background:${i % 2 === 0 ? '#fff' : '#f5f5f5'}">
+      <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
         <td>${esc(r.AccountNumber)}</td>
         <td style="text-align:right">${Number(r.CurrentBalance).toFixed(2)}</td>
         <td>${esc(r.CustomerName)}</td>
@@ -268,7 +269,7 @@ const FinalizedAccounts: React.FC = () => {
   .meta{font-size:11px;margin-bottom:12px}
   .meta span{font-weight:bold}
   table{width:100%;border-collapse:collapse;margin-top:8px}
-  th{background:#b0e0e8;font-weight:bold;text-align:center;padding:4px 3px;border:1px solid #aaa;font-size:9px}
+  th{background:#d3d3d3;font-weight:bold;text-align:center;padding:4px 3px;border:1px solid #aaa;font-size:9px}
   td{padding:3px;border:1px solid #ccc;font-size:9px;vertical-align:top}
   .total-row td{background:#d3d3d3;font-weight:bold}
   @page{size:A4 landscape;margin:12mm}
@@ -306,130 +307,116 @@ const FinalizedAccounts: React.FC = () => {
   const selectCls = 'w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent outline-none';
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-4 bg-white rounded-lg shadow-sm">
 
       {!hasSearched && (
         <>
-          <div className="mb-6">
-            <h2 className={`text-xl font-bold ${maroon}`}>Finalized Accounts</h2>
-          </div>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>Finalized Accounts</h1>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
             {/* Province */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>
-                  Province <span className="text-red-600">*</span>
-                </label>
-                {loadingDropdowns ? (
-                  <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">Loading...</div>
-                ) : (
-                  <select value={province} onChange={e => { setProvince(e.target.value); setReportError(null); }} className={selectCls}>
-                    <option value="">Select Province</option>
-                    {provinces.map(p => (
-                      <option key={p.ProvCode} value={p.ProvCode}>{p.ProvCode} – {p.ProvName}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Province:</label>
+              {loadingDropdowns ? (
+                <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">Loading...</div>
+              ) : (
+                <select value={province} onChange={e => { setProvince(e.target.value); setReportError(null); }} className={selectCls}>
+                  <option value="">Select Province</option>
+                  {provinces.map(p => (
+                    <option key={p.ProvCode} value={p.ProvCode}>{p.ProvCode} – {p.ProvName}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Area */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${!province ? 'text-gray-400' : maroon}`}>Area</label>
-                {!province ? (
-                  <div className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed">
-                    Select a province first
-                  </div>
-                ) : loadingAreas ? (
-                  <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">Loading areas...</div>
-                ) : (
-                  <select value={area} onChange={e => setArea(e.target.value)} className={selectCls}>
-                    <option value="">All Areas</option>
-                    {areas.map(a => (
-                      <option key={a.AreaCode} value={a.AreaCode}>{a.AreaCode} – {a.AreaName}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${!province ? 'text-gray-400' : maroon}`}>Area:</label>
+              {!province ? (
+                <div className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed">
+                  Select a province first
+                </div>
+              ) : loadingAreas ? (
+                <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">Loading areas...</div>
+              ) : (
+                <select value={area} onChange={e => setArea(e.target.value)} className={selectCls}>
+                  <option value="">All Areas</option>
+                  {areas.map(a => (
+                    <option key={a.AreaCode} value={a.AreaCode}>{a.AreaCode} – {a.AreaName}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Month */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>Month</label>
-                <select value={month} onChange={e => setMonth(e.target.value)} className={selectCls}>
-                  <option value="*** - All Months">*** – All Months</option>
-                  {billCycles.map(c => (
-                    <option key={c} value={c}>
-                      {isNaN(Number(c)) ? c : billCycleToLabel(Number(c))}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Month:</label>
+              <select value={month} onChange={e => setMonth(e.target.value)} className={selectCls}>
+                <option value="*** - All Months">*** – All Months</option>
+                {billCycles.map(c => (
+                  <option key={c} value={c}>
+                    {isNaN(Number(c)) ? c : billCycleToLabel(Number(c))}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Balance filter */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={balanceChecked} onChange={e => setBalanceChecked(e.target.checked)} className="cursor-pointer" />
-                  <label className={`text-xs font-medium ${maroon}`}>Balance</label>
-                </div>
-                <div className="flex gap-2">
-                  <select value={balanceOperator} onChange={e => setBalanceOperator(e.target.value)} disabled={!balanceChecked}
-                    className={`w-16 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!balanceChecked ? 'bg-gray-100 text-gray-400' : ''}`}>
-                    <option value=">">&gt;</option>
-                    <option value="<">&lt;</option>
-                    <option value="=">=</option>
-                    <option value=">=">&gt;=</option>
-                    <option value="<=">&lt;=</option>
-                  </select>
-                  <input type="number" value={balanceValue} onChange={e => setBalanceValue(e.target.value)} disabled={!balanceChecked}
-                    className={`flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!balanceChecked ? 'bg-gray-100 text-gray-400' : ''}`} />
-                </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={balanceChecked} onChange={e => setBalanceChecked(e.target.checked)} className="cursor-pointer accent-[#7A0000]" />
+                <label className={`text-xs font-medium ${maroon}`}>Balance</label>
+              </div>
+              <div className="flex gap-2">
+                <select value={balanceOperator} onChange={e => setBalanceOperator(e.target.value)} disabled={!balanceChecked}
+                  className={`w-16 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!balanceChecked ? 'bg-gray-100 text-gray-400' : ''}`}>
+                  <option value=">">&gt;</option>
+                  <option value="<">&lt;</option>
+                  <option value="=">=</option>
+                  <option value=">=">&gt;=</option>
+                  <option value="<=">&lt;=</option>
+                </select>
+                <input type="number" value={balanceValue} onChange={e => setBalanceValue(e.target.value)} disabled={!balanceChecked}
+                  className={`flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!balanceChecked ? 'bg-gray-100 text-gray-400' : ''}`} />
               </div>
             </div>
 
             {/* Days filter */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={daysChecked} onChange={e => setDaysChecked(e.target.checked)} className="cursor-pointer" />
-                  <label className={`text-xs font-medium ${maroon}`}>No. of Days</label>
-                </div>
-                <div className="flex gap-2">
-                  <select value={daysOperator} onChange={e => setDaysOperator(e.target.value)} disabled={!daysChecked}
-                    className={`w-16 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!daysChecked ? 'bg-gray-100 text-gray-400' : ''}`}>
-                    <option value=">">&gt;</option>
-                    <option value="<">&lt;</option>
-                    <option value="=">=</option>
-                    <option value=">=">&gt;=</option>
-                    <option value="<=">&lt;=</option>
-                  </select>
-                  <input type="number" value={daysValue} onChange={e => setDaysValue(e.target.value)} disabled={!daysChecked}
-                    className={`flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!daysChecked ? 'bg-gray-100 text-gray-400' : ''}`} />
-                </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={daysChecked} onChange={e => setDaysChecked(e.target.checked)} className="cursor-pointer accent-[#7A0000]" />
+                <label className={`text-xs font-medium ${maroon}`}>No. of Days</label>
+              </div>
+              <div className="flex gap-2">
+                <select value={daysOperator} onChange={e => setDaysOperator(e.target.value)} disabled={!daysChecked}
+                  className={`w-16 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!daysChecked ? 'bg-gray-100 text-gray-400' : ''}`}>
+                  <option value=">">&gt;</option>
+                  <option value="<">&lt;</option>
+                  <option value="=">=</option>
+                  <option value=">=">&gt;=</option>
+                  <option value="<=">&lt;=</option>
+                </select>
+                <input type="number" value={daysValue} onChange={e => setDaysValue(e.target.value)} disabled={!daysChecked}
+                  className={`flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] outline-none ${!daysChecked ? 'bg-gray-100 text-gray-400' : ''}`} />
               </div>
             </div>
+          </div>
 
-            {/* Submit */}
-            <div className="w-full mt-6 flex justify-end">
-              <button onClick={fetchReport} disabled={loadingReport || !province}
-                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loadingReport || !province ? 'opacity-70 cursor-not-allowed' : 'hover:opacity-90'}`}>
-                {loadingReport ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Loading...
-                  </span>
-                ) : 'Generate Report'}
-              </button>
-            </div>
+          {/* Submit */}
+          <div className="w-full mt-6 flex justify-end">
+            <button onClick={fetchReport} disabled={loadingReport || !province}
+              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loadingReport || !province ? 'opacity-70 cursor-not-allowed' : 'hover:opacity-90'}`}>
+              {loadingReport ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading...
+                </span>
+              ) : 'Generate Report'}
+            </button>
           </div>
 
           {reportError && (
@@ -442,27 +429,19 @@ const FinalizedAccounts: React.FC = () => {
         <div className="mt-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <div>
-              <h2 className={`text-xl font-bold ${maroon}`}>Finalized Accounts</h2>
+              <h2 className={`text-lg font-bold ${maroon}`}>Finalized Accounts</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Province: <strong>{snapProvName}</strong>
-                {' '}&nbsp;|&nbsp; Area: <strong>{snapAreaName}</strong>
-                {' '}&nbsp;|&nbsp; Bill Cycle: <strong>{snapMonth}</strong>
+                {snapProvName} | {snapAreaName} | Bill Cycle: {snapMonth}
               </p>
             </div>
             <div className="flex space-x-2 mt-2 md:mt-0">
               <button onClick={handleExportCsv} disabled={!records.length}
-                className={`flex items-center gap-1 px-3 py-1.5 border border-blue-400 rounded-md text-xs font-medium shadow-sm focus:outline-none transition ${!records.length ? 'text-blue-300 bg-gray-50 cursor-not-allowed' : 'text-blue-700 bg-white hover:bg-blue-50'}`}>
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h5a2 2 0 012 2v12a2 2 0 01-2 2z" />
-                </svg>
-                CSV
+                className={`flex items-center gap-1 px-3 py-1.5 border border-blue-400 rounded-md text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition ${!records.length ? 'text-blue-300 bg-gray-50 cursor-not-allowed' : 'text-blue-700 bg-white hover:bg-blue-50 hover:text-blue-800'}`}>
+                <FaFileDownload className="w-3 h-3" /> CSV
               </button>
               <button onClick={handleExportPdf} disabled={!records.length}
-                className={`flex items-center gap-1 px-3 py-1.5 border border-green-400 rounded-md text-xs font-medium shadow-sm focus:outline-none transition ${!records.length ? 'text-green-300 bg-gray-50 cursor-not-allowed' : 'text-green-700 bg-white hover:bg-green-50'}`}>
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                PDF
+                className={`flex items-center gap-1 px-3 py-1.5 border border-green-400 rounded-md text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-200 transition ${!records.length ? 'text-green-300 bg-gray-50 cursor-not-allowed' : 'text-green-700 bg-white hover:bg-green-50 hover:text-green-800'}`}>
+                <FaPrint className="w-3 h-3" /> PDF
               </button>
               <button onClick={handleBackToForm} className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white">
                 Back to Form
@@ -474,7 +453,7 @@ const FinalizedAccounts: React.FC = () => {
             <div className="min-w-full py-4">
               <table className="w-full border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#b0e0e8] text-gray-800 sticky top-0">
+                  <tr className="bg-gray-100 text-gray-800 sticky top-0">
                     <th className="border border-gray-300 px-3 py-2 text-left font-bold whitespace-nowrap">Account No</th>
                     <th className="border border-gray-300 px-3 py-2 text-right font-bold whitespace-nowrap">Current Balance</th>
                     <th className="border border-gray-300 px-3 py-2 text-left font-bold whitespace-nowrap">Customer</th>
@@ -510,7 +489,7 @@ const FinalizedAccounts: React.FC = () => {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#d3d3d3] font-bold sticky bottom-0">
+                  <tr className="bg-gray-200 font-bold sticky bottom-0">
                     <td className="border border-gray-300 px-3 py-2 font-bold">TOTAL</td>
                     <td className="border border-gray-300 px-3 py-2 text-right font-mono font-bold">
                       {totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}

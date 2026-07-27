@@ -57,16 +57,6 @@ const maxDate = `${currentYear}-${currentMonth}-${currentDay}`;
 const minDate = `${currentYear - 20}-${currentMonth}-${currentDay}`;
 
 /* ────── Formatting helpers ────── */
-const formatNumber = (num: number | string | null | undefined): string => {
-  const n = num === null || num === undefined ? NaN : Number(num);
-  if (isNaN(n)) return "0.00";
-  const abs = Math.abs(n);
-  const formatted = abs.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return n < 0 ? `(${formatted})` : formatted;
-};
 
 const csvEscape = (val: string | number | null | undefined): string => {
   if (val == null) return "";

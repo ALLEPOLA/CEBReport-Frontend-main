@@ -285,10 +285,10 @@ const SalesAndCollection: React.FC = () => {
           .meta { font-size: 11px; margin-bottom: 12px; }
           .meta span { font-weight: bold; }
           table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-          th    { background: #b0e0e8; font-weight: bold; text-align: center;
+          th    { background: #d3d3d3; font-weight: bold; text-align: center;
                   padding: 5px 4px; border: 1px solid #aaa; font-size: 10px; }
           td    { padding: 3px 4px; border: 1px solid #ccc; font-size: 10px; vertical-align: top; }
-          tr:nth-child(even) { background: #f5f5f5; }
+          tr:nth-child(even) { background: #f9f9f9; }
           .total-row td { background: #d3d3d3; font-weight: bold; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
@@ -325,7 +325,7 @@ const SalesAndCollection: React.FC = () => {
     return (
       <table className="w-full border-collapse text-xs">
         <thead>
-          <tr className="bg-[#b0e0e8] text-gray-800">
+          <tr className="bg-gray-100 text-gray-800">
             <th className="border border-gray-300 px-2 py-2 text-center font-bold">Province<br/>Code</th>
             <th className="border border-gray-300 px-2 py-2 text-center font-bold">Area</th>
             <th className="border border-gray-300 px-2 py-2 text-center font-bold">Ordinary Supply<br/>(Net)</th>
@@ -353,7 +353,7 @@ const SalesAndCollection: React.FC = () => {
           ))}
 
           {/* Totals row */}
-          <tr className="bg-[#d3d3d3] font-bold">
+          <tr className="bg-gray-200 font-bold">
             <td className="border border-gray-300 px-2 py-1 text-center font-bold" colSpan={2}>TOTAL</td>
             <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalOrdSup)}</td>
             <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalBulkSup)}</td>
@@ -372,16 +372,14 @@ const SalesAndCollection: React.FC = () => {
   // JSX
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-4 bg-white rounded-lg shadow-sm">
 
       {/* ── FORM ────────────────────────────────────────────────────────────── */}
       {!reportVisible && (
         <>
-          <div className="mb-6">
-            <h2 className={`text-xl font-bold ${maroon}`}>
-              Sales &amp; Collection – Region Wise
-            </h2>
-          </div>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>
+            Sales &amp; Collection – Region Wise
+          </h1>
 
           {dropdownError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
@@ -389,13 +387,13 @@ const SalesAndCollection: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit}>
 
             {/* Row 1 — Bill Cycle */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 ${maroon}`}>
-                  Select Month: <span className="text-red-600">*</span>
+                  Select Month:
                 </label>
                 {isLoadingDropdowns ? (
                   <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
@@ -415,47 +413,35 @@ const SalesAndCollection: React.FC = () => {
                   </select>
                 )}
               </div>
-            </div>
 
-            {/* Row 2 — Report Type (radio buttons, unlocked after bill cycle) */}
-            <div className="flex flex-col">
-              <label className={`text-xs font-medium mb-2 ${!billCycle ? "text-gray-400" : maroon}`}>
-                Report Type: <span className="text-red-600">*</span>
-              </label>
-              <div className="flex flex-wrap gap-6">
-                {[
-                  { value: "Province", label: "Province" },
-                  { value: "Region",   label: "Region" },
-                  { value: "EntireCEB", label: "Entire CEB" },
-                ].map(opt => (
-                  <label
-                    key={opt.value}
-                    className={`flex items-center gap-2 text-xs cursor-pointer
-                      ${!billCycle ? "text-gray-400 cursor-not-allowed" : "text-gray-700"}`}
-                  >
-                    <input
-                      type="radio"
-                      name="reportType"
-                      value={opt.value}
-                      checked={reportType === opt.value}
-                      onChange={e => setReportType(e.target.value)}
-                      disabled={!billCycle}
-                      className="accent-[#7A0000]"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
+              {/* Report Type */}
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon}`}>
+                  Report Type:
+                </label>
+                <select
+                  value={reportType}
+                  onChange={e => setReportType(e.target.value)}
+                  disabled={!billCycle}
+                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
+                    !billCycle
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "border-gray-300"
+                  }`}
+                >
+                  <option value="EntireCEB">Entire CEB</option>
+                  <option value="Province">Province</option>
+                  <option value="Region">Region</option>
+                </select>
               </div>
-            </div>
 
-            {/* Row 3 — Province / Region dropdown (conditional) */}
-            {reportType !== "EntireCEB" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Province / Region dropdown (conditional) */}
+              {reportType !== "EntireCEB" && (
                 <div className="flex flex-col">
                   {reportType === "Province" && (
                     <>
                       <label className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon}`}>
-                        Select Province: <span className="text-red-600">*</span>
+                        Select Province:
                       </label>
                       <select
                         value={provinceName}
@@ -480,7 +466,7 @@ const SalesAndCollection: React.FC = () => {
                   {reportType === "Region" && (
                     <>
                       <label className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon}`}>
-                        Select Region: <span className="text-red-600">*</span>
+                        Select Region:
                       </label>
                       <select
                         value={regionCode}
@@ -502,8 +488,8 @@ const SalesAndCollection: React.FC = () => {
                     </>
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Submit */}
             <div className="w-full mt-6 flex justify-end">
@@ -515,7 +501,7 @@ const SalesAndCollection: React.FC = () => {
                   ${loading || !canSubmit() ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
               >
                 {loading ? (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -537,12 +523,12 @@ const SalesAndCollection: React.FC = () => {
 
       {/* ── REPORT ──────────────────────────────────────────────────────────── */}
       {reportVisible && (
-        <div className="mt-6">
+        <div className="mt-2">
 
           {/* Report header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <div>
-              <h2 className={`text-xl font-bold ${maroon}`}>
+              <h2 className={`text-lg font-bold ${maroon}`}>
                 Sales &amp; Collection – Region Wise
               </h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -567,7 +553,7 @@ const SalesAndCollection: React.FC = () => {
               </button>
               <button
                 onClick={() => { setReportVisible(false); setReportError(null); }}
-                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white flex items-center">
+                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white">
                 Back to Form
               </button>
             </div>

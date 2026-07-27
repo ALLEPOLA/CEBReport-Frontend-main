@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
     AreaCode: string;
@@ -86,6 +88,9 @@ const SolarConnectionDetailsBulk: React.FC = () => {
     // Report data
     const [reportData, setReportData] = useState<BulkUsageData[]>([]);
 
+    const { user } = useUser();
+    const { allowedCategories, locked } = useReportScope();
+
     const printRef = useRef<HTMLDivElement>(null);
 
     // Helper function for error handling
@@ -135,16 +140,16 @@ const SolarConnectionDetailsBulk: React.FC = () => {
     };
 
     // Convert net type code to display name
-const getNetTypeDisplayName = (netTypeCode: string): string => {
-    const netTypeMap: { [key: string]: string } = {
-        "1": "Net Metering",
-        "2": "Net Accounting", 
-        "3": "Net Plus",
-        "4": "Net Plus Plus",
-        //"5": "Convert Net Metering to Net Accounting"
+    const getNetTypeDisplayName = (netTypeCode: string): string => {
+        const netTypeMap: { [key: string]: string } = {
+            "1": "Net Metering",
+            "2": "Net Accounting",
+            "3": "Net Plus",
+            "4": "Net Plus Plus",
+            //"5": "Convert Net Metering to Net Accounting"
+        };
+        return netTypeMap[netTypeCode] || netTypeCode; // Fallback to the code if not found
     };
-    return netTypeMap[netTypeCode] || netTypeCode; // Fallback to the code if not found
-};
 
     // Format number with comma separators
     const formatNumber = (num: number, decimals: number = 2): string => {
@@ -182,7 +187,7 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
         });
     };
 
-    
+
 
     // Fetch bill cycles
     useEffect(() => {
@@ -191,13 +196,13 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
             setBillCycleError(null);
             try {
                 const response = await fetchWithErrorHandling("/misapi/api/bulk/netmtcons/billcycle/max");
-                
+
                 const billCyclesArray = response?.data?.BillCycles;
                 const maxBillCycle = response?.data?.MaxBillCycle;
-                
+
                 if (billCyclesArray && Array.isArray(billCyclesArray) && maxBillCycle) {
                     const maxCycleNum = parseInt(maxBillCycle);
-                    
+
                     const options: BillCycleOption[] = billCyclesArray.map((cycle: string, index: number) => {
                         const cycleNumber = maxCycleNum - index;
                         return {
@@ -205,7 +210,7 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                             code: cycleNumber.toString(),
                         };
                     });
-                    
+
                     setBillCycleOptions(options);
                 } else {
                     throw new Error("Invalid bill cycle data format");
@@ -227,7 +232,13 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
             setIsLoadingAreas(true);
             setAreaError(null);
             try {
-                const response = await fetchWithErrorHandling("/misapi/api/bulk/areas");
+                let url = "/misapi/api/bulk/areas";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                } else if (locked["Province"]?.code) {
+                    url += `?provCode=${locked["Province"].code}`;
+                }
+                const response = await fetchWithErrorHandling(url);
                 if (response?.data && Array.isArray(response.data)) {
                     setAreas(response.data);
                 } else {
@@ -244,7 +255,7 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
         if (reportCategory === "Area") {
             fetchAreas();
         }
-    }, [reportCategory]);
+    }, [reportCategory, user.Level, user.RegionCode, user.ProvinceCode]);
 
     // Fetch provinces
     useEffect(() => {
@@ -252,7 +263,11 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
             setIsLoadingProvinces(true);
             setProvinceError(null);
             try {
-                const response = await fetchWithErrorHandling("/misapi/api/bulk/province");
+                let url = "/misapi/api/bulk/province";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                }
+                const response = await fetchWithErrorHandling(url);
                 if (response?.data && Array.isArray(response.data)) {
                     setProvinces(response.data);
                 } else {
@@ -269,7 +284,7 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
         if (reportCategory === "Province") {
             fetchProvinces();
         }
-    }, [reportCategory]);
+    }, [reportCategory, user.Level, user.RegionCode]);
 
     // Fetch divisions
     useEffect(() => {
@@ -295,6 +310,16 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
             fetchDivisions();
         }
     }, [reportCategory]);
+
+
+    useEffect(() => {
+        const key = reportCategory === "Division" ? "Region" : reportCategory;
+        const lock = locked[key as keyof typeof locked];
+        if (lock) {
+            setCategoryValue(lock.code);
+            setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+        }
+    }, [reportCategory, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
     // Format division option
     const formatDivisionOption = (division: Division): string => {
@@ -326,7 +351,7 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
 
         try {
             const netTypeCode = getNetTypeCode(netType);
-            
+
             // Determine report type for API
             let reportTypeParam = "";
             let typeCodeParam = "";
@@ -355,7 +380,7 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
             if (response?.data && Array.isArray(response.data)) {
                 const sortedData = sortDataAlphabetically(response.data);
                 setReportData(sortedData);
-                
+
                 // Set display values
                 if (reportCategory === "Area") {
                     const selectedArea = areas.find(a => a.AreaCode === categoryValue);
@@ -524,8 +549,8 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
         if (!printWindow) return;
 
         const reportTitle = "SOLAR CONNECTION DETAILS (INCL. READING AND USAGE) - BULK";
-        const categoryInfo = reportCategory === "Entire CEB" 
-            ? "Entire CEB" 
+        const categoryInfo = reportCategory === "Entire CEB"
+            ? "Entire CEB"
             : `${reportCategory}: <span class="bold">${selectedCategoryName}</span>`;
         const selectionInfo = `${categoryInfo}<br>Month: <span class="bold">${selectedBillCycleDisplay}</span><br>Net Type: <span class="bold">${netType}</span>`;
 
@@ -780,14 +805,14 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
 
     return (
         <div className="p-6 bg-white rounded-lg shadow-md">
-            
+
 
             {/* Form Section */}
             {!reportVisible && (
                 <>
-                <h2 className={`text-xl font-bold mb-6 ${maroon}`}>
-                Solar Connection Details (incl. reading and usage) - Bulk
-            </h2>
+                    <h2 className={`text-xl font-bold mb-6 ${maroon}`}>
+                        Solar Connection Details (incl. reading and usage) - Bulk
+                    </h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* First Row - Month, Net Type, Report Category */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -824,9 +849,8 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                             {/* Select Net Type Dropdown */}
                             <div className="flex flex-col">
                                 <label
-                                    className={`text-xs font-medium mb-1 ${
-                                        isNetTypeDisabled() ? "text-gray-400" : maroon
-                                    }`}
+                                    className={`text-xs font-medium mb-1 ${isNetTypeDisabled() ? "text-gray-400" : maroon
+                                        }`}
                                 >
                                     Select Net Type:
                                 </label>
@@ -836,11 +860,10 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                                         setNetType(e.target.value);
                                         setCategoryValue("");
                                     }}
-                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                        isNetTypeDisabled()
-                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                            : "border-gray-300"
-                                    }`}
+                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isNetTypeDisabled()
+                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        : "border-gray-300"
+                                        }`}
                                     required
                                     disabled={isNetTypeDisabled()}
                                 >
@@ -855,9 +878,8 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                             {/* Select Report Category Dropdown */}
                             <div className="flex flex-col">
                                 <label
-                                    className={`text-xs font-medium mb-1 ${
-                                        isCategoryValueDisabled() ? "text-gray-400" : maroon
-                                    }`}
+                                    className={`text-xs font-medium mb-1 ${isCategoryValueDisabled() ? "text-gray-400" : maroon
+                                        }`}
                                 >
                                     Select Report Category:
                                 </label>
@@ -867,18 +889,18 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                                         setReportCategory(e.target.value);
                                         setCategoryValue("");
                                     }}
-                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                        isCategoryValueDisabled()
-                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                            : "border-gray-300"
-                                    }`}
+                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
+                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        : "border-gray-300"
+                                        }`}
                                     required
                                     disabled={isCategoryValueDisabled()}
                                 >
-                                    <option value="Area">Area</option>
-                                    <option value="Province">Province</option>
-                                    <option value="Division">Division</option>
-                                    <option value="Entire CEB">Entire CEB</option>
+                                    {allowedCategories.map((cat) => (
+                                        <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                                            {cat === "Region" ? "Division" : cat}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -888,97 +910,121 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="flex flex-col">
                                     <label
-                                        className={`text-xs font-medium mb-1 ${
-                                            isCategoryValueDisabled() ? "text-gray-400" : maroon
-                                        }`}
+                                        className={`text-xs font-medium mb-1 ${isCategoryValueDisabled() ? "text-gray-400" : maroon
+                                            }`}
                                     >
                                         {reportCategory === "Area" && "Select Area:"}
                                         {reportCategory === "Province" && "Select Province:"}
                                         {reportCategory === "Division" && "Select Division:"}
                                     </label>
                                     {reportCategory === "Area" && (
-                                        <select
-                                            value={categoryValue}
-                                            onChange={(e) => setCategoryValue(e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                                isCategoryValueDisabled()
+                                        locked["Area"] ? (
+                                            <select
+                                                disabled
+                                                value={locked["Area"].code}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            >
+                                                <option value={locked["Area"].code}>
+                                                    {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                                                </option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                value={categoryValue}
+                                                onChange={(e) => setCategoryValue(e.target.value)}
+                                                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
                                                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                                                     : "border-gray-300"
-                                            }`}
-                                            required
-                                            disabled={isCategoryValueDisabled()}
-                                        >
-                                            <option value="">Select Area</option>
-                                            {isLoadingAreas ? (
-                                                <option value="">Loading...</option>
-                                            ) : areaError ? (
-                                                <option value="">Error loading areas</option>
-                                            ) : (
-                                                areas.map((area) => (
-                                                    <option key={area.AreaCode} value={area.AreaCode}>
-                                                        {area.AreaCode} - {area.AreaName}
-                                                    </option>
-                                                ))
-                                            )}
-                                        </select>
+                                                    }`}
+                                                required
+                                                disabled={isCategoryValueDisabled()}
+                                            >
+                                                <option value="">Select Area</option>
+                                                {isLoadingAreas ? (
+                                                    <option value="">Loading...</option>
+                                                ) : areaError ? (
+                                                    <option value="">Error loading areas</option>
+                                                ) : (
+                                                    areas.map((area) => (
+                                                        <option key={area.AreaCode} value={area.AreaCode}>
+                                                            {area.AreaCode} - {area.AreaName}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        )
                                     )}
                                     {reportCategory === "Province" && (
-                                        <select
-                                            value={categoryValue}
-                                            onChange={(e) => setCategoryValue(e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                                isCategoryValueDisabled()
+                                        locked["Province"] ? (
+                                            <select
+                                                disabled
+                                                value={locked["Province"].code}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            >
+                                                <option value={locked["Province"].code}>
+                                                    {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                                                </option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                value={categoryValue}
+                                                onChange={(e) => setCategoryValue(e.target.value)}
+                                                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
                                                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                                                     : "border-gray-300"
-                                            }`}
-                                            required
-                                            disabled={isCategoryValueDisabled()}
-                                        >
-                                            <option value="">Select Province</option>
-                                            {isLoadingProvinces ? (
-                                                <option value="">Loading...</option>
-                                            ) : provinceError ? (
-                                                <option value="">Error loading provinces</option>
-                                            ) : (
-                                                provinces.map((province) => (
-                                                    <option
-                                                        key={province.ProvinceCode}
-                                                        value={province.ProvinceCode}
-                                                    >
-                                                        {province.ProvinceCode} - {province.ProvinceName}
-                                                    </option>
-                                                ))
-                                            )}
-                                        </select>
+                                                    }`}
+                                                required
+                                                disabled={isCategoryValueDisabled()}
+                                            >
+                                                <option value="">Select Province</option>
+                                                {isLoadingProvinces ? (
+                                                    <option value="">Loading...</option>
+                                                ) : provinceError ? (
+                                                    <option value="">Error loading provinces</option>
+                                                ) : (
+                                                    provinces.map((province) => (
+                                                        <option key={province.ProvinceCode} value={province.ProvinceCode}>
+                                                            {province.ProvinceCode} - {province.ProvinceName}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        )
                                     )}
                                     {reportCategory === "Division" && (
-                                        <select
-                                            value={categoryValue}
-                                            onChange={(e) => setCategoryValue(e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                                isCategoryValueDisabled()
+                                        locked["Region"] ? (
+                                            <select
+                                                disabled
+                                                value={locked["Region"].code}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            >
+                                                <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                value={categoryValue}
+                                                onChange={(e) => setCategoryValue(e.target.value)}
+                                                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
                                                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                                                     : "border-gray-300"
-                                            }`}
-                                            required
-                                            disabled={isCategoryValueDisabled()}
-                                        >
-                                            <option value="">Select Division</option>
-                                            {isLoadingDivisions ? (
-                                                <option value="">Loading...</option>
-                                            ) : divisionError ? (
-                                                <option value="">Error loading divisions</option>
-                                            ) : (
-                                                divisions.map((division) => (
-                                                    <option
-                                                        key={division.RegionCode}
-                                                        value={division.RegionCode}
-                                                    >
-                                                        {formatDivisionOption(division)}
-                                                    </option>
-                                                ))
-                                            )}
-                                        </select>
+                                                    }`}
+                                                required
+                                                disabled={isCategoryValueDisabled()}
+                                            >
+                                                <option value="">Select Division</option>
+                                                {isLoadingDivisions ? (
+                                                    <option value="">Loading...</option>
+                                                ) : divisionError ? (
+                                                    <option value="">Error loading divisions</option>
+                                                ) : (
+                                                    divisions.map((division) => (
+                                                        <option key={division.RegionCode} value={division.RegionCode}>
+                                                            {formatDivisionOption(division)}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -988,11 +1034,10 @@ const getNetTypeDisplayName = (netTypeCode: string): string => {
                         <div className="w-full mt-6 flex justify-end">
                             <button
                                 type="submit"
-                                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${
-                                    loading || !canSubmit()
-                                        ? "opacity-70 cursor-not-allowed"
-                                        : "hover:opacity-90"
-                                }`}
+                                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loading || !canSubmit()
+                                    ? "opacity-70 cursor-not-allowed"
+                                    : "hover:opacity-90"
+                                    }`}
                                 disabled={loading || !canSubmit()}
                             >
                                 {loading ? (

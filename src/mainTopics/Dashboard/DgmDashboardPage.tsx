@@ -476,7 +476,7 @@ const DgmDashboardPage: React.FC = () => {
           onSelectDashboard={(dashboard) => navigate(`/dashboard/${dashboard}`)}
         />
         <div className="flex-1 min-w-0">
-          <DashboardHeader title="DGM Dashboard" />
+          <DashboardHeader title="Construction Progress Dashboard" />
 
           {/* Action / Refresh Bar (Glassmorphic) */}
           <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20 shadow-sm">

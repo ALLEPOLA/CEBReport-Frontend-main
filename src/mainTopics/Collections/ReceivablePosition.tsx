@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { FaFileDownload, FaPrint } from "react-icons/fa";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -106,7 +107,8 @@ const ReceivablePosition: React.FC = () => {
 
   const selectCls =
     "w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent";
-  const disabledCls = "w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
+  const disabledSelectCls =
+    "w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
 
   // ── Form state ──────────────────────────────────────────────────────────
   const [billType, setBillType] = useState<"O" | "B">("O");
@@ -509,9 +511,9 @@ const ReceivablePosition: React.FC = () => {
   .meta{font-size:11px;margin-bottom:10px}
   .meta span{font-weight:bold}
   table{width:100%;border-collapse:collapse;margin-top:6px}
-  th{background:#b0e0e8;font-weight:bold;text-align:center;padding:4px 3px;border:1px solid #aaa;font-size:9px}
+  th{background:#d3d3d3;font-weight:bold;text-align:center;padding:4px 3px;border:1px solid #aaa;font-size:9px}
   td{padding:3px;border:1px solid #ccc;font-size:9px;vertical-align:top}
-  tr:nth-child(even){background:#f5f5f5}
+  tr:nth-child(even){background:#f9f9f9}
   .total-row td{background:#d3d3d3;font-weight:bold}
   @page{size:A4 landscape;margin:8mm}
 </style>
@@ -563,115 +565,119 @@ const ReceivablePosition: React.FC = () => {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-4 bg-white rounded-lg shadow-sm">
       {!hasSearched && (
         <>
-          <div className="mb-6">
-            <h2 className={`text-xl font-bold ${maroon}`}>Receivable Position</h2>
-          </div>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>Receivable Position</h1>
 
-          <div className="max-w-2xl space-y-4">
-              {/* Month */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                <label className={`text-xs font-medium mt-2 ${maroon}`}>
-                  Month: <span className="text-red-600">*</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Month */}
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Month:</label>
+              {loadingCycles ? (
+                <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading bill cycles...</div>
+              ) : cycleError ? (
+                <div className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-red-50 text-red-600">
+                  {cycleError}
+                </div>
+              ) : (
+                <select value={selectedBillCycle} onChange={(e) => setSelectedBillCycle(e.target.value)} className={selectCls}>
+                  {billCycleOptions.map((o) => (
+                    <option key={o.code} value={o.code}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Customer Type */}
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Customer Type:</label>
+              <select value={billType} onChange={(e) => setBillType(e.target.value as "O" | "B")} className={selectCls}>
+                <option value="O">Ordinary Customers</option>
+                <option value="B">Bulk Customers</option>
+              </select>
+            </div>
+
+            {/* Scope type */}
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
+              <select value={scopeType} onChange={(e) => setScopeType(e.target.value as ScopeType)} className={selectCls}>
+                <option value="Province">Province</option>
+                <option value="Region">Region</option>
+                <option value="EntireCEB">Entire CEB</option>
+              </select>
+            </div>
+
+            {/* Scope value */}
+            {scopeType !== "EntireCEB" && (
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 ${maroon}`}>
+                  Select {scopeType === "Province" ? "Province" : "Region"}:
                 </label>
-                {loadingCycles ? (
-                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading bill cycles...</div>
-                ) : cycleError ? (
-                  <div className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-red-50 text-red-600">
-                    {cycleError}
-                  </div>
-                ) : (
-                  <select value={selectedBillCycle} onChange={(e) => setSelectedBillCycle(e.target.value)} className={selectCls}>
-                    {billCycleOptions.map((o) => (
-                      <option key={o.code} value={o.code}>
-                        {o.label}
+
+                {scopeType === "Province" && (
+                  <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
+                    <option value="">Select Province</option>
+                    {provinces.map((p) => (
+                      <option key={p.provinceCode} value={p.provinceCode}>
+                        {p.provinceName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {scopeType === "Region" && (
+                  <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
+                    <option value="">Select Region</option>
+                    {regions.map((r) => (
+                      <option key={r.regionCode} value={r.regionCode}>
+                        {r.regionName || r.regionCode}
                       </option>
                     ))}
                   </select>
                 )}
               </div>
+            )}
 
-              {/* Customer Type */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                <label className={`text-xs font-medium mt-2 ${maroon}`}>
-                  Customer Type: <span className="text-red-600">*</span>
-                </label>
-                <select value={billType} onChange={(e) => setBillType(e.target.value as "O" | "B")} className={selectCls}>
-                  <option value="O">Ordinary Customers</option>
-                  <option value="B">Bulk Customers</option>
-                </select>
+            {scopeType === "EntireCEB" && (
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 text-gray-400`}>Select Area:</label>
+                <div className={disabledSelectCls}>All areas island-wide</div>
               </div>
-
-              {/* Province/Region/CEB */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                <label className={`text-xs font-medium mt-2 ${maroon}`}>
-                  Province/Region/CEB: <span className="text-red-600">*</span>
-                </label>
-                <div className="space-y-2">
-                  <select value={scopeType} onChange={(e) => setScopeType(e.target.value as ScopeType)} className={selectCls}>
-                    <option value="Province">Province</option>
-                    <option value="Region">Region</option>
-                    <option value="EntireCEB">Entire CEB</option>
-                  </select>
-
-                  {scopeType === "Province" && (
-                    <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
-                      <option value="">Select Province</option>
-                      {provinces.map((p) => (
-                        <option key={p.provinceCode} value={p.provinceCode}>
-                          {p.provinceName}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {scopeType === "Region" && (
-                    <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
-                      <option value="">Select Region</option>
-                      {regions.map((r) => (
-                        <option key={r.regionCode} value={r.regionCode}>
-                          {r.regionName || r.regionCode}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {scopeType === "EntireCEB" && <div className={disabledCls}>All areas island-wide</div>}
-                </div>
-              </div>
-
-              {/* Submit */}
-              <div className="w-full mt-6 flex justify-end">
-                <button
-                  onClick={fetchReport}
-                  disabled={!canSubmit}
-                  className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
-                    ${maroonGrad} text-white
-                    ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
-                >
-                  {loadingReport ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      {loadingStatus || "Loading..."}
-                    </span>
-                  ) : (
-                    "Generate Report"
-                  )}
-                </button>
-              </div>
-
-              {reportError && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
-              )}
-              {scopeListError && (
-                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{scopeListError}</div>
-              )}
+            )}
           </div>
+
+          {/* Submit */}
+          <div className="w-full mt-6 flex justify-end">
+            <button
+              onClick={fetchReport}
+              disabled={!canSubmit}
+              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
+                ${maroonGrad} text-white
+                ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
+            >
+              {loadingReport ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  {loadingStatus || "Loading..."}
+                </span>
+              ) : (
+                "Generate Report"
+              )}
+            </button>
+          </div>
+
+          {reportError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
+          )}
+          {scopeListError && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{scopeListError}</div>
+          )}
         </>
       )}
 
@@ -679,10 +685,9 @@ const ReceivablePosition: React.FC = () => {
         <div className="mt-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <div>
-              <h2 className={`text-xl font-bold ${maroon}`}>Receivable Position</h2>
+              <h2 className={`text-lg font-bold ${maroon}`}>Receivable Position</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Scope: <strong>{resolvedScopeLabel}</strong> ({scopeType}) | Customer Type:{" "}
-                <strong>{billType === "B" ? "Bulk" : "Ordinary"}</strong> | Bill Cycle: <strong>{resolvedBillCycle}</strong>
+                {resolvedScopeLabel} ({scopeType}) | {billType === "B" ? "Bulk" : "Ordinary"} | Bill Cycle: {resolvedBillCycle}
               </p>
             </div>
 
@@ -694,7 +699,7 @@ const ReceivablePosition: React.FC = () => {
                   focus:outline-none focus:ring-2 focus:ring-blue-200 transition
                   ${!reportData.length ? "text-blue-300 bg-gray-50 cursor-not-allowed" : "text-blue-700 bg-white hover:bg-blue-50 hover:text-blue-800"}`}
               >
-                CSV
+                <FaFileDownload className="w-3 h-3" /> CSV
               </button>
               <button
                 onClick={handleExportPdf}
@@ -703,11 +708,11 @@ const ReceivablePosition: React.FC = () => {
                   focus:outline-none focus:ring-2 focus:ring-green-200 transition
                   ${!reportData.length ? "text-green-300 bg-gray-50 cursor-not-allowed" : "text-green-700 bg-white hover:bg-green-50 hover:text-green-800"}`}
               >
-                PDF
+                <FaPrint className="w-3 h-3" /> PDF
               </button>
               <button
                 onClick={handleBackToForm}
-                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white flex items-center"
+                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white"
               >
                 Back to Form
               </button>
@@ -718,7 +723,7 @@ const ReceivablePosition: React.FC = () => {
             <div className="min-w-full py-4">
               <table className="w-full border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#b0e0e8] text-gray-800 sticky top-0">
+                  <tr className="bg-gray-100 text-gray-800 sticky top-0">
                     <th className="border border-gray-300 px-2 py-2 text-center font-bold">Area</th>
                     <th className="border border-gray-300 px-2 py-2 text-left font-bold">Area Name</th>
                     <th className="border border-gray-300 px-2 py-2 text-right font-bold">Opening Bal</th>
@@ -756,7 +761,7 @@ const ReceivablePosition: React.FC = () => {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#d3d3d3] font-bold sticky bottom-0">
+                  <tr className="bg-gray-200 font-bold sticky bottom-0">
                     <td colSpan={2} className="border border-gray-300 px-2 py-2 text-center font-bold">
                       TOTAL
                     </td>

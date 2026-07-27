@@ -69,7 +69,7 @@ const AdminNavBar = () => {
               REPORTING System
             </div>
             <div className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white">
-              v1.2
+              v1.6
             </div>
           </div>
         </Link>
@@ -143,7 +143,7 @@ const AdminNavBar = () => {
 
             <div className="p-3 bg-gray-50 border-t border-gray-100">
               <div className="text-xs text-gray-500 text-center">
-                Reporting System Portal v1.2
+                Reporting System Portal v1.6
               </div>
             </div>
           </div>

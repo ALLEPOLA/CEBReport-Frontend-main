@@ -1,24 +1,26 @@
-const stripLeadingNumbering = (value: string) => value.replace(/^\d+(?:\s*[./-]\s*\d+)*\s*/, "");
-
-export const normalizeReportName = (value: string) =>
-	value
+// reportnamematch.ts
+export const normalizeReportName = (value: string) => {
+	return value
 		.toLowerCase()
 		.replace(/[\u2013\u2014]/g, "-")
-		.replace(/[^a-z0-9]+/g, " ")
-		// Align British and US spellings used across DB labels and registry keys.
+		.replace(/\s+/g, " ")  // Normalize spaces
+		.replace(/[^a-z0-9\s/()\-]/g, "") // Keep important characters
 		.replace(/\bcentre(s)?\b/g, "center$1")
 		.trim();
+};
 
 export const matchesReportName = (actual: string, expected: string) => {
 	const normalizedActual = normalizeReportName(actual);
 	const normalizedExpected = normalizeReportName(expected);
-
+	
+	// First try exact match
 	if (normalizedActual === normalizedExpected) {
 		return true;
 	}
-
-	const actualNoNumber = normalizeReportName(stripLeadingNumbering(actual));
-	const expectedNoNumber = normalizeReportName(stripLeadingNumbering(expected));
-
-	return actualNoNumber === expectedNoNumber;
+	
+	// Try matching without the leading numbers (e.g., "5. " or "5 - ")
+	const actualWithoutNumber = normalizedActual.replace(/^\d+[\s./-]*/, "");
+	const expectedWithoutNumber = normalizedExpected.replace(/^\d+[\s./-]*/, "");
+	
+	return actualWithoutNumber === expectedWithoutNumber;
 };

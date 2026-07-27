@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Download, Printer, X, RotateCcw, Eye, Search } from "lucide-react";
 import { toast } from "react-toastify";
 import { useUser } from "../../contexts/UserContext";
@@ -300,7 +300,6 @@ const IssueReceiptWPReport: React.FC = () => {
 		});
 	})();
 
-	const docTypesTitle = groupedByDocType.map((g) => g.docType).join(", ");
 	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
 	const costCtrDisplay = selectedDept?.DeptId || "";
 

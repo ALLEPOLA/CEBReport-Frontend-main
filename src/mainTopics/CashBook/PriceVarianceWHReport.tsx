@@ -43,6 +43,21 @@ const MAX_RECORDS = 5000;
 const FETCH_TIMEOUT_MS = 120000;
 const PAGE_SIZE = 9;
 
+const MONTHS = [
+	{value: 1, label: "January"},
+	{value: 2, label: "February"},
+	{value: 3, label: "March"},
+	{value: 4, label: "April"},
+	{value: 5, label: "May"},
+	{value: 6, label: "June"},
+	{value: 7, label: "July"},
+	{value: 8, label: "August"},
+	{value: 9, label: "September"},
+	{value: 10, label: "October"},
+	{value: 11, label: "November"},
+	{value: 12, label: "December"},
+];
+
 /* ────── Formatting helpers ────── */
 const formatNumber = (num: number | string | null | undefined): string => {
 	const n = num === null || num === undefined ? NaN : Number(num);
@@ -299,15 +314,17 @@ const PriceVarianceWHReport: React.FC = () => {
 	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
 	const costCtrDisplay = selectedDept?.DeptId || "";
 	const repMonthDisplay = selectedMonth ? selectedMonth.toString().padStart(2, "0") : "";
+	const monthLabel = MONTHS.find((m) => m.value === selectedMonth)?.label || repMonthDisplay;
+	const reportTitle = `Price Variance Report (Warehouse Wise) For ${monthLabel} ${selectedYear ?? ""}`;
 
 	/* ────── CSV download ────── */
 	const downloadCSV = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Price Variance Report`,
+			reportTitle,
 			`Cost Center: ${costCtrDisplay}/${cctName}`,
-			`Period: ${repMonthDisplay}/${selectedYear}`,
+			`Warehouse: ${selectedWarehouse}`,
 			"",
 		];
 
@@ -357,23 +374,34 @@ const PriceVarianceWHReport: React.FC = () => {
 		URL.revokeObjectURL(url);
 	};
 
-	/* ────── PDF print ────── */
+	/* ────── PDF print ──────
+	   NOTE: This HTML is written into a brand-new window via window.open("", "_blank"),
+	   which has NO access to the app's Tailwind stylesheet. Any Tailwind utility class
+	   (text-right, text-center, bg-white, font-mono, px-3, py-2, etc.) used here does
+	   NOTHING in that window. Every visual rule — alignment, spacing, borders, colors —
+	   must be written as inline `style="..."` or defined in the <style> block below.
+	*/
 	const printPDF = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
+		const cellBase =
+			"padding:6px 8px; border:1px solid #d1d5db; font-size:8.5px;";
+		const mono = "font-family:monospace;";
+
 		sortedData.forEach((it, i) => {
+			const rowBg = i % 2 ? "#ffffff" : "#f9fafb";
 			rows += `
-          <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-center text-xs">${i + 1}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${it.WrhCd || ""}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${it.MatCd || ""}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs">${it.GradeCd || ""}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(it.UnitPrice)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(it.NewPrice)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(it.NetChange)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(it.QtyOnHand)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(it.Var)}</td>
+          <tr style="background:${rowBg};">
+            <td style="${cellBase} text-align:center;">${i + 1}</td>
+            <td style="${cellBase} text-align:center; ${mono}">${it.WrhCd || ""}</td>
+            <td style="${cellBase} text-align:center; ${mono}">${it.MatCd || ""}</td>
+            <td style="${cellBase} text-align:center;">${it.GradeCd || ""}</td>
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.UnitPrice)}</td>
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.NewPrice)}</td>
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.NetChange)}</td>
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.QtyOnHand)}</td>
+            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.Var)}</td>
           </tr>`;
 		});
 
@@ -391,7 +419,6 @@ const PriceVarianceWHReport: React.FC = () => {
       th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
       tfoot td { background:#d3d3d3; font-weight:bold; }
-      .font-mono { font-family:monospace; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString("en-US", {timeZone: "Asia/Colombo"})}"; font-size:7px; color:gray; }
         @bottom-right { content:"Page " counter(page) " of " counter(pages); font-size:7px; color:gray; }
@@ -400,19 +427,19 @@ const PriceVarianceWHReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Price Variance Report</div>
+  <div class="title">${reportTitle}</div>
   <div class="info">
     <div><strong>Cost Center:</strong> ${costCtrDisplay}/${cctName}</div>
-    <div><strong>Period:</strong> ${repMonthDisplay}/${selectedYear}</div>
+    <div><strong>Warehouse:</strong> ${selectedWarehouse}</div>
     <div style="font-weight:600; color:#4B5563;">Currency : LKR</div>
   </div>
   <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:4%;">No</th>
-        <th style="padding:6px 8px; width:11%;">Warehouse Code</th>
-        <th style="padding:6px 8px; width:13%;">Material Code</th>
-        <th style="padding:6px 8px; width:11%;">Grade Code</th>
+        <th style="padding:6px 8px; width:4%; text-align:center;">No</th>
+        <th style="padding:6px 8px; width:11%; text-align:center;">Warehouse Code</th>
+        <th style="padding:6px 8px; width:13%; text-align:center;">Material Code</th>
+        <th style="padding:6px 8px; width:11%; text-align:center;">Grade Code</th>
         <th style="padding:6px 8px; width:12%; text-align:right;">Unit Price</th>
         <th style="padding:6px 8px; width:12%; text-align:right;">New Price</th>
         <th style="padding:6px 8px; width:12%; text-align:right;">Net Change</th>
@@ -645,14 +672,14 @@ const PriceVarianceWHReport: React.FC = () => {
 								</div>
 
 								<h2 className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}>
-									Price Variance Report
+									{reportTitle}
 								</h2>
 								<div className="flex justify-between text-sm mb-3 ml-5 mr-12">
 									<div>
 										<span className="font-bold">Cost Center:</span> {costCtrDisplay}/{cctName}
 									</div>
 									<div>
-										<span className="font-bold">Period:</span> {repMonthDisplay}/{selectedYear}
+										<span className="font-bold">Warehouse:</span> {selectedWarehouse}
 									</div>
 									<div className="font-semibold text-gray-600">Currency : LKR</div>
 								</div>
@@ -662,10 +689,10 @@ const PriceVarianceWHReport: React.FC = () => {
 										<table className="w-full text-xs border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "4%"}}>No</th>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "11%"}}>Warehouse Code</th>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "13%"}}>Material Code</th>
-													<th className="px-4 py-2 border border-gray-300" style={{width: "11%"}}>Grade Code</th>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "4%"}}>No</th>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "11%"}}>Warehouse Code</th>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "13%"}}>Material Code</th>
+													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "11%"}}>Grade Code</th>
 													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "12%"}}>Unit Price</th>
 													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "12%"}}>New Price</th>
 													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "12%"}}>Net Change</th>
@@ -677,9 +704,9 @@ const PriceVarianceWHReport: React.FC = () => {
 												{sortedData.map((it, i) => (
 													<tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
 														<td className="px-4 py-2 border-l border-r border-gray-300 text-center">{i + 1}</td>
-														<td className="px-4 py-2 font-mono border-r border-gray-300">{it.WrhCd || ""}</td>
-														<td className="px-4 py-2 font-mono border-r border-gray-300">{it.MatCd || ""}</td>
-														<td className="px-4 py-2 border-r border-gray-300">{it.GradeCd || ""}</td>
+														<td className="px-4 py-2 font-mono text-center border-r border-gray-300">{it.WrhCd || ""}</td>
+														<td className="px-4 py-2 font-mono text-center border-r border-gray-300">{it.MatCd || ""}</td>
+														<td className="px-4 py-2 text-center border-r border-gray-300">{it.GradeCd || ""}</td>
 														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">{formatNumber(it.UnitPrice)}</td>
 														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">{formatNumber(it.NewPrice)}</td>
 														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">{formatNumber(it.NetChange)}</td>

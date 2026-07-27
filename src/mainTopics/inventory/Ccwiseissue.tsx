@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Download, Printer, X, RotateCcw, Eye, Search } from "lucide-react";
 import { toast } from "react-toastify";
 import { useUser } from "../../contexts/UserContext";
@@ -88,7 +88,7 @@ const CCWiseIssue: React.FC = () => {
 	const [reportData, setReportData] = useState<CCWiseIssueRow[]>([]);
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
-	const [reportError, setReportError] = useState<string | null>(null);
+	const [, setReportError] = useState<string | null>(null);
 
 	/* ────── Fetch Departments ────── */
 	useEffect(() => {

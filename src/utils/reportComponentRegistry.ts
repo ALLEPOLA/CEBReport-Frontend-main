@@ -36,7 +36,7 @@ import DebtorsAnalysis from "../mainTopics/Analysis/DebtorsAnalysis";
 import AgeAnalysis from "../mainTopics/Analysis/AgeAnalysis";
 import SolarAgeAnalysis from "../mainTopics/Analysis/SolarAgeAnalysis";
 
-// Billing & Payment reports
+// Customer Details
 import CustomerDetails from "../mainTopics/billing&payment/CustomerDetails";
 import PaymentInquiry from "../mainTopics/CustomerDetails/PaymentInquiry";
 import TransactionHistoryOrdinary from "../mainTopics/CustomerDetails/TransactionHistoryOrdinary";
@@ -49,10 +49,6 @@ import HeadOfficePOSCollection from "../mainTopics/Collections/HeadOfficePOSColl
 import SalesAndCollection from "../mainTopics/Collections/SalesAndCollection";
 import CustomersHighestOutstanding from "../mainTopics/Collections/CustomersHighestOutstanding";
 import SuspensePaymentDetails from "../mainTopics/Collections/SuspensePaymentDetails";
-
-
-// Consumption Analysis reports
-//import TariffBlockWiseConsumption from "../mainTopics/general/TariffBlockWiseConsumption";
 
 // CashBook reports
 import CashBookDetailsReport from "../mainTopics/CashBook/CashBookDetailsReport";
@@ -135,6 +131,9 @@ import LastDocNo from "../mainTopics/PhysicalVerification/LastDocNo";
 // Phisical Verification FIFO reports
 import PHVSlowMovingWHReport from "../mainTopics/fifo/PHVSlowMovingWHReport";
 import PHVNonMovingWHReport from "../mainTopics/fifo/PHVNonMovingWHReport";
+import PHVDamageBOSReport from "../mainTopics/fifo/PHVDamageBOSReport";
+import PHVObsoleteBOSReport from "../mainTopics/fifo/PHVObsoleteBOSReport";
+import PHVNonMovingBOSReport from "../mainTopics/fifo/PHVNonMovingBOSReport.tsx";
 
 // PUCSL/LISS reports
 import PUCSLSolarConnection from "../mainTopics/PUCSL/PUCSLSolarConnection";
@@ -176,6 +175,17 @@ import AreaTrialBalance from "../mainTopics/TrialBalance/AreaTrialBalance";
 // Work In Progress reports
 import AgeAnalysisCostCenter from "../mainTopics/WorkInProgress/AgeAnalysisCostCenter";
 import CompletedCostCenterWise from "../mainTopics/WorkInProgress/CompletedCostCenterWise";
+
+// Dashboard pages
+import DefaultDashboardPage from "../mainTopics/Dashboard/DefaultDashboardPage";
+import FinancialDashboardPage from "../mainTopics/Dashboard/FinancialDashboardPage";
+import DgmDashboardPage from "../mainTopics/Dashboard/DgmDashboardPage";
+import OperationsDashboardPage from "../mainTopics/Dashboard/OperationsDashboardPage";
+import AnalyticsDashboardPage from "../mainTopics/Dashboard/AnalyticsDashboardPage";
+import SolarDashboardPage from "../mainTopics/Dashboard/SolarDashboardPage";
+import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboardPage";
+import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPage";
+import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -252,7 +262,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"consumption pattern analysis": AgeAnalysis,
 	"age analysis of solar power consumers": SolarAgeAnalysis,
 
-	// Billing & Payment reports
+	// Customer Details
 	"customer information": CustomerDetails,
 	"transaction history": CustomerDetails,
 	"transaction history ordinary": TransactionHistoryOrdinary,
@@ -311,6 +321,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"sequence change accounts": ActiveCustomersSalesByTariff,
 	"retails journal": ActiveCustomersSalesByTariff,
 	"arrears position meter reader wise": Arreasposition,
+	"list of government accounts meter reader wise": ListOfGovernmentAccounts,
 	"list of customers enlisted in master invoices": ActiveCustomersSalesByTariff,
 	"disconnection list": ActiveCustomersSalesByTariff,
 	"shakthi led distribution summary": ActiveCustomersSalesByTariff,
@@ -364,6 +375,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"2. physical verification damage - av/7b (fifo)": PHVDamageFIFO,
 	"3. physical verification slow moving wh wise - av/6 (fifo)": PHVSlowMovingWHReport,
 	"4. physical verification non moving wh wise - av/6b (fifo)": PHVNonMovingWHReport,
+	"5. physical verification damage bos - av/7b/bos": PHVDamageBOSReport,
+	"6. physical verification obsolete idle bos - av/7a/bos": PHVObsoleteBOSReport,
+	"7. physical verification non-moving wh wise (fifo) - av/6/bos": PHVNonMovingBOSReport,
 
 	// Physical Verification reports
 	"1 phv entry form": PHVEntryForm,
@@ -470,6 +484,20 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	// Work In Progress reports
 	"cost center wise work in progress with age analysis": AgeAnalysisCostCenter,
 	"cost center wise work in progress completed projects": CompletedCostCenterWise,
+
+	// Dashboard pages
+	"main dashboard": DefaultDashboardPage,
+	"default dashboard": DefaultDashboardPage,
+	"financial dashboard": FinancialDashboardPage,
+	"dgm dashboard": DgmDashboardPage,
+	"operations dashboard": OperationsDashboardPage,
+	"analytics dashboard": AnalyticsDashboardPage,
+	"solar dashboard": SolarDashboardPage,
+	"collections dashboard": CollectionsDashboardPage,
+	"collections payments dashboard": CollectionsDashboardPage,
+	"collections & payments dashboard": CollectionsDashboardPage,
+	"executive dashboard": ExecutiveDashboardPage,
+	"inventory dashboard": InventoryDashboardPage,
 };
 
 /**

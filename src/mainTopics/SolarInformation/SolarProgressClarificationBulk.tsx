@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaArrowLeft, FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
   AreaCode: string;
@@ -76,6 +78,9 @@ const SolarProgressClarificationBulk: React.FC = () => {
   const [detailedData, setDetailedData] = useState<DetailedSolarProgress[]>([]);
   const [summaryData, setSummaryData] = useState<SummarySolarProgress[]>([]);
   const [reportError, setReportError] = useState<string | null>(null);
+
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
   const printRef = useRef<HTMLDivElement>(null);
 
   // Helper function for error handling
@@ -127,48 +132,55 @@ const SolarProgressClarificationBulk: React.FC = () => {
 
   // Fetch areas
   useEffect(() => {
-    const fetchAreas = async () => {
-      setIsLoadingAreas(true);
-      setAreaError(null);
-      try {
-        // Using the API endpoint
-        const areaData = await fetchWithErrorHandling("/misapi/api/bulk/areas");
-        setAreas(areaData.data || []);
-      } catch (err: any) {
-        console.error("Error fetching areas:", err);
-        setAreaError(
-          err.message || "Failed to load areas. Please try again later."
-        );
-      } finally {
-        setIsLoadingAreas(false);
+  const fetchAreas = async () => {
+    setIsLoadingAreas(true);
+    setAreaError(null);
+    try {
+      let url = "/misapi/api/bulk/areas";
+      if (locked["Region"]?.code) {
+        url += `?regionCode=${locked["Region"].code}`;
+      } else if (locked["Province"]?.code) {
+        url += `?provCode=${locked["Province"].code}`;
       }
-    };
+      const areaData = await fetchWithErrorHandling(url);
+      setAreas(areaData.data || []);
+    } catch (err: any) {
+      console.error("Error fetching areas:", err);
+      setAreaError(
+        err.message || "Failed to load areas. Please try again later."
+      );
+    } finally {
+      setIsLoadingAreas(false);
+    }
+  };
 
-    fetchAreas();
-  }, []);
+  fetchAreas();
+}, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   // Fetch provinces/
   useEffect(() => {
-    const fetchProvinces = async () => {
-      setIsLoadingProvinces(true);
-      setProvinceError(null);
-      try {
-        const provinceData = await fetchWithErrorHandling(
-          "/misapi/api/bulk/province"
-        );
-        setProvinces(provinceData.data || []);
-      } catch (err: any) {
-        console.error("Error fetching provinces:", err);
-        setProvinceError(
-          err.message || "Failed to load provinces. Please try again later."
-        );
-      } finally {
-        setIsLoadingProvinces(false);
+  const fetchProvinces = async () => {
+    setIsLoadingProvinces(true);
+    setProvinceError(null);
+    try {
+      let url = "/misapi/api/bulk/province";
+      if (locked["Region"]?.code) {
+        url += `?regionCode=${locked["Region"].code}`;
       }
-    };
+      const provinceData = await fetchWithErrorHandling(url);
+      setProvinces(provinceData.data || []);
+    } catch (err: any) {
+      console.error("Error fetching provinces:", err);
+      setProvinceError(
+        err.message || "Failed to load provinces. Please try again later."
+      );
+    } finally {
+      setIsLoadingProvinces(false);
+    }
+  };
 
-    fetchProvinces();
-  }, []);
+  fetchProvinces();
+}, [user.Level, user.RegionCode]);
 
   // Fetch divisions
   useEffect(() => {
@@ -192,6 +204,16 @@ const SolarProgressClarificationBulk: React.FC = () => {
 
     fetchDivisions();
   }, []);
+
+
+  useEffect(() => {
+  const key = selectedOption === "Division" ? "Region" : selectedOption;
+  const lock = locked[key as keyof typeof locked];
+  if (lock) {
+    setInputValue(lock.code);
+    setSelectedAreaName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+  }
+}, [selectedOption, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
   // Fetch bill cycles
   useEffect(() => {
@@ -977,10 +999,11 @@ const SolarProgressClarificationBulk: React.FC = () => {
                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
                   required
                 >
-                  <option value="Area">Area</option>
-                  <option value="Province">Province</option>
-                  <option value="Division">Division</option>
-                  <option value="Entire CEB">Entire CEB</option>
+                  {allowedCategories.map((cat) => (
+  <option key={cat} value={cat === "Region" ? "Division" : cat}>
+    {cat === "Region" ? "Division" : cat}
+  </option>
+))}
                 </select>
               </div>
 
@@ -1016,32 +1039,41 @@ const SolarProgressClarificationBulk: React.FC = () => {
                     </div>
                   ) : areaError ? (
                     <div className="text-red-500 text-xs py-2">{areaError}</div>
-                  ) : (
-                    <select
-                      value={inputValue}
-                      onChange={(e) => {
-                        const selectedAreaCode = e.target.value;
-                        setInputValue(selectedAreaCode);
-                        // Find and store the area name
-                        const selectedArea = areas.find(
-                          (area) => area.AreaCode === selectedAreaCode
-                        );
-                        setSelectedAreaName(
-                          selectedArea ? selectedArea.AreaName : ""
-                        );
-                      }}
-                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-                      required
-                      disabled={isLoadingAreas || areaError !== null}
-                    >
-                      <option value="">Select Area</option>
-                      {areas.map((area) => (
-                        <option key={area.AreaCode} value={area.AreaCode}>
-                          {formatAreaOption(area)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  ) : locked["Area"] ? (
+  <select
+    disabled
+    value={locked["Area"].code}
+    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+  >
+    <option value={locked["Area"].code}>
+      {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+    </option>
+  </select>
+) : (
+  <select
+    value={inputValue}
+    onChange={(e) => {
+      const selectedAreaCode = e.target.value;
+      setInputValue(selectedAreaCode);
+      const selectedArea = areas.find(
+        (area) => area.AreaCode === selectedAreaCode
+      );
+      setSelectedAreaName(
+        selectedArea ? selectedArea.AreaName : ""
+      );
+    }}
+    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+    required
+    disabled={isLoadingAreas || areaError !== null}
+  >
+    <option value="">Select Area</option>
+    {areas.map((area) => (
+      <option key={area.AreaCode} value={area.AreaCode}>
+        {formatAreaOption(area)}
+      </option>
+    ))}
+  </select>
+)}
                 </div>
               )}
 
@@ -1078,25 +1110,32 @@ const SolarProgressClarificationBulk: React.FC = () => {
                     <div className="text-red-500 text-xs py-2">
                       {provinceError}
                     </div>
-                  ) : (
-                    <select
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-                      required
-                      disabled={isLoadingProvinces || provinceError !== null}
-                    >
-                      <option value="">Select Province</option>
-                      {provinces.map((province) => (
-                        <option
-                          key={province.ProvinceCode}
-                          value={province.ProvinceCode}
-                        >
-                          {formatProvinceOption(province)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  ) : locked["Province"] ? (
+  <select
+    disabled
+    value={locked["Province"].code}
+    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+  >
+    <option value={locked["Province"].code}>
+      {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+    </option>
+  </select>
+) : (
+  <select
+    value={inputValue}
+    onChange={(e) => setInputValue(e.target.value)}
+    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+    required
+    disabled={isLoadingProvinces || provinceError !== null}
+  >
+    <option value="">Select Province</option>
+    {provinces.map((province) => (
+      <option key={province.ProvinceCode} value={province.ProvinceCode}>
+        {formatProvinceOption(province)}
+      </option>
+    ))}
+  </select>
+)}
                 </div>
               )}
 
@@ -1133,25 +1172,30 @@ const SolarProgressClarificationBulk: React.FC = () => {
                     <div className="text-red-500 text-xs py-2">
                       {divisionError}
                     </div>
-                  ) : (
-                    <select
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-                      required
-                      disabled={isLoadingDivisions || divisionError !== null}
-                    >
-                      <option value="">Select Division</option>
-                      {divisions.map((division) => (
-                        <option
-                          key={division.RegionCode}
-                          value={division.RegionCode}
-                        >
-                          {formatDivisionOption(division)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  ) : locked["Region"] ? (
+  <select
+    disabled
+    value={locked["Region"].code}
+    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+  >
+    <option value={locked["Region"].code}>{locked["Region"].code}</option>
+  </select>
+) : (
+  <select
+    value={inputValue}
+    onChange={(e) => setInputValue(e.target.value)}
+    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+    required
+    disabled={isLoadingDivisions || divisionError !== null}
+  >
+    <option value="">Select Division</option>
+    {divisions.map((division) => (
+      <option key={division.RegionCode} value={division.RegionCode}>
+        {formatDivisionOption(division)}
+      </option>
+    ))}
+  </select>
+)}
                 </div>
               )}
 

@@ -31,6 +31,15 @@ export const useRoleBasedSubtopics = (categoryNames: string[]) => {
   const epfNo = user?.Userno ?? "";
   const state = (location.state as SidebarLocationState | null) ?? null;
   const [dynamicSubtopics, setDynamicSubtopics] = useState<RoleSubtopic[]>([]);
+  const [billMap, setBillMap] = useState<string | null>(null);
+  const [levelNo, setLevelNo] = useState<string | null>(null);
+
+  const routeStateSubtopics =
+    Array.isArray(state?.subtopics) && state.subtopics.length > 0
+      ? state.subtopics
+      : null;
+
+  const [loading, setLoading] = useState<boolean>(!routeStateSubtopics);
 
   const selectedSubtopicId =
     typeof state?.selectedSubtopicId === "number" ? state.selectedSubtopicId : null;
@@ -40,35 +49,43 @@ export const useRoleBasedSubtopics = (categoryNames: string[]) => {
     [categoryNames.join("|")]
   );
 
-  const routeStateSubtopics =
-    Array.isArray(state?.subtopics) && state.subtopics.length > 0
-      ? state.subtopics
-      : null;
-
   useEffect(() => {
     let cancelled = false;
 
     const loadFallbackSubtopics = async () => {
       if (!epfNo.trim()) {
+        setLoading(false);
         return;
       }
 
+      setLoading(true);
       const result = await loadRoleBasedSidebarData(epfNo);
       if (cancelled) {
         return;
       }
 
-      const matchedTopic = result.data.find((topic) =>
-        normalizedNames.has(normalize(topic.name))
+      const matchedTopics = result.data.filter((topic) =>
+        normalizedNames.has(normalize(topic.name)) || topic.path === "/dashboard"
       );
 
-      const subtopics: RoleSubtopic[] = (matchedTopic?.subtopics ?? []).map((subtopic) => ({
-        id: subtopic.id,
-        name: subtopic.name,
-        repIdNo: subtopic.repIdNo,
-      }));
+      const seenSubtopicIds = new Set<number>();
+      const subtopics: RoleSubtopic[] = matchedTopics
+        .flatMap((topic) => topic.subtopics)
+        .filter((subtopic) => {
+          if (seenSubtopicIds.has(subtopic.id)) return false;
+          seenSubtopicIds.add(subtopic.id);
+          return true;
+        })
+        .map((subtopic) => ({
+          id: subtopic.id,
+          name: subtopic.name,
+          repIdNo: subtopic.repIdNo,
+        }));
 
       setDynamicSubtopics(subtopics);
+      setBillMap(result.billMap);
+      setLevelNo(result.levelNo);
+      setLoading(false);
     };
 
     void loadFallbackSubtopics();
@@ -91,6 +108,9 @@ export const useRoleBasedSubtopics = (categoryNames: string[]) => {
 
   return {
     subtopics: routeStateSubtopics ?? fallbackSubtopics,
+    loading: routeStateSubtopics ? false : loading,
     selectedSubtopicId,
+    billMap,
+    levelNo,
   };
 };

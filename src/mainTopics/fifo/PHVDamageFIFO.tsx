@@ -577,7 +577,7 @@ const PHVDamageFIFO: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
       <div className="flex justify-between items-center mb-4">
-        <h2 className={`text-xl font-bold ${maroon}`}>Physical Verification Damage AV/7A (FIFO)</h2>
+        <h2 className={`text-xl font-bold ${maroon}`}>2. Physical Verification Damage AV/7A (FIFO)</h2>
       </div>
 
       <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">

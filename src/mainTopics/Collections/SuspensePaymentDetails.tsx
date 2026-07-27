@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { FaFileDownload, FaPrint } from "react-icons/fa";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -65,8 +66,6 @@ const parseNumber = (value: any): number => {
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
 const buildGroups = (rows: SuspenseRow[]): GroupedProvince[] => {
   const provMap = new Map<string, GroupedProvince>();
 
@@ -106,7 +105,7 @@ const SuspensePaymentDetails: React.FC = () => {
   // ── Form state ──────────────────────────────────────────────────────────
   const [billType, setBillType] = useState<"O" | "B">("B"); // Bulk selected by default, matches sample
   const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState(todayIso());
+  const [toDate, setToDate] = useState("");
 
   // ── Loading / errors ────────────────────────────────────────────────────
   const [loadingReport, setLoadingReport] = useState(false);
@@ -290,9 +289,9 @@ const SuspensePaymentDetails: React.FC = () => {
   .meta{font-size:11px;margin-bottom:10px}
   .meta span{font-weight:bold}
   table{width:100%;border-collapse:collapse;margin-top:6px}
-  th{background:#b0e0e8;font-weight:bold;text-align:center;padding:4px 3px;border:1px solid #aaa;font-size:9px}
+  th{background:#d3d3d3;font-weight:bold;text-align:center;padding:4px 3px;border:1px solid #aaa;font-size:9px}
   td{padding:3px;border:1px solid #ccc;font-size:9px;vertical-align:top}
-  tr:nth-child(even){background:#f5f5f5}
+  tr:nth-child(even){background:#f9f9f9}
   .total-row td{background:#d3d3d3;font-weight:bold}
   @page{size:A4 landscape;margin:8mm}
 </style>
@@ -333,19 +332,15 @@ const SuspensePaymentDetails: React.FC = () => {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-4 bg-white rounded-lg shadow-sm">
       {!hasSearched && (
         <>
-          <div className="mb-6">
-            <h2 className={`text-xl font-bold ${maroon}`}>Suspense Payment Details (Online Payments)</h2>
-          </div>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>Suspense Payment Details (Online Payments)</h1>
 
-          <div className="max-w-2xl space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Customer Type */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              <label className={`text-xs font-medium mt-2 ${maroon}`}>
-                Customer Type: <span className="text-red-600">*</span>
-              </label>
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Customer Type:</label>
               <div className="flex items-center gap-6 mt-1.5">
                 <label className="flex items-center gap-2 text-xs text-gray-700">
                   <input
@@ -371,48 +366,44 @@ const SuspensePaymentDetails: React.FC = () => {
             </div>
 
             {/* From Date */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              <label className={`text-xs font-medium mt-2 ${maroon}`}>
-                From Date: <span className="text-red-600">*</span>
-              </label>
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>From Date:</label>
               <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={selectCls} />
             </div>
 
             {/* To Date */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              <label className={`text-xs font-medium mt-2 ${maroon}`}>
-                To Date: <span className="text-red-600">*</span>
-              </label>
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>To Date:</label>
               <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={selectCls} />
             </div>
-
-            {/* Submit */}
-            <div className="w-full mt-6 flex justify-end">
-              <button
-                onClick={fetchReport}
-                disabled={!canSubmit}
-                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
-                  ${maroonGrad} text-white
-                  ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
-              >
-                {loadingReport ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Loading...
-                  </span>
-                ) : (
-                  "View Report"
-                )}
-              </button>
-            </div>
-
-            {reportError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
-            )}
           </div>
+
+          {/* Submit */}
+          <div className="w-full mt-6 flex justify-end">
+            <button
+              onClick={fetchReport}
+              disabled={!canSubmit}
+              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
+                ${maroonGrad} text-white
+                ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
+            >
+              {loadingReport ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading...
+                </span>
+              ) : (
+                "Generate Report"
+              )}
+            </button>
+          </div>
+
+          {reportError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
+          )}
         </>
       )}
 
@@ -420,12 +411,9 @@ const SuspensePaymentDetails: React.FC = () => {
         <div className="mt-2">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <div>
-              <h2 className={`text-xl font-bold ${maroon}`}>Suspense Payment Details (Online Payments)</h2>
+              <h2 className={`text-lg font-bold ${maroon}`}>Suspense Payment Details (Online Payments)</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Customer Type: <strong>{isOrdinary ? "Ordinary" : "Bulk"}</strong> | Date:{" "}
-                <strong>
-                  {resolvedFromDate} to {resolvedToDate}
-                </strong>
+                {isOrdinary ? "Ordinary" : "Bulk"} | {resolvedFromDate} to {resolvedToDate}
               </p>
             </div>
 
@@ -437,7 +425,7 @@ const SuspensePaymentDetails: React.FC = () => {
                   focus:outline-none focus:ring-2 focus:ring-blue-200 transition
                   ${!reportData.length ? "text-blue-300 bg-gray-50 cursor-not-allowed" : "text-blue-700 bg-white hover:bg-blue-50 hover:text-blue-800"}`}
               >
-                CSV
+                <FaFileDownload className="w-3 h-3" /> CSV
               </button>
               <button
                 onClick={handleExportPdf}
@@ -446,11 +434,11 @@ const SuspensePaymentDetails: React.FC = () => {
                   focus:outline-none focus:ring-2 focus:ring-green-200 transition
                   ${!reportData.length ? "text-green-300 bg-gray-50 cursor-not-allowed" : "text-green-700 bg-white hover:bg-green-50 hover:text-green-800"}`}
               >
-                PDF
+                <FaPrint className="w-3 h-3" /> PDF
               </button>
               <button
                 onClick={handleBackToForm}
-                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white flex items-center"
+                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white"
               >
                 Back to Form
               </button>
@@ -461,7 +449,7 @@ const SuspensePaymentDetails: React.FC = () => {
             <div className="min-w-full py-4">
               <table className="w-full border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#b0e0e8] text-gray-800 sticky top-0">
+                  <tr className="bg-gray-100 text-gray-800 sticky top-0">
                     <th className="border border-gray-300 px-2 py-2 text-left font-bold">Province</th>
                     <th className="border border-gray-300 px-2 py-2 text-left font-bold">Area</th>
                     <th className="border border-gray-300 px-2 py-2 text-center font-bold">Account Number</th>
@@ -508,7 +496,7 @@ const SuspensePaymentDetails: React.FC = () => {
                             ))}
 
                             {/* Area subtotal */}
-                            <tr className="bg-rose-50 font-semibold">
+                            <tr className="bg-gray-100 font-semibold">
                               <td className="border border-gray-300 px-2 py-1"></td>
                               <td colSpan={preAmountCols} className="border border-gray-300 px-2 py-1 text-right font-mono">
                                 {area.rows.length}
@@ -520,7 +508,7 @@ const SuspensePaymentDetails: React.FC = () => {
                         ))}
 
                         {/* Province total */}
-                        <tr className="bg-amber-50 font-bold">
+                        <tr className="bg-gray-200 font-bold">
                           <td className="border border-gray-300 px-2 py-1 text-left">Province Total</td>
                           <td colSpan={preAmountCols} className="border border-gray-300 px-2 py-1 text-right font-mono">
                             {prov.count}
@@ -533,7 +521,7 @@ const SuspensePaymentDetails: React.FC = () => {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#d3d3d3] font-bold sticky bottom-0">
+                  <tr className="bg-gray-300 font-bold sticky bottom-0">
                     <td colSpan={2 + preAmountCols} className="border border-gray-300 px-2 py-2 text-center font-bold">
                       GRAND TOTAL ({reportData.length.toLocaleString()} records)
                     </td>
