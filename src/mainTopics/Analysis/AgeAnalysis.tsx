@@ -20,6 +20,8 @@ import {
   Cell,
   LabelList,
 } from "recharts";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // Interfaces
 interface Area {
@@ -94,6 +96,9 @@ const AgeAnalysis: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(100); // Show 100 records per page
   const [totalRecords, setTotalRecords] = useState(0);
+
+  const { user } = useUser();
+  const { locked } = useReportScope();
 
   // Constants
   const timePeriods = [
@@ -189,17 +194,21 @@ const AgeAnalysis: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch areas
-        const areaData = await fetchWithErrorHandling("/misapi/api/areas");
-        setAreas(areaData.data || []);
-        if (areaData.data?.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            areaCode: areaData.data[0].AreaCode,
-          }));
+        let areasUrl = "/misapi/api/ordinary/areas";
+        if (locked["Region"]?.code) {
+          areasUrl += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          areasUrl += `?provCode=${locked["Province"].code}`;
         }
+        const areaData = await fetchWithErrorHandling(areasUrl);
+        setAreas(areaData.data || []);
+        const defaultAreaCode = locked["Area"]?.code
+          || (areaData.data?.length > 0 ? areaData.data[0].AreaCode : "");
+        setFormData((prev) => ({
+          ...prev,
+          areaCode: defaultAreaCode,
+        }));
 
-        // Fetch bill cycles
         const maxCycleData = await fetchWithErrorHandling(
           "/misapi/api/billcycle/max"
         );
@@ -222,7 +231,7 @@ const AgeAnalysis: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   // Calculate totals from debtors
   const totals = useMemo(() => {
@@ -525,12 +534,12 @@ const AgeAnalysis: React.FC = () => {
         row.push(
           formatCurrency(
             debtor.Month0 +
-              debtor.Month1 +
-              debtor.Month2 +
-              debtor.Month3 +
-              debtor.Month4 +
-              debtor.Month5 +
-              debtor.Month6
+            debtor.Month1 +
+            debtor.Month2 +
+            debtor.Month3 +
+            debtor.Month4 +
+            debtor.Month5 +
+            debtor.Month6
           ),
           formatCurrency(debtor.Months7_9 + debtor.Months10_12),
           formatCurrency(debtor.Months13_24),
@@ -577,12 +586,12 @@ const AgeAnalysis: React.FC = () => {
         totalsRow.push(
           formatCurrency(
             totals.month0 +
-              totals.month1 +
-              totals.month2 +
-              totals.month3 +
-              totals.month4 +
-              totals.month5 +
-              totals.month6
+            totals.month1 +
+            totals.month2 +
+            totals.month3 +
+            totals.month4 +
+            totals.month5 +
+            totals.month6
           ),
           formatCurrency(totals.months7_9 + totals.months10_12),
           formatCurrency(totals.months13_24),
@@ -598,14 +607,12 @@ const AgeAnalysis: React.FC = () => {
 
     // Create CSV content with proper formatting
     let csvContent = [
-      `"Age Analysis Report - ${
-        customerTypeOptions.find((t) => t.value === formData.custType)?.display
+      `"Age Analysis Report - ${customerTypeOptions.find((t) => t.value === formData.custType)?.display
       } Customers"`,
       `"Bill Cycle: ${getFormattedBillCycle()}"`,
-      `"Area: ${
-        areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName
+      `"Area: ${areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName
       } (${formData.areaCode})"`,
-      
+
       "",
       headers.map((h) => `"${h}"`).join(","),
       ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
@@ -616,9 +623,8 @@ const AgeAnalysis: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `AgeAnalysis_${formData.custType}_Cycle${
-      formData.billCycle
-    }_Area${formData.areaCode}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `AgeAnalysis_${formData.custType}_Cycle${formData.billCycle
+      }_Area${formData.areaCode}_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -692,54 +698,52 @@ const AgeAnalysis: React.FC = () => {
         const bgColor = index % 2 === 0 ? "#ffffff" : "#f9f9f9";
         tableHTML += `
           <tr style="background-color: ${bgColor};">
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              debtor.AccountNumber
-            }</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${debtor.AccountNumber
+          }</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${getFullName(
-              debtor
-            )}</td>
+            debtor
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${getFullAddress(
-              debtor
-            )}</td>
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              debtor.TariffCode
-            }</td>
+            debtor
+          )}</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${debtor.TariffCode
+          }</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.OutstandingBalance
-            )}</td>`;
+            debtor.OutstandingBalance
+          )}</td>`;
 
         // Add time period specific data
         if (formData.timePeriod === "0-6") {
           tableHTML += `
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month0
-            )}</td>
+            debtor.Month0
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month1
-            )}</td>
+            debtor.Month1
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month2
-            )}</td>
+            debtor.Month2
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month3
-            )}</td>
+            debtor.Month3
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month4
-            )}</td>
+            debtor.Month4
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month5
-            )}</td>
+            debtor.Month5
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month6
-            )}</td>`;
+            debtor.Month6
+          )}</td>`;
         } else if (formData.timePeriod === "7-12") {
           tableHTML += `
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months7_9
-            )}</td>
+            debtor.Months7_9
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months10_12
-            )}</td>`;
+            debtor.Months10_12
+          )}</td>`;
         } else if (formData.timePeriod === "1-2") {
           tableHTML += `<td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
             debtor.Months13_24
@@ -763,32 +767,32 @@ const AgeAnalysis: React.FC = () => {
         } else if (formData.timePeriod === "All") {
           tableHTML += `
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Month0 +
-                debtor.Month1 +
-                debtor.Month2 +
-                debtor.Month3 +
-                debtor.Month4 +
-                debtor.Month5 +
-                debtor.Month6
-            )}</td>
+            debtor.Month0 +
+            debtor.Month1 +
+            debtor.Month2 +
+            debtor.Month3 +
+            debtor.Month4 +
+            debtor.Month5 +
+            debtor.Month6
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months7_9 + debtor.Months10_12
-            )}</td>
+            debtor.Months7_9 + debtor.Months10_12
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months13_24
-            )}</td>
+            debtor.Months13_24
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months25_36
-            )}</td>
+            debtor.Months25_36
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months37_48
-            )}</td>
+            debtor.Months37_48
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months49_60
-            )}</td>
+            debtor.Months49_60
+          )}</td>
             <td style="border: 1px solid #ddd; padding: 2px 4px; text-align: right; font-size: 10px; vertical-align: top;">${formatCurrency(
-              debtor.Months61Plus
-            )}</td>`;
+            debtor.Months61Plus
+          )}</td>`;
         }
 
         tableHTML += `</tr>`;
@@ -856,14 +860,12 @@ const AgeAnalysis: React.FC = () => {
           </style>
         </head>
         <body>
-          <div class="header">AGE ANALYSIS REPORT - ${
-            customerTypeOptions.find((t) => t.value === formData.custType)
-              ?.display
-          } </div>
+          <div class="header">AGE ANALYSIS REPORT - ${customerTypeOptions.find((t) => t.value === formData.custType)
+        ?.display
+      } </div>
           <div class="subheader">
-            Area: <span class="bold">${
-              areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName
-            } (${formData.areaCode})</span><br>
+            Area: <span class="bold">${areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName
+      } (${formData.areaCode})</span><br>
             Bill Cycle: <span class="bold">${getFormattedBillCycle()}</span><br>
             
           </div>
@@ -928,21 +930,19 @@ const AgeAnalysis: React.FC = () => {
           <div className="flex gap-2">
             <button
               onClick={() => setChartType("bar")}
-              className={`px-3 py-1 rounded text-sm ${
-                chartType === "bar"
+              className={`px-3 py-1 rounded text-sm ${chartType === "bar"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 hover:bg-gray-300"
-              }`}
+                }`}
             >
               Bar Chart
             </button>
             <button
               onClick={() => setChartType("pie")}
-              className={`px-3 py-1 rounded text-sm ${
-                chartType === "pie"
+              className={`px-3 py-1 rounded text-sm ${chartType === "pie"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 hover:bg-gray-300"
-              }`}
+                }`}
             >
               Pie Chart
             </button>
@@ -1091,11 +1091,10 @@ const AgeAnalysis: React.FC = () => {
           <button
             key={pageNum}
             onClick={() => setCurrentPage(pageNum)}
-            className={`px-2 py-1 text-xs rounded ${
-              currentPage === pageNum
+            className={`px-2 py-1 text-xs rounded ${currentPage === pageNum
                 ? "bg-[#7A0000] text-white"
                 : "bg-gray-200 hover:bg-gray-300"
-            }`}
+              }`}
           >
             {pageNum}
           </button>
@@ -1192,23 +1191,35 @@ const AgeAnalysis: React.FC = () => {
             <label className={`${maroon} text-xs font-medium mb-1`}>
               Select Area:
             </label>
-            <select
-              name="areaCode"
-              value={formData.areaCode}
-              onChange={handleInputChange}
-              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-              required
-            >
-              {areas.map((area) => (
-                <option
-                  key={area.AreaCode}
-                  value={area.AreaCode}
-                  className="text-xs py-1"
-                >
-                  {area.AreaName} ({area.AreaCode})
+            {locked["Area"] ? (
+              <select
+                disabled
+                value={locked["Area"].code}
+                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+              >
+                <option value={locked["Area"].code}>
+                  {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
                 </option>
-              ))}
-            </select>
+              </select>
+            ) : (
+              <select
+                name="areaCode"
+                value={formData.areaCode}
+                onChange={handleInputChange}
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                required
+              >
+                {areas.map((area) => (
+                  <option
+                    key={area.AreaCode}
+                    value={area.AreaCode}
+                    className="text-xs py-1"
+                  >
+                    {area.AreaName} ({area.AreaCode})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Time Period Dropdown */}
@@ -1249,10 +1260,9 @@ const AgeAnalysis: React.FC = () => {
             className={`
               px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
               ${maroonGrad} text-white
-              ${
-                reportLoading
-                  ? "opacity-70 cursor-not-allowed"
-                  : "hover:opacity-90"
+              ${reportLoading
+                ? "opacity-70 cursor-not-allowed"
+                : "hover:opacity-90"
               }
             `}
           >
@@ -1429,12 +1439,12 @@ const AgeAnalysis: React.FC = () => {
                       0-6 Months:{" "}
                       {formatCurrency(
                         totals.month0 +
-                          totals.month1 +
-                          totals.month2 +
-                          totals.month3 +
-                          totals.month4 +
-                          totals.month5 +
-                          totals.month6
+                        totals.month1 +
+                        totals.month2 +
+                        totals.month3 +
+                        totals.month4 +
+                        totals.month5 +
+                        totals.month6
                       )}
                     </div>
                     <div>
@@ -1648,12 +1658,12 @@ const AgeAnalysis: React.FC = () => {
                           <td className="border border-gray-300 px-2 py-1 text-right">
                             {formatCurrency(
                               debtor.Month0 +
-                                debtor.Month1 +
-                                debtor.Month2 +
-                                debtor.Month3 +
-                                debtor.Month4 +
-                                debtor.Month5 +
-                                debtor.Month6
+                              debtor.Month1 +
+                              debtor.Month2 +
+                              debtor.Month3 +
+                              debtor.Month4 +
+                              debtor.Month5 +
+                              debtor.Month6
                             )}
                           </td>
                           <td className="border border-gray-300 px-2 py-1 text-right">

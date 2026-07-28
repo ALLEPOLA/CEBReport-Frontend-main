@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, JSX } from "react";
 import { Download, Printer } from "lucide-react";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
     AreaCode: string;
@@ -70,6 +72,9 @@ const SolarPVCapacityInformation: React.FC = () => {
     const [pvCapacityData, setPvCapacityData] = useState<PVCapacityData[]>([]);
     const [uniqueNetTypes, setUniqueNetTypes] = useState<string[]>([]);
 
+    const { user } = useUser();
+    const { allowedCategories, locked } = useReportScope();
+
     const printRef = useRef<HTMLDivElement>(null);
 
     // Helper function for error handling
@@ -118,7 +123,7 @@ const SolarPVCapacityInformation: React.FC = () => {
     // Extract unique net types from data
     const extractUniqueNetTypes = (data: PVCapacityData[]): string[] => {
         const netTypes = [...new Set(data.map(item => item.NetType))];
-        
+
         // Define the desired order
         const orderPriority: { [key: string]: number } = {
             "Net Metering": 1,
@@ -127,12 +132,12 @@ const SolarPVCapacityInformation: React.FC = () => {
             "Net Plus Plus": 4,
             "Convert from Net Metering to Net Accounting": 5
         };
-        
+
         // Sort net types based on priority, unknown types go to the end
         return netTypes.sort((a, b) => {
             const priorityA = orderPriority[a] || 999;
             const priorityB = orderPriority[b] || 999;
-            
+
             if (priorityA !== priorityB) {
                 return priorityA - priorityB;
             }
@@ -164,7 +169,13 @@ const SolarPVCapacityInformation: React.FC = () => {
             setIsLoadingAreas(true);
             setAreaError(null);
             try {
-                const areaData = await fetchWithErrorHandling("/misapi/api/ordinary/areas");
+                let url = "/misapi/api/ordinary/areas";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                } else if (locked["Province"]?.code) {
+                    url += `?provCode=${locked["Province"].code}`;
+                }
+                const areaData = await fetchWithErrorHandling(url);
                 const sortedAreas = (areaData.data || []).sort((a: Area, b: Area) =>
                     a.AreaName.localeCompare(b.AreaName)
                 );
@@ -176,9 +187,8 @@ const SolarPVCapacityInformation: React.FC = () => {
                 setIsLoadingAreas(false);
             }
         };
-
         fetchAreas();
-    }, []);
+    }, [user.Level]);
 
     // Fetch provinces
     useEffect(() => {
@@ -186,12 +196,13 @@ const SolarPVCapacityInformation: React.FC = () => {
             setIsLoadingProvinces(true);
             setProvinceError(null);
             try {
-                const provinceData = await fetchWithErrorHandling(
-                    "/misapi/api/ordinary/province"
-                );
-                const sortedProvinces = (provinceData.data || []).sort(
-                    (a: Province, b: Province) =>
-                        a.ProvinceName.localeCompare(b.ProvinceName)
+                let url = "/misapi/api/ordinary/province";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                }
+                const provinceData = await fetchWithErrorHandling(url);
+                const sortedProvinces = (provinceData.data || []).sort((a: Province, b: Province) =>
+                    a.ProvinceName.localeCompare(b.ProvinceName)
                 );
                 setProvinces(sortedProvinces);
             } catch (err: any) {
@@ -201,9 +212,8 @@ const SolarPVCapacityInformation: React.FC = () => {
                 setIsLoadingProvinces(false);
             }
         };
-
         fetchProvinces();
-    }, []);
+    }, [user.Level]);
 
     // Fetch divisions
     useEffect(() => {
@@ -228,6 +238,15 @@ const SolarPVCapacityInformation: React.FC = () => {
 
         fetchDivisions();
     }, []);
+
+    useEffect(() => {
+        const key = selectedCategory === "Division" ? "Region" : selectedCategory;
+        const lock = locked[key as keyof typeof locked];
+        if (lock) {
+            setCategoryValue(lock.code);
+            setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+        }
+    }, [selectedCategory, locked]);
 
     // Fetch calendar months
     useEffect(() => {
@@ -302,7 +321,7 @@ const SolarPVCapacityInformation: React.FC = () => {
         const sortedData = sortDataHierarchically(pvCapacityData);
 
         const uniqueDivisions = [...new Set(sortedData.map(item => item.Division))];
-        
+
         const divisionGroups: { [key: string]: typeof sortedData } = {};
         const provinceGroups: { [key: string]: typeof sortedData } = {};
         const areaGroups: { [key: string]: typeof sortedData } = {};
@@ -351,14 +370,14 @@ const SolarPVCapacityInformation: React.FC = () => {
             } else {
                 row.push(label);
             }
-            
+
             // For Province Total (colspan=1), we need empty Province and Area columns
             // For Division Total (colspan=2), we need empty Area column
             if (colspan === 1) {
                 row.push(""); // Empty Province column
             }
             row.push(""); // Empty Area column
-            
+
             uniqueNetTypes.forEach(netType => {
                 row.push((netTypeTotals[netType]?.consumers || 0).toString());
                 row.push((netTypeTotals[netType]?.capacity || 0).toFixed(2));
@@ -374,11 +393,11 @@ const SolarPVCapacityInformation: React.FC = () => {
 
         uniqueDivisions.forEach((division) => {
             const provincesInDivision = Object.keys(provinceGroups).filter(pk => pk.startsWith(`${division}-`));
-            
+
             provincesInDivision.forEach((provinceKey) => {
                 const [] = provinceKey.split('-');
                 const areasInProvince = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
-                
+
                 areasInProvince.forEach((areaKey) => {
                     const items = areaGroups[areaKey];
                     const firstItem = items[0];
@@ -400,7 +419,7 @@ const SolarPVCapacityInformation: React.FC = () => {
 
                     const netTypeMap: { [key: string]: { consumers: number; capacity: number } } = {};
                     let areaTotal = { consumers: 0, capacity: 0 };
-                    
+
                     items.forEach((item) => {
                         netTypeMap[item.NetType] = {
                             consumers: item.NoOfConsumers,
@@ -416,14 +435,14 @@ const SolarPVCapacityInformation: React.FC = () => {
                         showProvince ? firstItem.Province : "",
                         firstItem.Area
                     ];
-                    
+
                     uniqueNetTypes.forEach(netType => {
                         row.push(netTypeMap[netType]?.consumers.toString() || "");
                         row.push(netTypeMap[netType]?.capacity.toFixed(2) || "");
                     });
                     row.push(areaTotal.consumers.toString());
                     row.push(areaTotal.capacity.toFixed(2));
-                    
+
                     rows.push(row);
                 });
 
@@ -495,7 +514,7 @@ const SolarPVCapacityInformation: React.FC = () => {
         // Generate the exact same table structure as displayed
         const sortedData = sortDataHierarchically(pvCapacityData);
         const uniqueDivisions = [...new Set(sortedData.map(item => item.Division))];
-        
+
         const divisionGroups: { [key: string]: typeof sortedData } = {};
         const provinceGroups: { [key: string]: typeof sortedData } = {};
         const areaGroups: { [key: string]: typeof sortedData } = {};
@@ -522,31 +541,31 @@ const SolarPVCapacityInformation: React.FC = () => {
         uniqueDivisions.forEach((division) => {
             let count = 0;
             const provincesInDiv = Object.keys(provinceGroups).filter(pk => pk.startsWith(`${division}-`));
-            
+
             provincesInDiv.forEach((provinceKey) => {
                 const areasInProv = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
                 count += areasInProv.length;
-                
+
                 if (areasInProv.length > 1) {
                     count += 1;
                 }
             });
-            
+
             if (provincesInDiv.length > 1) {
                 count += 1;
             }
-            
+
             divisionRowSpans[division] = count;
         });
 
         Object.keys(provinceGroups).forEach((provinceKey) => {
             const areasInProv = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
             let count = areasInProv.length;
-            
+
             if (areasInProv.length > 1) {
                 count += 1;
             }
-            
+
             provinceRowSpans[provinceKey] = count;
         });
 
@@ -573,19 +592,19 @@ const SolarPVCapacityInformation: React.FC = () => {
 
         const renderTotalRowHTML = (label: string, netTypeTotals: any, overallTotal: any, bgColor: string, colspan: number) => {
             let cells = `<td class="text-center font-bold" colspan="${colspan}">${label}</td>`;
-            
+
             uniqueNetTypes.forEach(netType => {
                 cells += `
                     <td class="text-right">${(netTypeTotals[netType]?.consumers || 0).toLocaleString()}</td>
                     <td class="text-right">${formatNumber(netTypeTotals[netType]?.capacity || 0)}</td>
                 `;
             });
-            
+
             cells += `
                 <td class="text-right">${overallTotal.consumers.toLocaleString()}</td>
                 <td class="text-right">${formatNumber(overallTotal.capacity)}</td>
             `;
-            
+
             return `<tr class="${bgColor}">${cells}</tr>`;
         };
 
@@ -597,11 +616,11 @@ const SolarPVCapacityInformation: React.FC = () => {
 
         uniqueDivisions.forEach((division) => {
             const provincesInDivision = Object.keys(provinceGroups).filter(pk => pk.startsWith(`${division}-`));
-            
+
             provincesInDivision.forEach((provinceKey) => {
                 const [] = provinceKey.split('-');
                 const areasInProvince = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
-                
+
                 areasInProvince.forEach((areaKey) => {
                     const items = areaGroups[areaKey];
                     const firstItem = items[0];
@@ -631,7 +650,7 @@ const SolarPVCapacityInformation: React.FC = () => {
 
                     const netTypeMap: { [key: string]: { consumers: number; capacity: number } } = {};
                     let areaTotal = { consumers: 0, capacity: 0 };
-                    
+
                     items.forEach((item) => {
                         netTypeMap[item.NetType] = {
                             consumers: item.NoOfConsumers,
@@ -643,31 +662,31 @@ const SolarPVCapacityInformation: React.FC = () => {
 
                     const rowClass = rowIndex % 2 === 0 ? 'row-even' : 'row-odd';
                     let row = `<tr class="${rowClass}">`;
-                    
+
                     if (showDivision) {
                         row += `<td class="font-medium" rowspan="${divisionRowSpans[divisionKey]}">${firstItem.Division}</td>`;
                     }
-                    
+
                     if (showProvince) {
                         row += `<td rowspan="${provinceRowSpans[provinceKeyForCheck]}">${firstItem.Province}</td>`;
                     }
-                    
+
                     if (showArea) {
                         row += `<td rowspan="${areaRowCounts[areaKeyForCheck]}">${firstItem.Area}</td>`;
                     }
-                    
+
                     uniqueNetTypes.forEach(netType => {
                         row += `
                             <td class="text-right">${netTypeMap[netType]?.consumers.toLocaleString() || ""}</td>
                             <td class="text-right">${netTypeMap[netType] ? formatNumber(netTypeMap[netType].capacity) : ""}</td>
                         `;
                     });
-                    
+
                     row += `
                         <td class="text-right font-bold">${areaTotal.consumers.toLocaleString()}</td>
                         <td class="text-right font-bold">${formatNumber(areaTotal.capacity)}</td>
                     </tr>`;
-                    
+
                     tableRows += row;
                     rowIndex++;
                 });
@@ -691,11 +710,11 @@ const SolarPVCapacityInformation: React.FC = () => {
                 <th rowspan="2">Division</th>
                 <th rowspan="2">Province</th>
                 <th rowspan="2">Area</th>`;
-        
+
         uniqueNetTypes.forEach(netType => {
             headerRow1 += `<th colspan="2">${netType}</th>`;
         });
-        
+
         headerRow1 += `<th colspan="2">Total</th></tr>`;
 
         let headerRow2 = '<tr>';
@@ -816,7 +835,7 @@ const SolarPVCapacityInformation: React.FC = () => {
         const sortedData = sortDataHierarchically(pvCapacityData);
 
         const uniqueDivisions = [...new Set(sortedData.map(item => item.Division))];
-        
+
         const divisionGroups: { [key: string]: typeof sortedData } = {};
         const provinceGroups: { [key: string]: typeof sortedData } = {};
         const areaGroups: { [key: string]: typeof sortedData } = {};
@@ -843,31 +862,31 @@ const SolarPVCapacityInformation: React.FC = () => {
         uniqueDivisions.forEach((division) => {
             let count = 0;
             const provincesInDiv = Object.keys(provinceGroups).filter(pk => pk.startsWith(`${division}-`));
-            
+
             provincesInDiv.forEach((provinceKey) => {
                 const areasInProv = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
                 count += areasInProv.length;
-                
+
                 if (areasInProv.length > 1) {
                     count += 1;
                 }
             });
-            
+
             if (provincesInDiv.length > 1) {
                 count += 1;
             }
-            
+
             divisionRowSpans[division] = count;
         });
 
         Object.keys(provinceGroups).forEach((provinceKey) => {
             const areasInProv = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
             let count = areasInProv.length;
-            
+
             if (areasInProv.length > 1) {
                 count += 1;
             }
-            
+
             provinceRowSpans[provinceKey] = count;
         });
 
@@ -926,11 +945,11 @@ const SolarPVCapacityInformation: React.FC = () => {
 
         uniqueDivisions.forEach((division) => {
             const provincesInDivision = Object.keys(provinceGroups).filter(pk => pk.startsWith(`${division}-`));
-            
+
             provincesInDivision.forEach((provinceKey) => {
                 const [] = provinceKey.split('-');
                 const areasInProvince = Object.keys(areaGroups).filter(ak => ak.startsWith(`${provinceKey}-`));
-                
+
                 areasInProvince.forEach((areaKey) => {
                     const items = areaGroups[areaKey];
                     const firstItem = items[0];
@@ -960,7 +979,7 @@ const SolarPVCapacityInformation: React.FC = () => {
 
                     const netTypeMap: { [key: string]: { consumers: number; capacity: number } } = {};
                     let areaTotal = { consumers: 0, capacity: 0 };
-                    
+
                     items.forEach((item) => {
                         netTypeMap[item.NetType] = {
                             consumers: item.NoOfConsumers,
@@ -980,7 +999,7 @@ const SolarPVCapacityInformation: React.FC = () => {
                                     {firstItem.Division}
                                 </td>
                             ) : null}
-                            
+
                             {showProvince ? (
                                 <td
                                     className="border border-gray-300 px-2 py-1 align-top"
@@ -989,7 +1008,7 @@ const SolarPVCapacityInformation: React.FC = () => {
                                     {firstItem.Province}
                                 </td>
                             ) : null}
-                            
+
                             {showArea ? (
                                 <td
                                     className="border border-gray-300 px-2 py-1 align-top"
@@ -998,7 +1017,7 @@ const SolarPVCapacityInformation: React.FC = () => {
                                     {firstItem.Area}
                                 </td>
                             ) : null}
-                            
+
                             {uniqueNetTypes.map(netType => (
                                 <React.Fragment key={netType}>
                                     <td className="border border-gray-300 px-2 py-1 text-right">
@@ -1009,7 +1028,7 @@ const SolarPVCapacityInformation: React.FC = () => {
                                     </td>
                                 </React.Fragment>
                             ))}
-                            
+
                             <td className="border border-gray-300 px-2 py-1 text-right font-semibold">
                                 {areaTotal.consumers.toLocaleString()}
                             </td>
@@ -1328,10 +1347,11 @@ const SolarPVCapacityInformation: React.FC = () => {
                                     required
                                     disabled={isCategoryDisabled()}
                                 >
-                                    <option value="Area">Area</option>
-                                    <option value="Province">Province</option>
-                                    <option value="Division">Division</option>
-                                    <option value="Entire CEB">Entire CEB</option>
+                                    {allowedCategories.map((cat) => (
+                                        <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                                            {cat === "Region" ? "Division" : cat}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -1370,6 +1390,16 @@ const SolarPVCapacityInformation: React.FC = () => {
                                         </div>
                                     ) : areaError ? (
                                         <div className="text-red-500 text-xs py-2">{areaError}</div>
+                                    ) : locked["Area"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Area"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Area"].code}>
+                                                {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                                            </option>
+                                        </select>
                                     ) : (
                                         <select
                                             value={categoryValue}
@@ -1439,24 +1469,32 @@ const SolarPVCapacityInformation: React.FC = () => {
                                         <div className="text-red-500 text-xs py-2">
                                             {provinceError}
                                         </div>
+                                    ) : locked["Province"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Province"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Province"].code}>
+                                                {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                                            </option>
+                                        </select>
                                     ) : (
                                         <select
                                             value={categoryValue}
                                             onChange={(e) => setCategoryValue(e.target.value)}
                                             className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                        ${isCategoryValueDisabled()
+                                            ${isCategoryValueDisabled()
                                                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                                                     : "border-gray-300"
                                                 }`}
+
                                             required
                                             disabled={isCategoryValueDisabled()}
                                         >
                                             <option value="">Select Province</option>
                                             {provinces.map((province) => (
-                                                <option
-                                                    key={province.ProvinceCode}
-                                                    value={province.ProvinceCode}
-                                                >
+                                                <option key={province.ProvinceCode} value={province.ProvinceCode}>
                                                     {formatProvinceOption(province)}
                                                 </option>
                                             ))}
@@ -1502,6 +1540,14 @@ const SolarPVCapacityInformation: React.FC = () => {
                                         <div className="text-red-500 text-xs py-2">
                                             {divisionError}
                                         </div>
+                                    ) : locked["Region"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Region"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                                        </select>
                                     ) : (
                                         <select
                                             value={categoryValue}
@@ -1516,10 +1562,7 @@ const SolarPVCapacityInformation: React.FC = () => {
                                         >
                                             <option value="">Select Division</option>
                                             {divisions.map((division) => (
-                                                <option
-                                                    key={division.RegionCode}
-                                                    value={division.RegionCode}
-                                                >
+                                                <option key={division.RegionCode} value={division.RegionCode}>
                                                     {formatDivisionOption(division)}
                                                 </option>
                                             ))}

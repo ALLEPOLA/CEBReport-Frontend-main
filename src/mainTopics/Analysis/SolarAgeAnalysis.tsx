@@ -5,6 +5,8 @@ import React, {
   useCallback,
 } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // Interfaces
 interface Area {
@@ -70,6 +72,9 @@ const SolarAgeAnalysis: React.FC = () => {
   const [reportMode, setReportMode] = useState<"age" | "full" | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 30;
+
+  const { user } = useUser();
+  const { locked } = useReportScope();
 
   // chart removed
 
@@ -177,17 +182,24 @@ const SolarAgeAnalysis: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch areas
-        const areaData = await fetchWithErrorHandling(
-          "/misapi/api/analysis/solar-age/areas"
-        );
-        setAreas(areaData.data || []);
-        if (areaData.data?.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            areaCode: areaData.data[0].AreaCode,
-          }));
+        // Fetch areas — switched to the ordinary endpoint, which already
+        // supports region/province scoping and matches the DB connection
+        // this report's actual data queries use.
+        let areasUrl = "/misapi/api/ordinary/areas";
+        if (locked["Region"]?.code) {
+          areasUrl += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          areasUrl += `?provCode=${locked["Province"].code}`;
         }
+        const areaData = await fetchWithErrorHandling(areasUrl);
+        setAreas(areaData.data || []);
+
+        const defaultAreaCode = locked["Area"]?.code
+          || (areaData.data?.length > 0 ? areaData.data[0].AreaCode : "");
+        setFormData((prev) => ({
+          ...prev,
+          areaCode: defaultAreaCode,
+        }));
 
         // Fetch bill cycles from the shared bill cycle API
         // Original implementation (kept commented for reference):
@@ -257,7 +269,7 @@ const SolarAgeAnalysis: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   // Calculate age group summary
   const calculateAgeGroupSummary = useCallback(
@@ -464,7 +476,7 @@ const SolarAgeAnalysis: React.FC = () => {
 
     const isFullReport = reportMode === "full";
 
-     // Escape a cell value for CSV.
+    // Escape a cell value for CSV.
     // Long numeric-only strings (e.g. account numbers) are wrapped with ="..."
     // so Excel / WPS Office renders the full number instead of scientific notation.
     // This also maximises the visible column width because the cell content is
@@ -484,40 +496,40 @@ const SolarAgeAnalysis: React.FC = () => {
 
     const headers = isFullReport
       ? [
-          "Account Number",
-          "Name",
-          "Address",
-          "Type",
-          "Initial Agreement Date",
-          "Panel Capacity",
-        ]
+        "Account Number",
+        "Name",
+        "Address",
+        "Type",
+        "Initial Agreement Date",
+        "Panel Capacity",
+      ]
       : [
-          "Account Number",
-          "Name",
-          "Address",
-          "Net Type",
-          "Initial Agreement Date",
-          "Age (Years)",
-        ];
+        "Account Number",
+        "Name",
+        "Address",
+        "Net Type",
+        "Initial Agreement Date",
+        "Age (Years)",
+      ];
 
     const rows = customers.map((customer) =>
       isFullReport
         ? [
-            customer.AccountNumber,
-            customer.Name,
-            customer.Address,
-            customer.NetType,
-            customer.InitialAgreementDate,
-            customer.PanelCapacity || "",
-          ]
+          customer.AccountNumber,
+          customer.Name,
+          customer.Address,
+          customer.NetType,
+          customer.InitialAgreementDate,
+          customer.PanelCapacity || "",
+        ]
         : [
-            customer.AccountNumber,
-            customer.Name,
-            customer.Address,
-            customer.NetType,
-            customer.InitialAgreementDate,
-            customer.AgeInYears?.toString() || "N/A",
-          ]
+          customer.AccountNumber,
+          customer.Name,
+          customer.Address,
+          customer.NetType,
+          customer.InitialAgreementDate,
+          customer.AgeInYears?.toString() || "N/A",
+        ]
     );
 
     // const summaryRows =
@@ -548,9 +560,9 @@ const SolarAgeAnalysis: React.FC = () => {
     //   ),
     // ].join("\n");
 
-        const areaName =
+    const areaName =
       areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName || "";
- 
+
     const lines: string[] = [
       `"Solar Age Analysis Report"`,
       `"Bill Cycle: ${getFormattedBillCycle()}"`,
@@ -564,37 +576,36 @@ const SolarAgeAnalysis: React.FC = () => {
     ];
 
 
-  //   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  //   const url = URL.createObjectURL(blob);
-  //   const link = document.createElement("a");
-  //   link.href = url;
-  //   link.download = `SolarAgeAnalysis_Cycle${
-  //     formData.billCycle
-  //   }_Area${formData.areaCode}_${new Date().toISOString().slice(0, 10)}.csv`;
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   document.body.removeChild(link);
-  //   URL.revokeObjectURL(url);
-  // }, [customers, formData, billCycleOptions, areas, ageGroupSummary]);
+    //   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    //   const url = URL.createObjectURL(blob);
+    //   const link = document.createElement("a");
+    //   link.href = url;
+    //   link.download = `SolarAgeAnalysis_Cycle${
+    //     formData.billCycle
+    //   }_Area${formData.areaCode}_${new Date().toISOString().slice(0, 10)}.csv`;
+    //   document.body.appendChild(link);
+    //   link.click();
+    //   document.body.removeChild(link);
+    //   URL.revokeObjectURL(url);
+    // }, [customers, formData, billCycleOptions, areas, ageGroupSummary]);
 
-  // UTF-8 BOM ensures Excel / WPS Office opens the file with the correct
+    // UTF-8 BOM ensures Excel / WPS Office opens the file with the correct
     // encoding so special characters (e.g. Sinhala names) are not garbled.
     const BOM = "\uFEFF";
     const csvContent = BOM + lines.join("\r\n");
- 
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `SolarAgeAnalysis_Cycle${formData.billCycle}_Area${
-      formData.areaCode
-    }_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `SolarAgeAnalysis_Cycle${formData.billCycle}_Area${formData.areaCode
+      }_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }, [customers, reportMode, formData, billCycleOptions, areas, ageGroupSummary]);
- 
+
 
   const printPDF = () => {
     if (!customers.length) return;
@@ -623,21 +634,16 @@ const SolarAgeAnalysis: React.FC = () => {
         const bgColor = index % 2 === 0 ? "#ffffff" : "#f9f9f9";
         tableHTML += `
           <tr style="background-color: ${bgColor};">
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              customer.AccountNumber
-            }</td>
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              customer.Name
-            }</td>
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              customer.Address
-            }</td>
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              customer.NetType
-            }</td>
-            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${
-              customer.InitialAgreementDate
-            }</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${customer.AccountNumber
+          }</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${customer.Name
+          }</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${customer.Address
+          }</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${customer.NetType
+          }</td>
+            <td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${customer.InitialAgreementDate
+          }</td>
             ${isFullReport ? `<td style="border: 1px solid #ddd; padding: 2px 4px; font-size: 10px; vertical-align: top;">${customer.PanelCapacity || ""}</td>` : ''}
           </tr>`;
       });
@@ -706,9 +712,8 @@ const SolarAgeAnalysis: React.FC = () => {
         <body>
           <div class="header">SOLAR AGE ANALYSIS REPORT</div>
           <div class="subheader">
-            Area: <span class="bold">${
-              areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName
-            } (${formData.areaCode})</span><br>
+            Area: <span class="bold">${areas.find((a) => a.AreaCode === formData.areaCode)?.AreaName
+      } (${formData.areaCode})</span><br>
             Bill Cycle: <span class="bold">${getFormattedBillCycle()}</span><br>
             Total Customers: <span class="bold">${customers.length}</span><br>
           </div>
@@ -751,36 +756,31 @@ const SolarAgeAnalysis: React.FC = () => {
             <label className={`${maroon} text-xs font-medium mb-1`}>
               Select Area:
             </label>
-            <select
-              name="areaCode"
-              value={formData.areaCode}
-              onChange={handleInputChange}
-              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-              required
-            >
-              {areas.map((area) => (
-                <React.Fragment key={area.AreaCode}>
-                  {/* Original display (kept commented):
-                  <option
-                    key={area.AreaCode}
-                    value={area.AreaCode}
-                    className="text-xs py-1"
-                  >
-                    {area.AreaName} ({area.AreaCode})
-                  </option>
-                  */}
-
-                  {/* New display: areaCode - areaName */}
-                  <option
-                    key={area.AreaCode}
-                    value={area.AreaCode}
-                    className="text-xs py-1"
-                  >
+            {locked["Area"] ? (
+              <select
+                disabled
+                value={locked["Area"].code}
+                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+              >
+                <option value={locked["Area"].code}>
+                  {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                </option>
+              </select>
+            ) : (
+              <select
+                name="areaCode"
+                value={formData.areaCode}
+                onChange={handleInputChange}
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                required
+              >
+                {areas.map((area) => (
+                  <option key={area.AreaCode} value={area.AreaCode} className="text-xs py-1">
                     {area.AreaCode} - {area.AreaName}
                   </option>
-                </React.Fragment>
-              ))}
-            </select>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Bill Cycle Dropdown */}
@@ -855,8 +855,8 @@ const SolarAgeAnalysis: React.FC = () => {
               px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
               ${maroonGrad} text-white
               ${viewLoading || fullReportLoading || !formData.areaCode || !formData.billCycle
-                  ? "opacity-70 cursor-not-allowed"
-                  : "hover:opacity-90"}
+                ? "opacity-70 cursor-not-allowed"
+                : "hover:opacity-90"}
             `}
           >
             {fullReportLoading ? (
@@ -893,11 +893,10 @@ const SolarAgeAnalysis: React.FC = () => {
             return (
               <div
                 key={index}
-                className={`flex items-center justify-between gap-2 rounded border px-2 py-1.5 ${
-                  isSelected
+                className={`flex items-center justify-between gap-2 rounded border px-2 py-1.5 ${isSelected
                     ? "border-[#7A0000] bg-red-50"
                     : "border-gray-200 bg-white"
-                }`}
+                  }`}
               >
                 <div className="text-sm font-medium text-gray-800 leading-none">
                   {item.ageGroup}

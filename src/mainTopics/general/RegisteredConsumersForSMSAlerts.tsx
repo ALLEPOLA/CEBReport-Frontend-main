@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface BillCycleOption {
   display: string;
@@ -60,6 +62,9 @@ const RegisteredConsumersForSMSAlerts = () => {
   const [selectedFromCycleLabel, setSelectedFromCycleLabel] = useState<string>("");
   const [selectedToCycleLabel, setSelectedToCycleLabel] = useState<string>("");
 
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+
   const printRef = useRef<HTMLDivElement>(null);
 
   const fetchWithErrorHandling = async <T,>(url: string): Promise<T> => {
@@ -87,12 +92,21 @@ const RegisteredConsumersForSMSAlerts = () => {
       setReportError(null);
 
       try {
+        let areasUrl = "/misapi/api/ordinary/areas";
+        let provinceUrl = "/misapi/api/ordinary/province";
+        if (locked["Region"]?.code) {
+          areasUrl += `?regionCode=${locked["Region"].code}`;
+          provinceUrl += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          areasUrl += `?provCode=${locked["Province"].code}`;
+        }
+
         const [cyclesRes, areaRes, provinceRes, divisionRes] = await Promise.all([
           fetchWithErrorHandling<{ data?: { BillCycles?: string[]; MaxBillCycle?: string } }>(
             "/misapi/api/ordinary/areas/billcycle/min"
           ),
-          fetchWithErrorHandling<{ data?: Area[] }>("/misapi/api/ordinary/areas"),
-          fetchWithErrorHandling<{ data?: Province[] }>("/misapi/api/ordinary/province"),
+          fetchWithErrorHandling<{ data?: Area[] }>(areasUrl),
+          fetchWithErrorHandling<{ data?: Province[] }>(provinceUrl),
           fetchWithErrorHandling<{ data?: Division[] }>("/misapi/api/ordinary/region"),
         ]);
 
@@ -131,11 +145,19 @@ const RegisteredConsumersForSMSAlerts = () => {
     };
 
     loadFilters();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   useEffect(() => {
     setTypeCode("");
   }, [reportType]);
+
+  useEffect(() => {
+    const lockKey = reportType === "division" ? "Region" : reportType === "area" ? "Area" : "Province";
+    const lock = locked[lockKey as keyof typeof locked];
+    if (lock) {
+      setTypeCode(lock.code);
+    }
+  }, [reportType, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
   const typeOptions = useMemo(() => {
     if (reportType === "area") {
@@ -421,10 +443,15 @@ const RegisteredConsumersForSMSAlerts = () => {
                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
                   disabled={isLoadingFilters || isLoadingReport}
                 >
-                  <option value="area">Area</option>
-                  <option value="province">Province</option>
-                  <option value="division">Division</option>
-                  <option value="entireceb">Entire CEB</option>
+                  {allowedCategories.map((cat) => {
+                    const value = cat === "Region" ? "division" : cat === "Entire CEB" ? "entireceb" : cat.toLowerCase();
+                    const label = cat === "Region" ? "Division" : cat;
+                    return (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -434,42 +461,56 @@ const RegisteredConsumersForSMSAlerts = () => {
                     {reportType === "area"
                       ? "Select Area:"
                       : reportType === "province"
-                      ? "Select Province:"
-                      : "Select Division:"}
+                        ? "Select Province:"
+                        : "Select Division:"}
                   </label>
-                  <select
-                    value={typeCode}
-                    onChange={(e) => setTypeCode(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-                    disabled={isLoadingFilters || isLoadingReport}
-                    required
-                  >
-                    <option value="">Select Value</option>
-                    {typeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const lockKey = reportType === "division" ? "Region" : reportType === "area" ? "Area" : "Province";
+                    const lock = locked[lockKey as keyof typeof locked];
+                    return lock ? (
+                      <select
+                        disabled
+                        value={lock.code}
+                        className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={lock.code}>
+                          {lock.name ? `${lock.code} - ${lock.name}` : lock.code}
+                        </option>
+                      </select>
+                    ) : (
+                      <select
+                        value={typeCode}
+                        onChange={(e) => setTypeCode(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                        disabled={isLoadingFilters || isLoadingReport}
+                        required
+                      >
+                        <option value="">Select Value</option>
+                        {typeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  })()}
                 </div>
               )}
 
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isBillCycleDisabled() ? "text-gray-400" : maroon
-                  }`}
+                  className={`text-xs font-medium mb-1 ${isBillCycleDisabled() ? "text-gray-400" : maroon
+                    }`}
                 >
                   From Bill Cycle:
                 </label>
                 <select
                   value={fromCycle}
                   onChange={(e) => setFromCycle(e.target.value)}
-                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                    isBillCycleDisabled()
+                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isBillCycleDisabled()
                       ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                       : "border-gray-300"
-                  }`}
+                    }`}
                   disabled={isBillCycleDisabled()}
                   required
                 >
@@ -484,20 +525,18 @@ const RegisteredConsumersForSMSAlerts = () => {
 
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isBillCycleDisabled() ? "text-gray-400" : maroon
-                  }`}
+                  className={`text-xs font-medium mb-1 ${isBillCycleDisabled() ? "text-gray-400" : maroon
+                    }`}
                 >
                   To Bill Cycle:
                 </label>
                 <select
                   value={toCycle}
                   onChange={(e) => setToCycle(e.target.value)}
-                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                    isBillCycleDisabled()
+                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isBillCycleDisabled()
                       ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                       : "border-gray-300"
-                  }`}
+                    }`}
                   disabled={isBillCycleDisabled()}
                   required
                 >
@@ -514,9 +553,8 @@ const RegisteredConsumersForSMSAlerts = () => {
             <div className="w-full mt-6 flex justify-end">
               <button
                 type="submit"
-                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${
-                  isLoadingReport ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
-                }`}
+                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${isLoadingReport ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                  }`}
                 disabled={isLoadingFilters || isLoadingReport}
               >
                 {isLoadingReport ? "Loading..." : "Generate Report"}
@@ -564,33 +602,33 @@ const RegisteredConsumersForSMSAlerts = () => {
             <div className="overflow-x-auto max-h-[calc(100vh-250px)]">
               <div ref={printRef} className="w-fit print-table-wrapper">
                 <table className="sms-alerts-table w-auto min-w-[480px] border-collapse text-xs table-fixed">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="w-60 px-2 py-1.5 text-left border-b border-gray-300">Month</th>
-                    <th className="w-60 px-2 py-1.5 text-right border-l border-b border-gray-300">Registered Count</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-300">
-                  {monthlyCounts.length === 0 ? (
+                  <thead className="bg-gray-100">
                     <tr>
-                      <td colSpan={2} className="px-2 py-2 text-center text-gray-500">
-                        No data available for selected filters.
-                      </td>
+                      <th className="w-60 px-2 py-1.5 text-left border-b border-gray-300">Month</th>
+                      <th className="w-60 px-2 py-1.5 text-right border-l border-b border-gray-300">Registered Count</th>
                     </tr>
-                  ) : (
-                    monthlyCounts.map((row) => (
-                      <tr key={row.BillCycle}>
-                        <td className="px-2 py-1.5 text-gray-700">
-                          {getBillCycleDisplay(row.BillCycle)}
-                        </td>
-                        <td className="px-2 py-1.5 text-right font-medium text-gray-800 border-l border-gray-300">
-                          {row.Count.toLocaleString()}
+                  </thead>
+                  <tbody className="divide-y divide-gray-300">
+                    {monthlyCounts.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="px-2 py-2 text-center text-gray-500">
+                          No data available for selected filters.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      monthlyCounts.map((row) => (
+                        <tr key={row.BillCycle}>
+                          <td className="px-2 py-1.5 text-gray-700">
+                            {getBillCycleDisplay(row.BillCycle)}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-medium text-gray-800 border-l border-gray-300">
+                            {row.Count.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

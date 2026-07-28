@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
     AreaCode: string;
@@ -101,6 +103,9 @@ const SolarConnectionDetailsRetail: React.FC = () => {
     // Report data
     const [detailedData, setDetailedData] = useState<DetailedConnectionData[]>([]);
     const [summaryData, setSummaryData] = useState<SummaryConnectionData[]>([]);
+
+    const { user } = useUser();
+    const { allowedCategories, locked } = useReportScope();
 
     const printRef = useRef<HTMLDivElement>(null);
 
@@ -529,9 +534,13 @@ const SolarConnectionDetailsRetail: React.FC = () => {
             setIsLoadingAreas(true);
             setAreaError(null);
             try {
-                const data = await fetchWithErrorHandling(
-                    "/misapi/api/ordinary/areas"
-                );
+                let url = "/misapi/api/ordinary/areas";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                } else if (locked["Province"]?.code) {
+                    url += `?provCode=${locked["Province"].code}`;
+                }
+                const data = await fetchWithErrorHandling(url);
                 if (data.errorMessage) {
                     setAreaError(data.errorMessage);
                 } else {
@@ -539,9 +548,7 @@ const SolarConnectionDetailsRetail: React.FC = () => {
                 }
             } catch (error) {
                 setAreaError(
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to load areas"
+                    error instanceof Error ? error.message : "Failed to load areas"
                 );
             } finally {
                 setIsLoadingAreas(false);
@@ -549,7 +556,7 @@ const SolarConnectionDetailsRetail: React.FC = () => {
         };
 
         fetchAreas();
-    }, []);
+    }, [user.Level]);
 
     // Fetch provinces
     useEffect(() => {
@@ -557,9 +564,11 @@ const SolarConnectionDetailsRetail: React.FC = () => {
             setIsLoadingProvinces(true);
             setProvinceError(null);
             try {
-                const data = await fetchWithErrorHandling(
-                    "/misapi/api/ordinary/province"
-                );
+                let url = "/misapi/api/ordinary/province";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                }
+                const data = await fetchWithErrorHandling(url);
                 if (data.errorMessage) {
                     setProvinceError(data.errorMessage);
                 } else {
@@ -567,9 +576,7 @@ const SolarConnectionDetailsRetail: React.FC = () => {
                 }
             } catch (error) {
                 setProvinceError(
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to load provinces"
+                    error instanceof Error ? error.message : "Failed to load provinces"
                 );
             } finally {
                 setIsLoadingProvinces(false);
@@ -577,7 +584,7 @@ const SolarConnectionDetailsRetail: React.FC = () => {
         };
 
         fetchProvinces();
-    }, []);
+    }, [user.Level]);
 
     // Fetch divisions
     useEffect(() => {
@@ -606,6 +613,15 @@ const SolarConnectionDetailsRetail: React.FC = () => {
 
         fetchDivisions();
     }, []);
+
+    useEffect(() => {
+        const key = selectedCategory === "Division" ? "Region" : selectedCategory;
+        const lock = locked[key as keyof typeof locked];
+        if (lock) {
+            setCategoryValue(lock.code);
+            setSelectedCategoryName?.(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+        }
+    }, [selectedCategory, locked]);
 
     // Fetch cycles when cycle type changes
     useEffect(() => {
@@ -1323,10 +1339,11 @@ const SolarConnectionDetailsRetail: React.FC = () => {
                                     required
                                     disabled={isReportCategoryDisabled()}
                                 >
-                                    <option value="Area">Area</option>
-                                    <option value="Province">Province</option>
-                                    <option value="Division">Division</option>
-                                    <option value="Entire CEB">Entire CEB</option>
+                                    {allowedCategories.map((cat) => (
+                                        <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                                            {cat === "Region" ? "Division" : cat}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -1340,91 +1357,116 @@ const SolarConnectionDetailsRetail: React.FC = () => {
                                         Select {selectedCategory}:
                                     </label>
                                     {selectedCategory === "Area" && (
-                                        <select
-                                            value={categoryValue}
-                                            onChange={(e) => setCategoryValue(e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
+                                        locked["Area"] ? (
+                                            <select
+                                                disabled
+                                                value={locked["Area"].code}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            >
+                                                <option value={locked["Area"].code}>
+                                                    {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                                                </option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                value={categoryValue}
+                                                onChange={(e) => setCategoryValue(e.target.value)}
+                                                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
                         ${isCategoryValueDisabled()
-                                                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                    : "border-gray-300"
-                                                }`}
-                                            required
-                                            disabled={isCategoryValueDisabled()}
-                                        >
-                                            <option value="">Select Area</option>
-                                            {isLoadingAreas ? (
-                                                <option value="">Loading...</option>
-                                            ) : areaError ? (
-                                                <option value="">Error loading areas</option>
-                                            ) : (
-                                                areas.map((area) => (
-                                                    <option
-                                                        key={area.AreaCode}
-                                                        value={area.AreaCode}
-                                                    >
-                                                        {area.AreaCode} - {area.AreaName}
-                                                    </option>
-                                                ))
-                                            )}
-                                        </select>
+                                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        : "border-gray-300"
+                                                    }`}
+                                                required
+                                                disabled={isCategoryValueDisabled()}
+                                            >
+                                                <option value="">Select Area</option>
+                                                {isLoadingAreas ? (
+                                                    <option value="">Loading...</option>
+                                                ) : areaError ? (
+                                                    <option value="">Error loading areas</option>
+                                                ) : (
+                                                    areas.map((area) => (
+                                                        <option key={area.AreaCode} value={area.AreaCode}>
+                                                            {area.AreaCode} - {area.AreaName}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        )
                                     )}
                                     {selectedCategory === "Province" && (
-                                        <select
-                                            value={categoryValue}
-                                            onChange={(e) => setCategoryValue(e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
+                                        locked["Province"] ? (
+                                            <select
+                                                disabled
+                                                value={locked["Province"].code}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            >
+                                                <option value={locked["Province"].code}>
+                                                    {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                                                </option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                value={categoryValue}
+                                                onChange={(e) => setCategoryValue(e.target.value)}
+                                                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
                         ${isCategoryValueDisabled()
-                                                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                    : "border-gray-300"
-                                                }`}
-                                            required
-                                            disabled={isCategoryValueDisabled()}
-                                        >
-                                            <option value="">Select Province</option>
-                                            {isLoadingProvinces ? (
-                                                <option value="">Loading...</option>
-                                            ) : provinceError ? (
-                                                <option value="">Error loading provinces</option>
-                                            ) : (
-                                                provinces.map((province) => (
-                                                    <option
-                                                        key={province.ProvinceCode}
-                                                        value={province.ProvinceCode}
-                                                    >
-                                                        {province.ProvinceCode} - {province.ProvinceName}
-                                                    </option>
-                                                ))
-                                            )}
-                                        </select>
+                                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        : "border-gray-300"
+                                                    }`}
+                                                required
+                                                disabled={isCategoryValueDisabled()}
+                                            >
+                                                <option value="">Select Province</option>
+                                                {isLoadingProvinces ? (
+                                                    <option value="">Loading...</option>
+                                                ) : provinceError ? (
+                                                    <option value="">Error loading provinces</option>
+                                                ) : (
+                                                    provinces.map((province) => (
+                                                        <option key={province.ProvinceCode} value={province.ProvinceCode}>
+                                                            {province.ProvinceCode} - {province.ProvinceName}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        )
                                     )}
                                     {selectedCategory === "Division" && (
-                                        <select
-                                            value={categoryValue}
-                                            onChange={(e) => setCategoryValue(e.target.value)}
-                                            className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
+                                        locked["Region"] ? (
+                                            <select
+                                                disabled
+                                                value={locked["Region"].code}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            >
+                                                <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                                            </select>
+                                        ) : (
+                                            <select
+                                                value={categoryValue}
+                                                onChange={(e) => setCategoryValue(e.target.value)}
+                                                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
                         ${isCategoryValueDisabled()
-                                                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                    : "border-gray-300"
-                                                }`}
-                                            required
-                                            disabled={isCategoryValueDisabled()}
-                                        >
-                                            <option value="">Select Division</option>
-                                            {isLoadingDivisions ? (
-                                                <option value="">Loading...</option>
-                                            ) : divisionError ? (
-                                                <option value="">Error loading divisions</option>
-                                            ) : (
-                                                divisions.map((division) => (
-                                                    <option
-                                                        key={division.RegionCode}
-                                                        value={division.RegionCode}
-                                                    >
-                                                        {formatDivisionOption(division)}
-                                                    </option>
-                                                ))
-                                            )}
-                                        </select>
+                                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        : "border-gray-300"
+                                                    }`}
+                                                required
+                                                disabled={isCategoryValueDisabled()}
+                                            >
+                                                <option value="">Select Division</option>
+                                                {isLoadingDivisions ? (
+                                                    <option value="">Loading...</option>
+                                                ) : divisionError ? (
+                                                    <option value="">Error loading divisions</option>
+                                                ) : (
+                                                    divisions.map((division) => (
+                                                        <option key={division.RegionCode} value={division.RegionCode}>
+                                                            {formatDivisionOption(division)}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        )
                                     )}
                                 </div>
                             )}

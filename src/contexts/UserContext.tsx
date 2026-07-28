@@ -22,6 +22,12 @@ type User = {
   Logged: boolean;
   RoleId?: string;
   Role?: string;
+  Level?: number;
+  AreaCode?: string;
+  AreaName?: string;
+  ProvinceCode?: string;
+  ProvinceName?: string;
+  RegionCode?: string;
 };
 
 type UserContextType = {
@@ -50,6 +56,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           Common_exception: "",
           Errormsg: "",
           Logged: false,
+          Level: 0,
+          AreaCode: "",
+          AreaName: "",
+          ProvinceCode: "",
+          ProvinceName: "",
+          RegionCode: "",
+          RegionName: "",
         };
   });
 
