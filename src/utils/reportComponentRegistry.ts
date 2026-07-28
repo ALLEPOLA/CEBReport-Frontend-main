@@ -1,5 +1,8 @@
 import type { ComponentType } from "react";
 
+//Report Catalog
+import ReportCatalog from "../pages/ReportCatalog";
+
 // PIV reports
 import ProvincePIV from "../mainTopics/PIV/ProvincePIV";
 import ProvincePIVProvincial from "../mainTopics/PIV/ProvincePIVProvincial";
@@ -477,6 +480,13 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"region trial balance": ReagionTrial,
 	"area wise trial balance": AreaTrialBalance,
 
+	// Catalog reports
+	"all reports": ReportCatalog,
+	"all-reports": ReportCatalog,
+	"report catalog": ReportCatalog,
+	"reportcatalog": ReportCatalog,
+	"catalog": ReportCatalog,
+	
 	// Work In Progress reports
 	"cost center wise work in progress with age analysis": AgeAnalysisCostCenter,
 	"cost center wise work in progress completed projects": CompletedCostCenterWise,
