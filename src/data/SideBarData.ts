@@ -86,7 +86,7 @@ const ROLE_REPORTS_ENDPOINTS = [
   
 ];
 
-const DEFAULT_CATEGORY_CONFIG: CategoryConfig = {
+export const DEFAULT_CATEGORY_CONFIG: CategoryConfig = {
   icon: TbReportAnalytics,
   path: "/report/reports",
 };
@@ -98,9 +98,6 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   Dashboard: { icon: MdDashboard, path: "/dashboard" },
   DashBoard: { icon: MdDashboard, path: "/dashboard" },
   "Main Dashboard": { icon: MdDashboard, path: "/dashboard" },
-  "DB-Dashboard": { icon: MdDashboard, path: "/dashboard" },
-  "DB-DASHBOARD": { icon: MdDashboard, path: "/dashboard" },
-  "Dashboards": { icon: MdDashboard, path: "/dashboard" },
   General: { icon: MdPayment, path: "/report/general" },
   "Customer Details": { icon: RiBankLine, path: "/report/billing-payment" },
   Analysis: { icon: FaBoxes, path: "/report/analysis" },
@@ -128,7 +125,7 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   "Physical Verification - FIFO": { icon: TbReportAnalytics, path: "/report/PhysicalVerification/FIFO" },
 };
 
-const normalizeCategoryKey = (value: string): string =>
+export const normalizeCategoryKey = (value: string): string =>
   value
     .trim()
     .replace(/[\u2013\u2014]/g, "-")

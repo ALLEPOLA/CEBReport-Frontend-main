@@ -20,6 +20,8 @@ type User = {
   Common_exception: string | null;
   Errormsg: string | null;
   Logged: boolean;
+  RoleId?: string;
+  Role?: string;
   Level?: number;
   AreaCode?: string;
   AreaName?: string;
