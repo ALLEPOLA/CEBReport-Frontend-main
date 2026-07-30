@@ -59,13 +59,7 @@ export default defineConfig(({ mode }) => {
 									secure: false,
 									rewrite: (path) => path.replace(/^\/misapi/, ""),
 								},
-				*/
-				"/misapi/api/provincewiseperiodstatus/report": {
-                    target: env.VITE_LOCAL_API,
-                    changeOrigin: true,
-                    secure: false,
-                    rewrite: (path) => path.replace(/^\/misapi/, ""),
-                },
+			*/
 
 				"/misapi/api/reportcatalog/all":{
 					target: env.VITE_LOCAL_API,
@@ -76,10 +70,10 @@ export default defineConfig(({ mode }) => {
                 
 
 				"/misapi": {
-					target: env.VITE_LOCAL_API,
+					target: env.VITE_SERVER_API,
 					changeOrigin: true,
 					secure: false,
-					rewrite: (path) => path.replace(/^\/misapi/, ""),
+					// rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
 
 				"/api": {
