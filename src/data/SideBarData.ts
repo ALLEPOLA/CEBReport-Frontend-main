@@ -340,19 +340,40 @@ export const buildTopics = (roleReports: RoleReportApiItem[]): Topic[] => {
     topicIndex += 1;
   }
 
+  // Sort topics with specific order: Dashboard first, then Report Catalog, then alphabetical
   topics.sort((a, b) => {
-    const aIsDashboard = a.path.toLowerCase() === "/dashboard";
-    const bIsDashboard = b.path.toLowerCase() === "/dashboard";
+    const aIsDashboard = a.name.toLowerCase() === "dashboard" || a.path.toLowerCase() === "/dashboard";
+    const bIsDashboard = b.name.toLowerCase() === "dashboard" || b.path.toLowerCase() === "/dashboard";
+    
+    const aIsReportCatalog = a.name.toLowerCase() === "report catalog" || a.name.toLowerCase() === "all reports";
+    const bIsReportCatalog = b.name.toLowerCase() === "report catalog" || b.name.toLowerCase() === "all reports";
 
+    // Dashboard always comes first
     if (aIsDashboard && !bIsDashboard) {
       return -1;
     }
-
     if (!aIsDashboard && bIsDashboard) {
       return 1;
     }
 
-    return 0;
+    // Report Catalog comes second (after Dashboard)
+    if (aIsReportCatalog && !bIsReportCatalog) {
+      return -1;
+    }
+    if (!aIsReportCatalog && bIsReportCatalog) {
+      return 1;
+    }
+
+    // If both are Dashboard or both are Report Catalog, maintain their relative order
+    if (aIsDashboard && bIsDashboard) {
+      return 0;
+    }
+    if (aIsReportCatalog && bIsReportCatalog) {
+      return 0;
+    }
+
+    // All other topics sorted alphabetically by name
+    return a.name.localeCompare(b.name);
   });
 
   return topics;

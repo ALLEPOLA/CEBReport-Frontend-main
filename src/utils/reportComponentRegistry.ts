@@ -354,36 +354,18 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"7. physical verification non-moving wh wise (fifo) - av/6/bos": PHVNonMovingBOSReport,
 
 	// Physical Verification reports
-	"phv entry form": PHVEntryForm,
-	"phv validation": PHVValidation,
-	"phv validation warehousewise": PHVValidationWarehousewise,
-	"annual verification sheet signature av 1 a": AnnualVerificationSheetSignature,
-	"annual verification sheet whwise signature av 1 a": AnnualVerificationWHwiseSignature,
-	"physical verification non moving slow moving wh wise av 6": PHVSlowNonMovingWHwise,
-	"physical verification shortage surplus wh wise av 1 b": PHVShortageSurplusWHwise,
-	"physical verification obsolete idle grade code av 7a": PHVObsoleteIdle,
-	
-	// PHV abbreviation variants for obsolete/idle (non-BOS)
+	"1 phv entry form": PHVEntryForm,
+	"2 1 phv validation": PHVValidation,
+	"2 2 phv validation warehousewise": PHVValidationWarehousewise,
+	"3 1 annual verification sheet signature av 1 a": AnnualVerificationSheetSignature,
+	"3 2 annual verification sheet whwise signature av 1 a": AnnualVerificationWHwiseSignature,
+	"4 physical verification non moving slow moving wh wise av 6": PHVSlowNonMovingWHwise,
+	"5 physical verification shortage surplus wh wise av 1 b": PHVShortageSurplusWHwise,
+	"6 1 physical verification obsolete idle grade code av 7a": PHVObsoleteIdle,
 	"6 2 physical verification damage av 7b": PHVDamage,
-	"physical verification damage av 7b": PHVDamage,
-	// Common 'PHV' abbreviation variants so lookup works when UI shows 'PHV'
-	"phv damage av 7b": PHVDamage,
-	"phv damage av 7 b": PHVDamage,
 	"7 physical verification non moving wh wise bos av 6 bos": PHVNonMovingWHwiseBOS,
-	"physical verification non moving wh wise bos av 6 bos": PHVNonMovingWHwiseBOS,
 	"8 physical verification obsolete idle bos av 7a bos": PHVObsoleteIdleBOS,
-	"physical verification obsolete idle bos av 7a bos": PHVObsoleteIdleBOS,
-	// PHV abbreviation variants for obsolete/idle BOS
-	"phv obsolete idle bos av 7a bos": PHVObsoleteIdleBOS,
-	"phv obsolete idle bos av 7 b bos": PHVObsoleteIdleBOS,
-	"phv obsolete idle bos": PHVObsoleteIdleBOS,
 	"9 physical verification damage bos av 7b bos": PHVDamageBOS,
-	"physical verification damage bos av 7b bos": PHVDamageBOS,
-	// Add common abbreviated variants for PHV Damage BOS (UI may show 'PHV')
-	"phv damage bos av 7b bos": PHVDamageBOS,
-	"phv damage bos av 7 b bos": PHVDamageBOS,
-	"phv damage bos": PHVDamageBOS,
-	"10 last document no selected year": LastDocNo,
 	"last document no selected year": LastDocNo,
 
 	// PUCSL/LISS reports
@@ -429,7 +411,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"report catalog": ReportCatalog,
 	"reportcatalog": ReportCatalog,
 	"catalog": ReportCatalog,
-	
+
 	// Work In Progress reports
 	"cost center wise work in progress with age analysis": AgeAnalysisCostCenter,
 	"cost center wise work in progress completed projects": CompletedCostCenterWise,
