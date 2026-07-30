@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useDeferredValue } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -11,9 +12,13 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   Building,
   Activity,
+  FileText,
+  X,
 } from "lucide-react";
 import DashboardHeader from "../../components/mainTopics/Dashboard/DashboardHeader";
 import DashboardSelector from "../../components/mainTopics/Dashboard/DashboardSelector";
@@ -198,6 +203,65 @@ const DgmDashboardPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<"name" | "apps-desc" | "conns-desc" | "pending-desc">("name");
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
+
+  // Pending Applications Modal States
+  const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
+  const [selectedPendingDeptId, setSelectedPendingDeptId] = useState<string | null>(null);
+  const [pendingAppList, setPendingAppList] = useState<{ deptId: string; description: string; appType: string; applicationNo: string }[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingSearchTerm, setPendingSearchTerm] = useState("");
+  const [pendingPage, setPendingPage] = useState(1);
+  const PENDING_PAGE_SIZE = 50;
+
+  const deferredPendingSearchTerm = useDeferredValue(pendingSearchTerm);
+
+  const handleOpenPendingModal = async (deptId?: string) => {
+    setSelectedPendingDeptId(deptId || null);
+    setIsPendingModalOpen(true);
+    setPendingLoading(true);
+    setPendingSearchTerm("");
+    setPendingPage(1);
+    try {
+      const url = `/misapi/api/dgm/pending-applications?companyId=${selectedCompanyId}&year=${selectedYear}${deptId ? `&deptId=${deptId}` : ""}`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error("Failed to fetch pending applications");
+      const data = await res.json();
+      const getVal = (obj: any) => obj?.Value ?? obj?.value ?? obj;
+      const list = Array.isArray(getVal(data)) ? getVal(data) : [];
+      setPendingAppList(list);
+    } catch (err) {
+      console.error(err);
+      setPendingAppList([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setPendingPage(1);
+  }, [deferredPendingSearchTerm]);
+
+  const filteredPendingApps = useMemo(() => {
+    if (!deferredPendingSearchTerm.trim()) return pendingAppList;
+    const term = deferredPendingSearchTerm.toLowerCase().trim();
+    return pendingAppList.filter(
+      (item) =>
+        (item.applicationNo && item.applicationNo.toLowerCase().includes(term)) ||
+        (item.description && item.description.toLowerCase().includes(term)) ||
+        (item.deptId && item.deptId.toLowerCase().includes(term)) ||
+        (item.appType && item.appType.toLowerCase().includes(term))
+    );
+  }, [pendingAppList, deferredPendingSearchTerm]);
+
+  const totalPendingPages = useMemo(() => {
+    return Math.ceil(filteredPendingApps.length / PENDING_PAGE_SIZE) || 1;
+  }, [filteredPendingApps.length]);
+
+  const paginatedPendingApps = useMemo(() => {
+    const start = (pendingPage - 1) * PENDING_PAGE_SIZE;
+    return filteredPendingApps.slice(start, start + PENDING_PAGE_SIZE);
+  }, [filteredPendingApps, pendingPage]);
 
   const companyDropdownRef = useRef<HTMLDivElement>(null);
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
@@ -871,6 +935,16 @@ const DgmDashboardPage: React.FC = () => {
                         <Table className="w-4 h-4" />
                       </button>
                     </div>
+
+                    {/* Pending Applications List Button */}
+                    <button
+                      onClick={() => handleOpenPendingModal()}
+                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-red-700 bg-red-50 border border-red-200/80 rounded-2xl hover:bg-red-100 transition-all shadow-sm cursor-pointer active:scale-95"
+                      title="View List of Pending Applications"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-red-600" />
+                      <span>Pending List</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1018,12 +1092,19 @@ const DgmDashboardPage: React.FC = () => {
                                   {row.totalConns}
                                 </td>
                                 <td className="px-6 py-3.5 text-right font-mono">
-                                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold inline-block ${row.pending > 0
-                                    ? "bg-red-50 text-red-600 border border-red-100"
-                                    : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                                    }`}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (row.pending > 0) handleOpenPendingModal(row.name);
+                                    }}
+                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold inline-block transition-transform hover:scale-105 ${row.pending > 0
+                                      ? "bg-red-50 text-red-600 border border-red-100 cursor-pointer hover:bg-red-100"
+                                      : "bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default"
+                                      }`}
+                                    title={row.pending > 0 ? "Click to view pending application numbers for this department" : ""}
+                                  >
                                     {row.pending}
-                                  </span>
+                                  </button>
                                 </td>
                               </tr>
                               {isExpanded && (
@@ -1088,6 +1169,144 @@ const DgmDashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Pending Applications Detail Modal */}
+      {isPendingModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-scaleUp">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-100/60 rounded-2xl text-red-600">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    Pending Applications List ({selectedYear})
+                    {selectedPendingDeptId && (
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-extrabold font-mono">
+                        Dept: {selectedPendingDeptId}
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                    Applications submitted that do not have active Service Connections yet ({selectedCompanyId})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPendingModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Filter Bar */}
+            <div className="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={pendingSearchTerm}
+                  onChange={(e) => setPendingSearchTerm(e.target.value)}
+                  placeholder="Search by Application No, Dept ID, Type, or Description..."
+                  className="pl-10 pr-4 py-2 w-full text-xs font-semibold rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all bg-slate-50/50"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/60 font-mono">
+                  Total Pending: {filteredPendingApps.length}
+                </span>
+                {selectedPendingDeptId && (
+                  <button
+                    onClick={() => handleOpenPendingModal()}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 underline px-2 py-1 cursor-pointer"
+                  >
+                    Clear Dept Filter (Show All)
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Table Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {pendingLoading ? (
+                <div className="h-64 flex items-center justify-center text-slate-400 font-semibold text-sm animate-pulse">
+                  Fetching pending applications list...
+                </div>
+              ) : filteredPendingApps.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <FileText className="w-10 h-10 opacity-20" />
+                  <span className="text-sm font-bold">No pending applications found</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 shadow-sm">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-3.5">#</th>
+                        <th className="px-5 py-3.5">Dept ID</th>
+                        <th className="px-5 py-3.5">Application No</th>
+                        <th className="px-5 py-3.5">App Type</th>
+                        <th className="px-5 py-3.5">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedPendingApps.map((item, idx) => {
+                        const itemIdx = (pendingPage - 1) * PENDING_PAGE_SIZE + idx + 1;
+                        return (
+                          <tr key={`${item.applicationNo}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="px-5 py-3 font-mono text-slate-400 text-[11px]">{itemIdx}</td>
+                            <td className="px-5 py-3 font-extrabold text-slate-800 font-mono">{item.deptId}</td>
+                            <td className="px-5 py-3 font-bold text-red-600 font-mono tracking-tight">{item.applicationNo}</td>
+                            <td className="px-5 py-3 font-semibold text-slate-600 font-mono">{item.appType}</td>
+                            <td className="px-5 py-3 font-medium text-slate-700">{item.description}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Pagination Footer */}
+            {!pendingLoading && filteredPendingApps.length > 0 && (
+              <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <span className="font-semibold text-slate-500 font-mono">
+                  Showing {Math.min((pendingPage - 1) * PENDING_PAGE_SIZE + 1, filteredPendingApps.length)} - {Math.min(pendingPage * PENDING_PAGE_SIZE, filteredPendingApps.length)} of {filteredPendingApps.length} records
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={pendingPage === 1}
+                    onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
+                    className="p-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <span className="font-bold text-slate-700 px-2 font-mono">
+                    Page {pendingPage} of {totalPendingPages}
+                  </span>
+
+                  <button
+                    disabled={pendingPage >= totalPendingPages}
+                    onClick={() => setPendingPage((p) => Math.min(totalPendingPages, p + 1))}
+                    className="p-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    title="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
