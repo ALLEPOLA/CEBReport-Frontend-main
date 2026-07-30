@@ -60,6 +60,7 @@ import DocumentInquiry from "../mainTopics/CashBook/DocumentInquiry";
 import CashSheetReport from "../mainTopics/CashBook/CashSheetReport";
 import CashSheetDateRangePayeeReport from "../mainTopics/CashBook/CashSheetDateRangePayeeReport.tsx";
 import ChequeDetailsExp from "../mainTopics/CashBook/ChequeDetailsExp";
+import ChequeDetailsExpRegionReport from "../mainTopics/CashBook/ChequeDetailsExpRegionReport";
 import PriceVarianceReport from "../mainTopics/CashBook/PriceVarianceReport";
 import ChequeDetailWPReport from "../mainTopics/CashBook/ChequeDetailsWP";
 import PriceVarianceWHReport from "../mainTopics/CashBook/PriceVarianceWHReport";
@@ -289,6 +290,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise document inquiry cash book with cheque details": DocumentInquiry,
 	"cash sheet report": CashSheetReport,
 	"cash sheet within date range for selected payee": CashSheetDateRangePayeeReport,
+	"cheque details with exp code region": ChequeDetailsExpRegionReport,
 	"cheque details with expcode": ChequeDetailsExp,
 	"price variance" : PriceVarianceReport,
 	"cheque details within period" : ChequeDetailWPReport,
