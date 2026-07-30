@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
   AreaCode: string;
   AreaName: string;
+  ProvCode?: string;
+  Region?: string;
   ErrorMessage?: string | null;
 }
 
@@ -64,6 +68,9 @@ const RoofTopSolarInputData: React.FC = () => {
 
   const [reportData, setReportData] = useState<RoofTopSolarInputDataModel[]>([]);
 
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+
   const printRef = useRef<HTMLDivElement>(null);
 
   // ─── fetch helpers ────────────────────────────────────────────────────────
@@ -102,36 +109,46 @@ const RoofTopSolarInputData: React.FC = () => {
   // ─── data fetches ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const fetch = async () => {
-      setIsLoadingAreas(true);
-      setAreaError(null);
-      try {
-        const data = await fetchWithErrorHandling("/misapi/api/ordinary/areas");
-        setAreas(data.data || []);
-      } catch (err: any) {
-        setAreaError(err.message || "Failed to load areas.");
-      } finally {
-        setIsLoadingAreas(false);
+  const fetch = async () => {
+    setIsLoadingAreas(true);
+    setAreaError(null);
+    try {
+      let url = "/misapi/api/ordinary/areas";
+      if (locked["Region"]?.code) {
+        url += `?regionCode=${locked["Region"].code}`;
+      } else if (locked["Province"]?.code) {
+        url += `?provCode=${locked["Province"].code}`;
       }
-    };
-    fetch();
-  }, []);
+      const data = await fetchWithErrorHandling(url);
+      setAreas(data.data || []);
+    } catch (err: any) {
+      setAreaError(err.message || "Failed to load areas.");
+    } finally {
+      setIsLoadingAreas(false);
+    }
+  };
+  fetch();
+}, [user.Level]); // re-fetch if the logged-in user changes
 
-  useEffect(() => {
-    const fetch = async () => {
-      setIsLoadingProvinces(true);
-      setProvinceError(null);
-      try {
-        const data = await fetchWithErrorHandling("/misapi/api/ordinary/province");
-        setProvinces(data.data || []);
-      } catch (err: any) {
-        setProvinceError(err.message || "Failed to load provinces.");
-      } finally {
-        setIsLoadingProvinces(false);
+useEffect(() => {
+  const fetch = async () => {
+    setIsLoadingProvinces(true);
+    setProvinceError(null);
+    try {
+      let url = "/misapi/api/ordinary/province";
+      if (locked["Region"]?.code) {
+        url += `?regionCode=${locked["Region"].code}`;
       }
-    };
-    fetch();
-  }, []);
+      const data = await fetchWithErrorHandling(url);
+      setProvinces(data.data || []);
+    } catch (err: any) {
+      setProvinceError(err.message || "Failed to load provinces.");
+    } finally {
+      setIsLoadingProvinces(false);
+    }
+  };
+  fetch();
+}, [user.Level]);
 
   useEffect(() => {
     const fetch = async () => {
@@ -173,6 +190,15 @@ const RoofTopSolarInputData: React.FC = () => {
     fetch();
   }, []);
 
+
+  useEffect(() => {
+    const lock = locked[selectedCategory as keyof typeof locked];
+    if (lock) {
+      setCategoryValue(lock.code);
+      setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+    }
+  }, [selectedCategory, locked]);
+
   // ─── handlers ─────────────────────────────────────────────────────────────
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -190,10 +216,10 @@ const RoofTopSolarInputData: React.FC = () => {
 
   const getReportTypeParam = () => {
     switch (selectedCategory) {
-      case "Area":     return "area";
+      case "Area": return "area";
       case "Province": return "province";
-      case "Region":   return "region";
-      default:         return "entireceb";
+      case "Region": return "region";
+      default: return "entireceb";
     }
   };
 
@@ -448,145 +474,165 @@ const RoofTopSolarInputData: React.FC = () => {
             Roof Top Solar Input Data Portal for Loss Calculations
           </h1>
           <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-            {/* Select Category */}
-            <div className="flex flex-col">
-              <label className={`text-xs font-medium mb-1 ${maroon}`}>
-                Select Category:
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={handleCategoryChange}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-              >
-                <option value="Area">Area</option>
-                <option value="Province">Province</option>
-                <option value="Region">Region</option>
-                <option value="Entire CEB">Entire CEB</option>
-              </select>
-            </div>
-
-            {/* Select Report Type (Area / Province / Region value) */}
-            {selectedCategory !== "Entire CEB" && (
+              {/* Select Category */}
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 ${maroon}`}>
-                  Select{" "}
-                  {selectedCategory === "Area"
-                    ? "Area"
-                    : selectedCategory === "Province"
-                    ? "Province"
-                    : "Region"}
-                  :
+                  Select Category:
                 </label>
-
-                {selectedCategory === "Area" && (
-                  <select
-                    value={categoryValue}
-                    onChange={(e) => {
-                      const selected = areas.find(
-                        (a) => a.AreaCode === e.target.value
-                      );
-                      setCategoryValue(e.target.value);
-                      setSelectedCategoryName(
-                        selected
-                          ? `${selected.AreaCode} - ${selected.AreaName}`
-                          : ""
-                      );
-                    }}
-                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                      isLoadingAreas
-                        ? "bg-gray-100 text-gray-400 border-gray-200"
-                        : "border-gray-300"
-                    }`}
-                    disabled={isLoadingAreas}
-                  >
-                    <option value="">
-                      {isLoadingAreas ? "Loading..." : "Select Area"}
-                    </option>
-                    {areaError && (
-                      <option disabled value="">
-                        {areaError}
-                      </option>
-                    )}
-                    {areas.map((area) => (
-                      <option key={area.AreaCode} value={area.AreaCode}>
-                        {area.AreaCode} - {area.AreaName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {selectedCategory === "Province" && (
-                  <select
-                    value={categoryValue}
-                    onChange={(e) => {
-                      const selected = provinces.find(
-                        (p) => p.ProvinceCode === e.target.value
-                      );
-                      setCategoryValue(e.target.value);
-                      setSelectedCategoryName(
-                        selected
-                          ? `${selected.ProvinceCode} - ${selected.ProvinceName}`
-                          : ""
-                      );
-                    }}
-                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                      isLoadingProvinces
-                        ? "bg-gray-100 text-gray-400 border-gray-200"
-                        : "border-gray-300"
-                    }`}
-                    disabled={isLoadingProvinces}
-                  >
-                    <option value="">
-                      {isLoadingProvinces ? "Loading..." : "Select Province"}
-                    </option>
-                    {provinceError && (
-                      <option disabled value="">
-                        {provinceError}
-                      </option>
-                    )}
-                    {provinces.map((prov) => (
-                      <option key={prov.ProvinceCode} value={prov.ProvinceCode}>
-                        {prov.ProvinceCode} - {prov.ProvinceName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {selectedCategory === "Region" && (
-                  <select
-                    value={categoryValue}
-                    onChange={(e) => {
-                      setCategoryValue(e.target.value);
-                      setSelectedCategoryName(e.target.value);
-                    }}
-                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                      isLoadingDivisions
-                        ? "bg-gray-100 text-gray-400 border-gray-200"
-                        : "border-gray-300"
-                    }`}
-                    disabled={isLoadingDivisions}
-                  >
-                    <option value="">
-                      {isLoadingDivisions ? "Loading..." : "Select Region"}
-                    </option>
-                    {divisionError && (
-                      <option disabled value="">
-                        {divisionError}
-                      </option>
-                    )}
-                    {divisions.map((div) => (
-                      <option key={div.RegionCode} value={div.RegionCode}>
-                        {div.RegionCode}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <select
+                  value={selectedCategory}
+                  onChange={handleCategoryChange}
+                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                >
+                  {allowedCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
-            )}
 
-            {/* Calc Cycle
+              {/* Select Report Type (Area / Province / Region value) */}
+              {selectedCategory !== "Entire CEB" && (
+                <div className="flex flex-col">
+                  <label className={`text-xs font-medium mb-1 ${maroon}`}>
+                    Select{" "}
+                    {selectedCategory === "Area"
+                      ? "Area"
+                      : selectedCategory === "Province"
+                        ? "Province"
+                        : "Region"}
+                    :
+                  </label>
+
+                  {selectedCategory === "Area" && (
+                    locked["Area"] ? (
+                      <select disabled value={locked["Area"].code} className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-600 border-gray-200 cursor-not-allowed">
+                        <option value={locked["Area"].code}>
+                          {locked["Area"].code} - {locked["Area"].name}
+                        </option>
+                      </select>
+                    ) : (
+                      <select
+                        value={categoryValue}
+                        onChange={(e) => {
+                          const selected = areas.find(
+                            (a) => a.AreaCode === e.target.value
+                          );
+                          setCategoryValue(e.target.value);
+                          setSelectedCategoryName(
+                            selected
+                              ? `${selected.AreaCode} - ${selected.AreaName}`
+                              : ""
+                          );
+                        }}
+                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isLoadingAreas
+                          ? "bg-gray-100 text-gray-400 border-gray-200"
+                          : "border-gray-300"
+                          }`}
+                        disabled={isLoadingAreas}
+                      >
+                        <option value="">
+                          {isLoadingAreas ? "Loading..." : "Select Area"}
+                        </option>
+                        {areaError && (
+                          <option disabled value="">
+                            {areaError}
+                          </option>
+                        )}
+                        {areas.map((area) => (
+                          <option key={area.AreaCode} value={area.AreaCode}>
+                            {area.AreaCode} - {area.AreaName}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  )}
+
+                  {selectedCategory === "Province" && (
+                    locked["Province"] ? (
+                      <select disabled value={locked["Province"].code} className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-600 border-gray-200 cursor-not-allowed">
+                        <option value={locked["Province"].code}>
+                          {locked["Province"].code} - {locked["Province"].name}
+                        </option>
+                      </select>
+                    ) : (
+                      <select
+                        value={categoryValue}
+                        onChange={(e) => {
+                          const selected = provinces.find(
+                            (p) => p.ProvinceCode === e.target.value
+                          );
+                          setCategoryValue(e.target.value);
+                          setSelectedCategoryName(
+                            selected
+                              ? `${selected.ProvinceCode} - ${selected.ProvinceName}`
+                              : ""
+                          );
+                        }}
+                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isLoadingProvinces
+                          ? "bg-gray-100 text-gray-400 border-gray-200"
+                          : "border-gray-300"
+                          }`}
+                        disabled={isLoadingProvinces}
+                      >
+                        <option value="">
+                          {isLoadingProvinces ? "Loading..." : "Select Province"}
+                        </option>
+                        {provinceError && (
+                          <option disabled value="">
+                            {provinceError}
+                          </option>
+                        )}
+                        {provinces.map((prov) => (
+                          <option key={prov.ProvinceCode} value={prov.ProvinceCode}>
+                            {prov.ProvinceCode} - {prov.ProvinceName}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  )}
+
+                  {selectedCategory === "Region" && (
+                    locked["Region"] ? (
+                      <select disabled value={locked["Region"].code} className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-600 border-gray-200 cursor-not-allowed">
+                        <option value={locked["Region"].code}>
+                          {locked["Region"].name ? `${locked["Region"].code} - ${locked["Region"].name}` : locked["Region"].code}
+                        </option>
+                      </select>
+                    ) : (
+                      <select
+                        value={categoryValue}
+                        onChange={(e) => {
+                          setCategoryValue(e.target.value);
+                          setSelectedCategoryName(e.target.value);
+                        }}
+                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isLoadingDivisions
+                          ? "bg-gray-100 text-gray-400 border-gray-200"
+                          : "border-gray-300"
+                          }`}
+                        disabled={isLoadingDivisions}
+                      >
+                        <option value="">
+                          {isLoadingDivisions ? "Loading..." : "Select Region"}
+                        </option>
+                        {divisionError && (
+                          <option disabled value="">
+                            {divisionError}
+                          </option>
+                        )}
+                        {divisions.map((div) => (
+                          <option key={div.RegionCode} value={div.RegionCode}>
+                            {div.RegionCode}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  )}
+                </div>
+              )}
+
+              {/* Calc Cycle
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${maroon}`}>
                 Calc Cycle:
@@ -623,99 +669,96 @@ const RoofTopSolarInputData: React.FC = () => {
               </select>
             </div> */}
 
-            {/* Calc Cycle */}
-            <div className="flex flex-col">
-              <label
-                className={`text-xs font-medium mb-1 ${
-                  isLoadingCycles ||
-                  cycleError !== null ||
-                  (selectedCategory !== "Entire CEB" && !categoryValue)
+              {/* Calc Cycle */}
+              <div className="flex flex-col">
+                <label
+                  className={`text-xs font-medium mb-1 ${isLoadingCycles ||
+                    cycleError !== null ||
+                    (selectedCategory !== "Entire CEB" && !categoryValue)
                     ? "text-gray-400"
                     : maroon
-                }`}
-              >
-                Calc Cycle:
-              </label>
-              <select
-                value={calcCycleValue}
-                onChange={(e) => {
-                  const selected = cycleOptions.find(
-                    (c) => c.code === e.target.value
-                  );
-                  setCalcCycleValue(e.target.value);
-                  setSelectedCycleDisplay(selected?.display ?? "");
-                }}
-                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                  isLoadingCycles ||
-                  cycleError !== null ||
-                  (selectedCategory !== "Entire CEB" && !categoryValue)
+                    }`}
+                >
+                  Calc Cycle:
+                </label>
+                <select
+                  value={calcCycleValue}
+                  onChange={(e) => {
+                    const selected = cycleOptions.find(
+                      (c) => c.code === e.target.value
+                    );
+                    setCalcCycleValue(e.target.value);
+                    setSelectedCycleDisplay(selected?.display ?? "");
+                  }}
+                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isLoadingCycles ||
+                    cycleError !== null ||
+                    (selectedCategory !== "Entire CEB" && !categoryValue)
                     ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                     : "border-gray-300"
-                }`}
-                disabled={
-                  isLoadingCycles ||
-                  cycleError !== null ||
-                  (selectedCategory !== "Entire CEB" && !categoryValue)
-                }
-              >
-                <option value="">
-                  {isLoadingCycles ? "Loading..." : "Select Calc Cycle"}
-                </option>
-                {cycleError && (
-                  <option disabled value="">
-                    {cycleError}
+                    }`}
+                  disabled={
+                    isLoadingCycles ||
+                    cycleError !== null ||
+                    (selectedCategory !== "Entire CEB" && !categoryValue)
+                  }
+                >
+                  <option value="">
+                    {isLoadingCycles ? "Loading..." : "Select Calc Cycle"}
                   </option>
-                )}
-                {cycleOptions.map((opt) => (
-                  <option key={opt.code} value={opt.code}>
-                    {opt.display}
-                  </option>
-                ))}
-              </select>
+                  {cycleError && (
+                    <option disabled value="">
+                      {cycleError}
+                    </option>
+                  )}
+                  {cycleOptions.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.display}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
 
-          {/* Submit */}
-          <div className="w-full mt-6 flex justify-end">
-            <button
-              type="submit"
-              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${
-                loading || !canSubmit()
+            {/* Submit */}
+            <div className="w-full mt-6 flex justify-end">
+              <button
+                type="submit"
+                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loading || !canSubmit()
                   ? "opacity-70 cursor-not-allowed"
                   : "hover:opacity-90"
-              }`}
-              disabled={loading || !canSubmit()}
-            >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Loading...
-                </span>
-              ) : (
-                "Generate Report"
-              )}
-            </button>
-          </div>
-        </form>
+                  }`}
+                disabled={loading || !canSubmit()}
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Loading...
+                  </span>
+                ) : (
+                  "Generate Report"
+                )}
+              </button>
+            </div>
+          </form>
         </>
       )}
 

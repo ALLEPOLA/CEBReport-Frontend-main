@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef } from "react";
 import { FaArrowLeft, FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
   AreaCode: string;
@@ -92,12 +94,15 @@ const LargestCus: React.FC = () => {
   const [reportError, setReportError] = useState<string | null>(null);
   const [, setRawResponse] = useState<any>(null);
 
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+
   const printRef = useRef<HTMLDivElement>(null);
 
   const columnTitle =
     selectedOption === "Area" ? "Area" :
-    selectedOption === "Province" ? "Province" :
-    selectedOption === "Division" ? "Region" : "Area / Province / Region";
+      selectedOption === "Province" ? "Province" :
+        selectedOption === "Division" ? "Region" : "Area / Province / Region";
 
   const showConsumption = apiType === "LargestCustomers";
   const showOutstanding = apiType === "LargestOutstandingCustomers";
@@ -108,7 +113,13 @@ const LargestCus: React.FC = () => {
       setIsLoadingAreas(true);
       setAreaError(null);
       try {
-        const res = await fetch("/misapi/api/ordinary/areas", { headers: { Accept: "application/json" } });
+        let url = "/misapi/api/ordinary/areas";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          url += `?provCode=${locked["Province"].code}`;
+        }
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setAreas(data.data || []);
@@ -119,14 +130,18 @@ const LargestCus: React.FC = () => {
       }
     };
     fetchAreas();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   useEffect(() => {
     const fetchProvinces = async () => {
       setIsLoadingProvinces(true);
       setProvinceError(null);
       try {
-        const res = await fetch("/misapi/api/ordinary/province", { headers: { Accept: "application/json" } });
+        let url = "/misapi/api/ordinary/province";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        }
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setProvinces(data.data || []);
@@ -137,7 +152,7 @@ const LargestCus: React.FC = () => {
       }
     };
     fetchProvinces();
-  }, []);
+  }, [user.Level, user.RegionCode]);
 
   useEffect(() => {
     const fetchDivisions = async () => {
@@ -156,6 +171,18 @@ const LargestCus: React.FC = () => {
     };
     fetchDivisions();
   }, []);
+
+  useEffect(() => {
+    const key = selectedOption === "Division" ? "Region" : selectedOption;
+    const lock = locked[key as keyof typeof locked];
+    if (lock) {
+      setInputValue(lock.code);
+      const label = lock.name ? `${lock.code} - ${lock.name}` : lock.code;
+      if (key === "Area") setSelectedAreaName(label);
+      else if (key === "Province") setSelectedProvinceName(label);
+      else if (key === "Region") setSelectedRegionName(label);
+    }
+  }, [selectedOption, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
   useEffect(() => {
     const fetchBillCycles = async () => {
@@ -448,10 +475,11 @@ const LargestCus: React.FC = () => {
                   }}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000]"
                 >
-                  <option value="Area">Area</option>
-                  <option value="Province">Province</option>
-                  <option value="Division">Division (Region)</option>
-                  <option value="Entire CEB">Entire CEB</option>
+                  {allowedCategories.map((cat) => (
+                    <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                      {cat === "Region" ? "Division (Region)" : cat}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -462,7 +490,17 @@ const LargestCus: React.FC = () => {
                   </label>
 
                   {selectedOption === "Area" &&
-                    (isLoadingAreas ? (
+                    (locked["Area"] ? (
+                      <select
+                        disabled
+                        value={locked["Area"].code}
+                        className="w-full px-3 py-2 text-sm border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={locked["Area"].code}>
+                          {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                        </option>
+                      </select>
+                    ) : isLoadingAreas ? (
                       <div className="py-2.5 text-gray-500">Loading areas...</div>
                     ) : areaError ? (
                       <div className="text-red-600 py-2.5 text-xs">{areaError}</div>
@@ -488,7 +526,17 @@ const LargestCus: React.FC = () => {
                     ))}
 
                   {selectedOption === "Province" &&
-                    (isLoadingProvinces ? (
+                    (locked["Province"] ? (
+                      <select
+                        disabled
+                        value={locked["Province"].code}
+                        className="w-full px-3 py-2 text-sm border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={locked["Province"].code}>
+                          {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                        </option>
+                      </select>
+                    ) : isLoadingProvinces ? (
                       <div className="py-2.5 text-gray-500">Loading provinces...</div>
                     ) : provinceError ? (
                       <div className="text-red-600 py-2.5 text-xs">{provinceError}</div>
@@ -514,7 +562,15 @@ const LargestCus: React.FC = () => {
                     ))}
 
                   {selectedOption === "Division" &&
-                    (isLoadingDivisions ? (
+                    (locked["Region"] ? (
+                      <select
+                        disabled
+                        value={locked["Region"].code}
+                        className="w-full px-3 py-2 text-sm border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                      </select>
+                    ) : isLoadingDivisions ? (
                       <div className="py-2.5 text-gray-500">Loading divisions...</div>
                     ) : divisionError ? (
                       <div className="text-red-600 py-2.5 text-xs">{divisionError}</div>
@@ -568,9 +624,8 @@ const LargestCus: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || !billCycleValue}
-                className={`px-8 py-2.5 rounded-lg font-medium text-white shadow-md ${maroonGrad} transition ${
-                  loading ? "opacity-60 cursor-not-allowed" : "hover:brightness-110"
-                }`}
+                className={`px-8 py-2.5 rounded-lg font-medium text-white shadow-md ${maroonGrad} transition ${loading ? "opacity-60 cursor-not-allowed" : "hover:brightness-110"
+                  }`}
               >
                 {loading ? "Loading..." : `Generate ${apiType} Report (Top 50)`}
               </button>
@@ -669,12 +724,12 @@ const LargestCus: React.FC = () => {
                           {selectedOption === "Area"
                             ? selectedAreaName
                             : selectedOption === "Province"
-                            ? selectedProvinceName
-                            : selectedOption === "Division"
-                            ? selectedRegionName
-                            : selectedOption === "Entire CEB"
-                            ? "Entire CEB"
-                            : cust.area || cust.province || cust.region || "—"}
+                              ? selectedProvinceName
+                              : selectedOption === "Division"
+                                ? selectedRegionName
+                                : selectedOption === "Entire CEB"
+                                  ? "Entire CEB"
+                                  : cust.area || cust.province || cust.region || "—"}
                         </td>
                         <td className="px-5 py-3">{cust.tariffCategory}</td>
                       </tr>

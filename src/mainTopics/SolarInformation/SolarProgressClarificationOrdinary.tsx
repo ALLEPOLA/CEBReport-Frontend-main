@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaArrowLeft, FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
   AreaCode: string;
@@ -76,6 +78,8 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
   const [detailedData, setDetailedData] = useState<DetailedSolarProgress[]>([]);
   const [summaryData, setSummaryData] = useState<SummarySolarProgress[]>([]);
   const [reportError, setReportError] = useState<string | null>(null);
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
   const printRef = useRef<HTMLDivElement>(null);
 
   // Helper function for error handling
@@ -131,8 +135,13 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
       setIsLoadingAreas(true);
       setAreaError(null);
       try {
-        // Using the same API endpoint pattern as AgeAnalysis
-        const areaData = await fetchWithErrorHandling("/misapi/api/ordinary/areas");
+        let url = "/misapi/api/ordinary/areas";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          url += `?provCode=${locked["Province"].code}`;
+        }
+        const areaData = await fetchWithErrorHandling(url);
         setAreas(areaData.data || []);
       } catch (err: any) {
         console.error("Error fetching areas:", err);
@@ -145,7 +154,7 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
     };
 
     fetchAreas();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   // Fetch provinces/
   useEffect(() => {
@@ -153,9 +162,11 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
       setIsLoadingProvinces(true);
       setProvinceError(null);
       try {
-        const provinceData = await fetchWithErrorHandling(
-          "/misapi/api/ordinary/province"
-        );
+        let url = "/misapi/api/ordinary/province";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        }
+        const provinceData = await fetchWithErrorHandling(url);
         setProvinces(provinceData.data || []);
       } catch (err: any) {
         console.error("Error fetching provinces:", err);
@@ -168,7 +179,7 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
     };
 
     fetchProvinces();
-  }, []);
+  }, [user.Level, user.RegionCode]);
 
   // Fetch divisions
   useEffect(() => {
@@ -192,6 +203,15 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
 
     fetchDivisions();
   }, []);
+
+  useEffect(() => {
+    const key = selectedOption === "Division" ? "Region" : selectedOption;
+    const lock = locked[key as keyof typeof locked];
+    if (lock) {
+      setInputValue(lock.code);
+      setSelectedAreaName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+    }
+  }, [selectedOption, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
   // Fetch bill cycles
   useEffect(() => {
@@ -245,129 +265,129 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
   };
 
   const downloadAsCSV = () => {
-  if (reportType === "detailed" && !detailedData.length) return;
-  if (reportType === "summary" && !summaryData.length) return;
+    if (reportType === "detailed" && !detailedData.length) return;
+    if (reportType === "summary" && !summaryData.length) return;
 
-  const reportTitle =
-    reportType === "detailed"
-      ? "Solar Progress Detailed Report"
-      : "Solar Progress Summary Report";
+    const reportTitle =
+      reportType === "detailed"
+        ? "Solar Progress Detailed Report"
+        : "Solar Progress Summary Report";
 
-  const selectionInfo =
-    selectedOption === "Entire CEB"
-      ? "Entire CEB"
-      : selectedOption === "Area"
-      ? `${selectedOption}: ${selectedAreaName}`
-      : `${selectedOption}: ${inputValue}`;
-
-  let csvContent = "";
-  let headers: string[] = [];
-  let rows: any[] = [];
-
-  if (reportType === "detailed") {
-    headers = [
-      "Region",
-      "Province",
-      "Area",
-      "Account Number",
-      "Net Type",
-      "Description",
-      "Capacity",
-      "From Area",
-      "To Area",
-      "From Net Type",
-      "To Net Type",
-    ];
-
-    // Sort data to match table order
-    const sortedData = [...detailedData].sort((a, b) => {
-      if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
-      if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
-      return a.Area.localeCompare(b.Area);
-    });
-
-    // Build rows - include Region/Province/Area on EVERY row for CSV
-    rows = sortedData.map((item) => [
-      item.Region,
-      item.Province,
-      item.Area,
-      item.AccountNumber,
-      item.NetType,
-      item.Description,
-      item.Capacity,
-      item.FromArea || "",
-      item.ToArea || "",
-      item.FromNetType || "",
-      item.ToNetType || "",
-    ]);
-  } else {
-    headers = [
-      "Region",
-      "Province",
-      "Area",
-      "Description",
-      "Count",
-      "Capacity",
-    ];
-
-    // Sort data to match table order
-    const sortedData = [...summaryData].sort((a, b) => {
-      if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
-      if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
-      return a.Area.localeCompare(b.Area);
-    });
-
-    // Build rows - include Region/Province/Area on EVERY row for CSV
-    rows = sortedData.map((item) => [
-      item.Region,
-      item.Province,
-      item.Area,
-      item.Description,
-      item.Count,
-      item.Capacity,
-    ]);
-  }
-
-  // Build CSV content with proper structure
-  csvContent = [
-    reportTitle,
-    selectionInfo,
-    `Bill Cycle: ${selectedBillCycleDisplay}`,
-    `Generated: ${new Date().toLocaleDateString()}`,
-    "",
-    headers.map((h) => `"${h}"`).join(","),
-    ...rows.map((row) => row.map((cell: any) => `"${cell}"`).join(",")),
-  ].join("\n");
-
-  try {
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    const fileDescriptor =
+    const selectionInfo =
       selectedOption === "Entire CEB"
-        ? "EntireCEB"
+        ? "Entire CEB"
         : selectedOption === "Area"
-        ? `${selectedOption}_${selectedAreaName}`
-        : `${selectedOption}_${inputValue}`;
+          ? `${selectedOption}: ${selectedAreaName}`
+          : `${selectedOption}: ${inputValue}`;
 
-    const reportTypeName = reportType === "detailed" ? "Detailed" : "Summary";
+    let csvContent = "";
+    let headers: string[] = [];
+    let rows: any[] = [];
 
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `SolarProgress_${reportTypeName}_${fileDescriptor}_BillCycle_${billCycleValue}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  } catch (error) {
-    console.error("Error generating CSV:", error);
-    alert("Failed to export CSV");
-  }
-};
+    if (reportType === "detailed") {
+      headers = [
+        "Region",
+        "Province",
+        "Area",
+        "Account Number",
+        "Net Type",
+        "Description",
+        "Capacity",
+        "From Area",
+        "To Area",
+        "From Net Type",
+        "To Net Type",
+      ];
+
+      // Sort data to match table order
+      const sortedData = [...detailedData].sort((a, b) => {
+        if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
+        if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
+        return a.Area.localeCompare(b.Area);
+      });
+
+      // Build rows - include Region/Province/Area on EVERY row for CSV
+      rows = sortedData.map((item) => [
+        item.Region,
+        item.Province,
+        item.Area,
+        item.AccountNumber,
+        item.NetType,
+        item.Description,
+        item.Capacity,
+        item.FromArea || "",
+        item.ToArea || "",
+        item.FromNetType || "",
+        item.ToNetType || "",
+      ]);
+    } else {
+      headers = [
+        "Region",
+        "Province",
+        "Area",
+        "Description",
+        "Count",
+        "Capacity",
+      ];
+
+      // Sort data to match table order
+      const sortedData = [...summaryData].sort((a, b) => {
+        if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
+        if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
+        return a.Area.localeCompare(b.Area);
+      });
+
+      // Build rows - include Region/Province/Area on EVERY row for CSV
+      rows = sortedData.map((item) => [
+        item.Region,
+        item.Province,
+        item.Area,
+        item.Description,
+        item.Count,
+        item.Capacity,
+      ]);
+    }
+
+    // Build CSV content with proper structure
+    csvContent = [
+      reportTitle,
+      selectionInfo,
+      `Bill Cycle: ${selectedBillCycleDisplay}`,
+      `Generated: ${new Date().toLocaleDateString()}`,
+      "",
+      headers.map((h) => `"${h}"`).join(","),
+      ...rows.map((row) => row.map((cell: any) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    try {
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const fileDescriptor =
+        selectedOption === "Entire CEB"
+          ? "EntireCEB"
+          : selectedOption === "Area"
+            ? `${selectedOption}_${selectedAreaName}`
+            : `${selectedOption}_${inputValue}`;
+
+      const reportTypeName = reportType === "detailed" ? "Detailed" : "Summary";
+
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `SolarProgress_${reportTypeName}_${fileDescriptor}_BillCycle_${billCycleValue}.csv`
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error) {
+      console.error("Error generating CSV:", error);
+      alert("Failed to export CSV");
+    }
+  };
 
   const printPDF = () => {
     if (!printRef.current) return;
@@ -468,10 +488,10 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
 
   const renderDetailedTable = () => {
     const sortedData = [...detailedData].sort((a, b) => {
-    if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
-    if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
-    return a.Area.localeCompare(b.Area);
-  });
+      if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
+      if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
+      return a.Area.localeCompare(b.Area);
+    });
     // Group data and calculate rowspans
     const groupedData = sortedData.reduce(
       (acc, item, index) => {
@@ -633,10 +653,10 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
 
   const renderSummaryTable = () => {
     const sortedData = [...summaryData].sort((a, b) => {
-    if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
-    if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
-    return a.Area.localeCompare(b.Area);
-  });
+      if (a.Region !== b.Region) return a.Region.localeCompare(b.Region);
+      if (a.Province !== b.Province) return a.Province.localeCompare(b.Province);
+      return a.Area.localeCompare(b.Area);
+    });
     // Group data and calculate rowspans
     const groupedData = sortedData.reduce(
       (acc, item, index) => {
@@ -929,10 +949,11 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
                   required
                 >
-                  <option value="Area">Area</option>
-                  <option value="Province">Province</option>
-                  <option value="Division">Division</option>
-                  <option value="Entire CEB">Entire CEB</option>
+                  {allowedCategories.map((cat) => (
+                    <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                      {cat === "Region" ? "Division" : cat}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -968,13 +989,22 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                     </div>
                   ) : areaError ? (
                     <div className="text-red-500 text-xs py-2">{areaError}</div>
+                  ) : locked["Area"] ? (
+                    <select
+                      disabled
+                      value={locked["Area"].code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Area"].code}>
+                        {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                      </option>
+                    </select>
                   ) : (
                     <select
                       value={inputValue}
                       onChange={(e) => {
                         const selectedAreaCode = e.target.value;
                         setInputValue(selectedAreaCode);
-                        // Find and store the area name
                         const selectedArea = areas.find(
                           (area) => area.AreaCode === selectedAreaCode
                         );
@@ -1030,6 +1060,16 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                     <div className="text-red-500 text-xs py-2">
                       {provinceError}
                     </div>
+                  ) : locked["Province"] ? (
+                    <select
+                      disabled
+                      value={locked["Province"].code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Province"].code}>
+                        {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                      </option>
+                    </select>
                   ) : (
                     <select
                       value={inputValue}
@@ -1040,10 +1080,7 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                     >
                       <option value="">Select Province</option>
                       {provinces.map((province) => (
-                        <option
-                          key={province.ProvinceCode}
-                          value={province.ProvinceCode}
-                        >
+                        <option key={province.ProvinceCode} value={province.ProvinceCode}>
                           {formatProvinceOption(province)}
                         </option>
                       ))}
@@ -1085,6 +1122,14 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                     <div className="text-red-500 text-xs py-2">
                       {divisionError}
                     </div>
+                  ) : locked["Region"] ? (
+                    <select
+                      disabled
+                      value={locked["Region"].code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                    </select>
                   ) : (
                     <select
                       value={inputValue}
@@ -1095,10 +1140,7 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                     >
                       <option value="">Select Division</option>
                       {divisions.map((division) => (
-                        <option
-                          key={division.RegionCode}
-                          value={division.RegionCode}
-                        >
+                        <option key={division.RegionCode} value={division.RegionCode}>
                           {formatDivisionOption(division)}
                         </option>
                       ))}
@@ -1110,15 +1152,14 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
               {/* Bill Cycle Dropdown*/}
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isLoadingBillCycles ||
-                    billCycleError !== null ||
-                    (selectedOption === "Area" && !inputValue) ||
-                    (selectedOption === "Province" && !inputValue) ||
-                    (selectedOption === "Division" && !inputValue)
+                  className={`text-xs font-medium mb-1 ${isLoadingBillCycles ||
+                      billCycleError !== null ||
+                      (selectedOption === "Area" && !inputValue) ||
+                      (selectedOption === "Province" && !inputValue) ||
+                      (selectedOption === "Division" && !inputValue)
                       ? "text-gray-400" // light gray when disabled
                       : maroon
-                  }`}
+                    }`}
                 >
                   Select Bill Cycle:
                 </label>
@@ -1165,15 +1206,14 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                       );
                     }}
                     className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-            ${
-              isLoadingBillCycles ||
-              billCycleError !== null ||
-              (selectedOption === "Area" && !inputValue) ||
-              (selectedOption === "Province" && !inputValue) ||
-              (selectedOption === "Division" && !inputValue)
-                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "border-gray-300"
-            }`}
+            ${isLoadingBillCycles ||
+                        billCycleError !== null ||
+                        (selectedOption === "Area" && !inputValue) ||
+                        (selectedOption === "Province" && !inputValue) ||
+                        (selectedOption === "Division" && !inputValue)
+                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        : "border-gray-300"
+                      }`}
                     required
                     disabled={
                       isLoadingBillCycles ||
@@ -1194,11 +1234,10 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
               {/* Report Type Dropdown */}
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isReportTypeDisabled()
+                  className={`text-xs font-medium mb-1 ${isReportTypeDisabled()
                       ? "text-gray-400" // light gray when disabled
                       : maroon
-                  }`}
+                    }`}
                 >
                   Select Report Type:
                 </label>
@@ -1206,11 +1245,10 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
                   className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                                ${
-                                  isReportTypeDisabled()
-                                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                    : "border-gray-300"
-                                }`}
+                                ${isReportTypeDisabled()
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "border-gray-300"
+                    }`}
                   required
                   disabled={isReportTypeDisabled()}
                 >
@@ -1226,9 +1264,8 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
               <button
                 type="submit"
                 className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
-                            ${maroonGrad} text-white ${
-                  loading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
-                }`}
+                            ${maroonGrad} text-white ${loading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                  }`}
                 disabled={loading || isReportTypeDisabled() || !reportType}
               >
                 {loading ? (
@@ -1278,8 +1315,8 @@ const SolarProgressClarificationOrdinary: React.FC = () => {
                 {selectedOption === "Entire CEB"
                   ? "Entire CEB"
                   : selectedOption === "Area"
-                  ? `${selectedOption}: ${selectedAreaName}`
-                  : `${selectedOption}: ${inputValue}`}{" "}
+                    ? `${selectedOption}: ${selectedAreaName}`
+                    : `${selectedOption}: ${inputValue}`}{" "}
                 | Bill Cycle: {selectedBillCycleDisplay}
               </p>
             </div>

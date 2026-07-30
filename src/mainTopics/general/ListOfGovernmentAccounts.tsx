@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -56,13 +58,13 @@ const formatConsumption = (value: any): string =>
 // API base — all requests go through /misapi
 // ─────────────────────────────────────────────────────────────────────────────
 const API = {
-  areas:           () => `/misapi/api/ordinary/areas`,
-  departments:     () => `/misapi/api/government-accounts/departments`,
-  maxBillCycle:    (areaCode: string) =>
+  areas: () => `/misapi/api/ordinary/areas`,
+  departments: () => `/misapi/api/government-accounts/departments`,
+  maxBillCycle: (areaCode: string) =>
     `/misapi/api/billsmry/prn_dat_1/billcycle/max?areaCode=${encodeURIComponent(areaCode)}`,
-  reportByArea:    (billCycle: string, areaCode: string) =>
+  reportByArea: (billCycle: string, areaCode: string) =>
     `/misapi/api/government-accounts/area?billCycle=${encodeURIComponent(billCycle)}&areaCode=${encodeURIComponent(areaCode)}`,
-  reportByDept:    (billCycle: string, areaCode: string, departmentCode: string) =>
+  reportByDept: (billCycle: string, areaCode: string, departmentCode: string) =>
     `/misapi/api/government-accounts/department?billCycle=${encodeURIComponent(billCycle)}&areaCode=${encodeURIComponent(areaCode)}&departmentCode=${encodeURIComponent(departmentCode)}`,
 };
 
@@ -70,34 +72,37 @@ const API = {
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 const ListOfGovernmentAccounts: React.FC = () => {
-  const maroon     = "text-[#7A0000]";
+  const maroon = "text-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
   // ── Data ───────────────────────────────────────────────────────────────────
-  const [areas,       setAreas]       = useState<Area[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
   // ── Form ───────────────────────────────────────────────────────────────────
-  const [selectedArea,       setSelectedArea]       = useState("");
+  const [selectedArea, setSelectedArea] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
 
   // ── Loading ────────────────────────────────────────────────────────────────
-  const [loadingAreas,  setLoadingAreas]  = useState(false);
-  const [loadingDepts,  setLoadingDepts]  = useState(false);
+  const [loadingAreas, setLoadingAreas] = useState(false);
+  const [loadingDepts, setLoadingDepts] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [loadingMode,   setLoadingMode]   = useState<ReportMode>(null);
+  const [loadingMode, setLoadingMode] = useState<ReportMode>(null);
 
   // ── Errors ─────────────────────────────────────────────────────────────────
-  const [areaError,   setAreaError]   = useState("");
-  const [deptError,   setDeptError]   = useState("");
+  const [areaError, setAreaError] = useState("");
+  const [deptError, setDeptError] = useState("");
   const [reportError, setReportError] = useState("");
 
   // ── Report ─────────────────────────────────────────────────────────────────
-  const [reportData,       setReportData]       = useState<GovernmentAccount[]>([]);
-  const [hasSearched,      setHasSearched]      = useState(false);
+  const [reportData, setReportData] = useState<GovernmentAccount[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [activeReportMode, setActiveReportMode] = useState<ReportMode>(null);
   const [selectedAreaName, setSelectedAreaName] = useState("");
   const [selectedDeptName, setSelectedDeptName] = useState("");
+
+  const { user } = useUser();
+  const { locked } = useReportScope();
 
   // ── 1. Fetch areas ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -105,7 +110,13 @@ const ListOfGovernmentAccounts: React.FC = () => {
       setLoadingAreas(true);
       setAreaError("");
       try {
-        const res  = await fetch(API.areas(), { headers: { Accept: "application/json" } });
+        let url = API.areas();
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          url += `?provCode=${locked["Province"].code}`;
+        }
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
         const json = await res.json();
         const data = json?.data ?? json?.Data ?? json ?? [];
         if (!Array.isArray(data) || data.length === 0) {
@@ -122,7 +133,16 @@ const ListOfGovernmentAccounts: React.FC = () => {
       }
     };
     run();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
+
+  useEffect(() => {
+    if (locked["Area"]) {
+      setSelectedArea(locked["Area"].code);
+      setSelectedAreaName(
+        locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code
+      );
+    }
+  }, [user.Level, user.AreaCode, user.AreaName]);
 
   // ── 2. Fetch departments ───────────────────────────────────────────────────
   useEffect(() => {
@@ -130,7 +150,7 @@ const ListOfGovernmentAccounts: React.FC = () => {
       setLoadingDepts(true);
       setDeptError("");
       try {
-        const res  = await fetch(API.departments(), { headers: { Accept: "application/json" } });
+        const res = await fetch(API.departments(), { headers: { Accept: "application/json" } });
         const json = await res.json();
         const data = json?.data ?? json?.Data ?? json ?? [];
         if (!Array.isArray(data) || data.length === 0) {
@@ -139,12 +159,12 @@ const ListOfGovernmentAccounts: React.FC = () => {
         setDepartments(data.map((item: any) => ({
           departmentCode:
             item.DepartmentCode ?? item.departmentCode ??
-            item.Code           ?? item.code           ??
-            item.DeptCode       ?? item.deptCode       ?? "",
+            item.Code ?? item.code ??
+            item.DeptCode ?? item.deptCode ?? "",
           departmentName:
             item.DepartmentName ?? item.departmentName ??
-            item.Name           ?? item.name           ??
-            item.DeptName       ?? item.deptName       ?? "",
+            item.Name ?? item.name ??
+            item.DeptName ?? item.deptName ?? "",
         })));
       } catch (err: any) {
         setDeptError(err.message ?? "Failed to load departments.");
@@ -162,10 +182,10 @@ const ListOfGovernmentAccounts: React.FC = () => {
     try {
       const r = await fetch(url, { headers: { Accept: "application/json" } });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j  = await r.json();
-      const n  = j?.data ?? j?.Data ?? j ?? null;
+      const j = await r.json();
+      const n = j?.data ?? j?.Data ?? j ?? null;
       const bc = String(
-        n?.billCycle    ?? n?.BillCycle    ??
+        n?.billCycle ?? n?.BillCycle ??
         n?.MaxBillCycle ?? n?.maxBillCycle ?? n ?? ""
       ).trim();
       if (bc) return bc;
@@ -181,8 +201,8 @@ const ListOfGovernmentAccounts: React.FC = () => {
     if (!selectedArea || !mode) return;
     if (mode === "department" && !selectedDepartment) return;
 
-    const areaSnap     = selectedArea;
-    const deptSnap     = selectedDepartment;
+    const areaSnap = selectedArea;
+    const deptSnap = selectedDepartment;
     const areaNameSnap = areas.find(a => a.areaCode === areaSnap)?.areaName ?? areaSnap;
     const deptNameSnap =
       mode === "department"
@@ -220,13 +240,13 @@ const ListOfGovernmentAccounts: React.FC = () => {
       // Do this BEFORE checking errorMessage — some backends return a warning
       // message in the envelope even when valid data rows are present.
       let rows: any[] = [];
-      if      (Array.isArray(json))               rows = json;
-      else if (Array.isArray(json?.data))          rows = json.data;
-      else if (Array.isArray(json?.Data))          rows = json.Data;
+      if (Array.isArray(json)) rows = json;
+      else if (Array.isArray(json?.data)) rows = json.data;
+      else if (Array.isArray(json?.Data)) rows = json.Data;
       else if (Array.isArray(json?.data?.records)) rows = json.data.records;
-      else if (Array.isArray(json?.records))       rows = json.records;
-      else if (Array.isArray(json?.result))        rows = json.result;
-      else if (Array.isArray(json?.Result))        rows = json.Result;
+      else if (Array.isArray(json?.records)) rows = json.records;
+      else if (Array.isArray(json?.result)) rows = json.result;
+      else if (Array.isArray(json?.Result)) rows = json.Result;
 
       console.log("[GOV] rows:", rows.length, rows[0] ? Object.keys(rows[0]) : "—");
 
@@ -246,31 +266,31 @@ const ListOfGovernmentAccounts: React.FC = () => {
       const mapped: GovernmentAccount[] = rows.map((item: any) => ({
         accountNumber:
           String(item.AccountNumber ?? item.accountNumber ??
-                 item.AccountNo     ?? item.accountNo     ?? ""),
+            item.AccountNo ?? item.accountNo ?? ""),
         customerName:
           String(item.CustomerName ?? item.customerName ??
-                 item.Customer     ?? item.customer      ?? ""),
+            item.Customer ?? item.customer ?? ""),
         address:
           String(
             item.Address ?? item.address ??
             [item.Address1, item.Address2, item.Address3].filter(Boolean).join(", ") ?? ""
           ),
         currentBalance: formatCurrency(
-          item.CurrentBalance     ?? item.currentBalance  ??
-          item.CurrentCharge      ?? item.currentCharge   ??
+          item.CurrentBalance ?? item.currentBalance ??
+          item.CurrentCharge ?? item.currentCharge ??
           item["Current Balance"] ?? 0
         ),
         kwhCharge: formatKwh(
-          item.KwhCharge      ?? item.kwhCharge     ??
-          item.KWHCharge      ?? item["kWh Charge"] ?? 0
+          item.KwhCharge ?? item.kwhCharge ??
+          item.KWHCharge ?? item["kWh Charge"] ?? 0
         ),
         averageConsumption: formatConsumption(
-          item.AverageConsumption    ?? item.averageConsumption ??
-          item.AvgConsumption        ?? item["Average Consumption"] ?? 0
+          item.AverageConsumption ?? item.averageConsumption ??
+          item.AvgConsumption ?? item["Average Consumption"] ?? 0
         ),
-        areaName:       item.AreaName       ?? item.areaName       ?? areaNameSnap,
+        areaName: item.AreaName ?? item.areaName ?? areaNameSnap,
         departmentName: item.DepartmentName ?? item.departmentName ?? deptNameSnap,
-        billCycle:      item.BillCycle      ?? item.billCycle      ?? maxBillCycle,
+        billCycle: item.BillCycle ?? item.billCycle ?? maxBillCycle,
       }));
 
       setReportData(mapped);
@@ -286,23 +306,22 @@ const ListOfGovernmentAccounts: React.FC = () => {
       setLoadingReport(false);
       setLoadingMode(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedArea, selectedDepartment, areas, departments]);
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalBalance = reportData.reduce((s, r) => s + parseNumber(r.currentBalance), 0);
-  const totalKwh     = reportData.reduce((s, r) => s + parseNumber(r.kwhCharge),      0);
+  const totalKwh = reportData.reduce((s, r) => s + parseNumber(r.kwhCharge), 0);
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
   const selectCls =
     "w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent";
 
   const Placeholder = ({ msg, error }: { msg: string; error?: boolean }) => (
-    <div className={`w-full px-2 py-1.5 text-xs border rounded-md ${
-      error
+    <div className={`w-full px-2 py-1.5 text-xs border rounded-md ${error
         ? "border-red-300 bg-red-50 text-red-600"
         : "border-gray-300 bg-gray-50 text-gray-500"
-    }`}>{msg}</div>
+      }`}>{msg}</div>
   );
 
   const Spinner = () => (
@@ -341,7 +360,7 @@ const ListOfGovernmentAccounts: React.FC = () => {
 
   const handleExportPdf = () => {
     if (!reportData.length) return;
-    const title    = `List of Government Accounts — ${activeReportMode === "area" ? "Area Report" : "Department Report"}`;
+    const title = `List of Government Accounts — ${activeReportMode === "area" ? "Area Report" : "Department Report"}`;
     const subtitle = `Area: ${selectedAreaName}${activeReportMode === "department" && selectedDeptName ? ` | Department: ${selectedDeptName}` : ""}`;
     const rowsHtml = reportData.map(r => `<tr>
       <td style="border:1px solid #ddd;padding:4px 6px;font-size:10px">${escapeCsv(r.accountNumber)}</td>
@@ -409,6 +428,16 @@ const ListOfGovernmentAccounts: React.FC = () => {
                   <Placeholder msg="Loading areas…" />
                 ) : areaError ? (
                   <Placeholder msg={areaError} error />
+                ) : locked["Area"] ? (
+                  <select
+                    disabled
+                    value={locked["Area"].code}
+                    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  >
+                    <option value={locked["Area"].code}>
+                      {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                    </option>
+                  </select>
                 ) : (
                   <select
                     value={selectedArea}

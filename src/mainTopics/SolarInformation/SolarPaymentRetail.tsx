@@ -1,347 +1,369 @@
 import React, { useState, useEffect, useRef, JSX } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
-	AreaCode: string;
-	AreaName: string;
-	ErrorMessage?: string | null;
+    AreaCode: string;
+    AreaName: string;
+    ErrorMessage?: string | null;
 }
 
 interface Province {
-	ProvinceCode: string;
-	ProvinceName: string;
-	ErrorMessage?: string | null;
+    ProvinceCode: string;
+    ProvinceName: string;
+    ErrorMessage?: string | null;
 }
 
 interface Division {
-	RegionCode: string;
-	ErrorMessage?: string | null;
+    RegionCode: string;
+    ErrorMessage?: string | null;
 }
 
 interface BillCycleOption {
-	display: string;
-	code: string;
+    display: string;
+    code: string;
 }
 
 interface DetailedRetailPayment {
-	Division: string;
-	Province: string;
-	Area: string;
-	CustomerName: string;
-	AccountNumber: string;
-	PanelCapacity: number;
-	EnergyExported: number;
-	EnergyImported: number;
-	Tariff: string;
-	BFUnits: number;
-	UnitsInBill: number;
-	Period: number;
-	KwhCharge: number;
-	FixedCharge: number;
-	FuelCharge: number;
-	CFUnits: number;
-	Rate: number;
-	UnitSale: number;
-	KwhSales: number;
-	BankCode: string;
-	BranchCode: string;
-	BankAccountNumber: string;
-	AgreementDate: string;
-	ErrorMessage?: string;
+    Division: string;
+    Province: string;
+    Area: string;
+    CustomerName: string;
+    AccountNumber: string;
+    PanelCapacity: number;
+    EnergyExported: number;
+    EnergyImported: number;
+    Tariff: string;
+    BFUnits: number;
+    UnitsInBill: number;
+    Period: number;
+    KwhCharge: number;
+    FixedCharge: number;
+    FuelCharge: number;
+    CFUnits: number;
+    Rate: number;
+    UnitSale: number;
+    KwhSales: number;
+    BankCode: string;
+    BranchCode: string;
+    BankAccountNumber: string;
+    AgreementDate: string;
+    ErrorMessage?: string;
 }
 
 interface SummaryRetailPayment {
-	NetType: string;
-	NoOfAccounts: number;
-	EnergyExported: number;
-	EnergyImported: number;
-	UnitSaleKwh: number;
-	UnitSaleRs: number;
-	KwhPayableBalance: number;
-	ErrorMessage?: string;
+    NetType: string;
+    NoOfAccounts: number;
+    EnergyExported: number;
+    EnergyImported: number;
+    UnitSaleKwh: number;
+    UnitSaleRs: number;
+    KwhPayableBalance: number;
+    ErrorMessage?: string;
 }
 
 const SolarPaymentRetail: React.FC = () => {
-	const maroon = "text-[#7A0000]";
-	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
+    const maroon = "text-[#7A0000]";
+    const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
-	const [selectedCycleType, setSelectedCycleType] = useState<string>("");
-	const [cycleValue, setCycleValue] = useState<string>("");
-	const [reportType, setReportType] = useState<string>("");
-	const [selectedCategory, setSelectedCategory] = useState<string>("Area");
-	const [categoryValue, setCategoryValue] = useState<string>("");
-	const [netType, setNetType] = useState<string>("");
-	const [loading, setLoading] = useState(false);
+    const [selectedCycleType, setSelectedCycleType] = useState<string>("");
+    const [cycleValue, setCycleValue] = useState<string>("");
+    const [reportType, setReportType] = useState<string>("");
+    const [selectedCategory, setSelectedCategory] = useState<string>("Area");
+    const [categoryValue, setCategoryValue] = useState<string>("");
+    const [netType, setNetType] = useState<string>("");
+    const [loading, setLoading] = useState(false);
 
-	// Data states
-	const [areas, setAreas] = useState<Area[]>([]);
-	const [provinces, setProvinces] = useState<Province[]>([]);
-	const [divisions, setDivisions] = useState<Division[]>([]);
-	const [cycleOptions, setCycleOptions] = useState<BillCycleOption[]>([]);
+    // Data states
+    const [areas, setAreas] = useState<Area[]>([]);
+    const [provinces, setProvinces] = useState<Province[]>([]);
+    const [divisions, setDivisions] = useState<Division[]>([]);
+    const [cycleOptions, setCycleOptions] = useState<BillCycleOption[]>([]);
 
-	// Loading states
-	const [isLoadingAreas, setIsLoadingAreas] = useState(false);
-	const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
-	const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
-	const [isLoadingCycles, setIsLoadingCycles] = useState(false);
+    // Loading states
+    const [isLoadingAreas, setIsLoadingAreas] = useState(false);
+    const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
+    const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
+    const [isLoadingCycles, setIsLoadingCycles] = useState(false);
 
-	// Error states
-	const [areaError, setAreaError] = useState<string | null>(null);
-	const [provinceError, setProvinceError] = useState<string | null>(null);
-	const [divisionError, setDivisionError] = useState<string | null>(null);
-	const [cycleError, setCycleError] = useState<string | null>(null);
-	const [reportError, setReportError] = useState<string | null>(null);
+    // Error states
+    const [areaError, setAreaError] = useState<string | null>(null);
+    const [provinceError, setProvinceError] = useState<string | null>(null);
+    const [divisionError, setDivisionError] = useState<string | null>(null);
+    const [cycleError, setCycleError] = useState<string | null>(null);
+    const [reportError, setReportError] = useState<string | null>(null);
 
-	// Display states
-	const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
-	const [selectedCycleDisplay, setSelectedCycleDisplay] = useState<string>("");
-	const [reportVisible, setReportVisible] = useState(false);
+    // Display states
+    const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
+    const [selectedCycleDisplay, setSelectedCycleDisplay] = useState<string>("");
+    const [reportVisible, setReportVisible] = useState(false);
 
-	// Report data
-	const [detailedData, setDetailedData] = useState<DetailedRetailPayment[]>(
-		[]
-	);
-	const [ordinarySummaryData, setOrdinarySummaryData] = useState<
-		SummaryRetailPayment[]
-	>([]);
-	const [bulkSummaryData, setBulkSummaryData] = useState<
-		SummaryRetailPayment[]
-	>([]);
+    // Report data
+    const [detailedData, setDetailedData] = useState<DetailedRetailPayment[]>(
+        []
+    );
+    const [ordinarySummaryData, setOrdinarySummaryData] = useState<
+        SummaryRetailPayment[]
+    >([]);
+    const [bulkSummaryData, setBulkSummaryData] = useState<
+        SummaryRetailPayment[]
+    >([]);
 
-	const printRef = useRef<HTMLDivElement>(null);
+    const { user } = useUser();
+    const { allowedCategories, locked } = useReportScope();
 
-	// Helper function for error handling
-	const fetchWithErrorHandling = async (url: string) => {
-		try {
-			const response = await fetch(url, {
-				headers: {
-					Accept: "application/json",
-				},
-			});
+    const printRef = useRef<HTMLDivElement>(null);
 
-			if (!response.ok) {
-				let errorMsg = `HTTP error! status: ${response.status}`;
-				try {
-					const errorData = await response.json();
-					if (errorData.errorMessage) {
-						errorMsg = errorData.errorMessage;
-					}
-				} catch (e) {
-					errorMsg = response.statusText;
-				}
-				throw new Error(errorMsg);
-			}
+    // Helper function for error handling
+    const fetchWithErrorHandling = async (url: string) => {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: "application/json",
+                },
+            });
 
-			const contentType = response.headers.get("content-type");
-			if (!contentType || !contentType.includes("application/json")) {
-				throw new Error(`Expected JSON response but got ${contentType}`);
-			}
+            if (!response.ok) {
+                let errorMsg = `HTTP error! status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.errorMessage) {
+                        errorMsg = errorData.errorMessage;
+                    }
+                } catch (e) {
+                    errorMsg = response.statusText;
+                }
+                throw new Error(errorMsg);
+            }
 
-			return await response.json();
-		} catch (error) {
-			console.error(`Error fetching ${url}:`, error);
-			throw error;
-		}
-	};
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error(`Expected JSON response but got ${contentType}`);
+            }
 
-	// Generate cycle options
-	const generateCycleOptions = (
-		cycles: string[],
-		maxCycle: string,
-		cycleType: string
-	): BillCycleOption[] => {
-		const maxCycleNum = parseInt(maxCycle);
-		return cycles.map((cycle, index) => ({
-			display:
-				cycleType === "Calculation Cycle"
-					? cycle
-					: `${(maxCycleNum - index).toString()} - ${cycle}`,
-			code: (maxCycleNum - index).toString(),
-		}));
-	};
+            return await response.json();
+        } catch (error) {
+            console.error(`Error fetching ${url}:`, error);
+            throw error;
+        }
+    };
 
-	// Sort data alphabetically
-	const sortDataAlphabetically = (
-		data: DetailedRetailPayment[]
-	): DetailedRetailPayment[] => {
-		return [...data].sort((a, b) => {
-			if (a.Division < b.Division) return -1;
-			if (a.Division > b.Division) return 1;
-			if (a.Province < b.Province) return -1;
-			if (a.Province > b.Province) return 1;
-			if (a.Area < b.Area) return -1;
-			if (a.Area > b.Area) return 1;
-			return 0;
-		});
-	};
+    // Generate cycle options
+    const generateCycleOptions = (
+        cycles: string[],
+        maxCycle: string,
+        cycleType: string
+    ): BillCycleOption[] => {
+        const maxCycleNum = parseInt(maxCycle);
+        return cycles.map((cycle, index) => ({
+            display:
+                cycleType === "Calculation Cycle"
+                    ? cycle
+                    : `${(maxCycleNum - index).toString()} - ${cycle}`,
+            code: (maxCycleNum - index).toString(),
+        }));
+    };
 
-	// Fetch areas
-	useEffect(() => {
-		const fetchAreas = async () => {
-			setIsLoadingAreas(true);
-			setAreaError(null);
-			try {
-				const areaData = await fetchWithErrorHandling("/misapi/api/ordinary/areas");
-				const sortedAreas = (areaData.data || []).sort((a: Area, b: Area) =>
-					a.AreaName.localeCompare(b.AreaName)
-				);
-				setAreas(sortedAreas);
-			} catch (err: any) {
-				console.error("Error fetching areas:", err);
-				setAreaError(
-					err.message || "Failed to load areas. Please try again later."
-				);
-			} finally {
-				setIsLoadingAreas(false);
-			}
-		};
+    // Sort data alphabetically
+    const sortDataAlphabetically = (
+        data: DetailedRetailPayment[]
+    ): DetailedRetailPayment[] => {
+        return [...data].sort((a, b) => {
+            if (a.Division < b.Division) return -1;
+            if (a.Division > b.Division) return 1;
+            if (a.Province < b.Province) return -1;
+            if (a.Province > b.Province) return 1;
+            if (a.Area < b.Area) return -1;
+            if (a.Area > b.Area) return 1;
+            return 0;
+        });
+    };
 
-		fetchAreas();
-	}, []);
+    // Fetch areas
+    useEffect(() => {
+        const fetchAreas = async () => {
+            setIsLoadingAreas(true);
+            setAreaError(null);
+            try {
+                let url = "/misapi/api/ordinary/areas";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                } else if (locked["Province"]?.code) {
+                    url += `?provCode=${locked["Province"].code}`;
+                }
+                const areaData = await fetchWithErrorHandling(url);
+                const sortedAreas = (areaData.data || []).sort((a: Area, b: Area) =>
+                    a.AreaName.localeCompare(b.AreaName)
+                );
+                setAreas(sortedAreas);
+            } catch (err: any) {
+                console.error("Error fetching areas:", err);
+                setAreaError(
+                    err.message || "Failed to load areas. Please try again later."
+                );
+            } finally {
+                setIsLoadingAreas(false);
+            }
+        };
 
-	// Fetch provinces
-	useEffect(() => {
-		const fetchProvinces = async () => {
-			setIsLoadingProvinces(true);
-			setProvinceError(null);
-			try {
-				const provinceData = await fetchWithErrorHandling(
-					"/misapi/api/ordinary/province"
-				);
-				const sortedProvinces = (provinceData.data || []).sort(
-					(a: Province, b: Province) =>
-						a.ProvinceName.localeCompare(b.ProvinceName)
-				);
-				setProvinces(sortedProvinces);
-			} catch (err: any) {
-				console.error("Error fetching provinces:", err);
-				setProvinceError(
-					err.message ||
-						"Failed to load provinces. Please try again later."
-				);
-			} finally {
-				setIsLoadingProvinces(false);
-			}
-		};
+        fetchAreas();
+    }, [user.Level]);
 
-		fetchProvinces();
-	}, []);
+    // Fetch provinces
+    useEffect(() => {
+        const fetchProvinces = async () => {
+            setIsLoadingProvinces(true);
+            setProvinceError(null);
+            try {
+                let url = "/misapi/api/ordinary/province";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                }
+                const provinceData = await fetchWithErrorHandling(url);
+                const sortedProvinces = (provinceData.data || []).sort(
+                    (a: Province, b: Province) =>
+                        a.ProvinceName.localeCompare(b.ProvinceName)
+                );
+                setProvinces(sortedProvinces);
+            } catch (err: any) {
+                console.error("Error fetching provinces:", err);
+                setProvinceError(
+                    err.message ||
+                    "Failed to load provinces. Please try again later."
+                );
+            } finally {
+                setIsLoadingProvinces(false);
+            }
+        };
 
-	// Fetch divisions
-	useEffect(() => {
-		const fetchDivisions = async () => {
-			setIsLoadingDivisions(true);
-			setDivisionError(null);
-			try {
-				const divisionData = await fetchWithErrorHandling(
-					"/misapi/api/ordinary/region"
-				);
-				const sortedDivisions = (divisionData.data || []).sort(
-					(a: Division, b: Division) =>
-						a.RegionCode.localeCompare(b.RegionCode)
-				);
-				setDivisions(sortedDivisions);
-			} catch (err: any) {
-				console.error("Error fetching divisions:", err);
-				setDivisionError(
-					err.message ||
-						"Failed to load divisions. Please try again later."
-				);
-			} finally {
-				setIsLoadingDivisions(false);
-			}
-		};
+        fetchProvinces();
+    }, [user.Level]);
 
-		fetchDivisions();
-	}, []);
+    // Fetch divisions
+    useEffect(() => {
+        const fetchDivisions = async () => {
+            setIsLoadingDivisions(true);
+            setDivisionError(null);
+            try {
+                const divisionData = await fetchWithErrorHandling(
+                    "/misapi/api/ordinary/region"
+                );
+                const sortedDivisions = (divisionData.data || []).sort(
+                    (a: Division, b: Division) =>
+                        a.RegionCode.localeCompare(b.RegionCode)
+                );
+                setDivisions(sortedDivisions);
+            } catch (err: any) {
+                console.error("Error fetching divisions:", err);
+                setDivisionError(
+                    err.message ||
+                    "Failed to load divisions. Please try again later."
+                );
+            } finally {
+                setIsLoadingDivisions(false);
+            }
+        };
 
-	// Fetch cycles based on cycle type
-	useEffect(() => {
-		if (!selectedCycleType) {
-			setCycleOptions([]);
-			setCycleValue("");
-			setSelectedCycleDisplay("");
-			return;
-		}
+        fetchDivisions();
+    }, []);
 
-		const fetchCycles = async () => {
-			setIsLoadingCycles(true);
-			setCycleError(null);
-			setCycleOptions([]);
-			setCycleValue("");
-			setSelectedCycleDisplay("");
+    useEffect(() => {
+        const key = selectedCategory === "Division" ? "Region" : selectedCategory;
+        const lock = locked[key as keyof typeof locked];
+        if (lock) {
+            setCategoryValue(lock.code);
+            setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+        }
+    }, [selectedCategory, locked]);
 
-			try {
-				const cycleData = await fetchWithErrorHandling(
-					"/misapi/api/ordinary/netmtcons/billcycle/max"
-				);
-				if (cycleData.data && cycleData.data.BillCycles?.length > 0) {
-					const options = generateCycleOptions(
-						cycleData.data.BillCycles,
-						cycleData.data.MaxBillCycle,
-						selectedCycleType
-					);
-					setCycleOptions(options);
-				} else {
-					setCycleOptions([]);
-				}
-			} catch (err: any) {
-				console.error("Error fetching cycles:", err);
-				setCycleError(
-					err.message || "Failed to load cycles. Please try again later."
-				);
-			} finally {
-				setIsLoadingCycles(false);
-			}
-		};
+    // Fetch cycles based on cycle type
+    useEffect(() => {
+        if (!selectedCycleType) {
+            setCycleOptions([]);
+            setCycleValue("");
+            setSelectedCycleDisplay("");
+            return;
+        }
 
-		fetchCycles();
-	}, [selectedCycleType]);
+        const fetchCycles = async () => {
+            setIsLoadingCycles(true);
+            setCycleError(null);
+            setCycleOptions([]);
+            setCycleValue("");
+            setSelectedCycleDisplay("");
 
-	const handleCycleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-		const value = e.target.value;
-		setSelectedCycleType(value);
-		setCycleValue("");
-		setSelectedCycleDisplay("");
-	};
+            try {
+                const cycleData = await fetchWithErrorHandling(
+                    "/misapi/api/ordinary/netmtcons/billcycle/max"
+                );
+                if (cycleData.data && cycleData.data.BillCycles?.length > 0) {
+                    const options = generateCycleOptions(
+                        cycleData.data.BillCycles,
+                        cycleData.data.MaxBillCycle,
+                        selectedCycleType
+                    );
+                    setCycleOptions(options);
+                } else {
+                    setCycleOptions([]);
+                }
+            } catch (err: any) {
+                console.error("Error fetching cycles:", err);
+                setCycleError(
+                    err.message || "Failed to load cycles. Please try again later."
+                );
+            } finally {
+                setIsLoadingCycles(false);
+            }
+        };
 
-	const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-		const value = e.target.value;
-		setSelectedCategory(value);
-		setCategoryValue("");
-		setSelectedCategoryName("");
-	};
+        fetchCycles();
+    }, [selectedCycleType]);
 
-	const formatCurrency = (value: number): string => {
-		return value.toLocaleString("en-US", {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2,
-		});
-	};
+    const handleCycleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        setSelectedCycleType(value);
+        setCycleValue("");
+        setSelectedCycleDisplay("");
+    };
 
-	const formatNumber = (value: string | number): string => {
-		return typeof value === "number" ? value.toLocaleString("en-US") : value;
-	};
+    const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        setSelectedCategory(value);
+        setCategoryValue("");
+        setSelectedCategoryName("");
+    };
 
-	const downloadAsCSV = () => {
-		if (reportType === "Summary Report") {
-			downloadSummaryCSV();
-		} else if (detailedData.length) {
-			downloadDetailedCSV();
-		}
-	};
+    const formatCurrency = (value: number): string => {
+        return value.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    };
 
-	const downloadDetailedCSV = () => {
-		if (!detailedData.length) return;
+    const formatNumber = (value: string | number): string => {
+        return typeof value === "number" ? value.toLocaleString("en-US") : value;
+    };
 
-		const reportTitle =
-			"Solar Payment Information For Current Month - Retail";
-		const selectionInfo =
-			selectedCategory === "Entire CEB"
-				? "Entire CEB"
-				: selectedCategory === "Area"
-				? `${selectedCategory}: ${selectedCategoryName}`
-				: `${selectedCategory}: ${categoryValue}`;
+    const downloadAsCSV = () => {
+        if (reportType === "Summary Report") {
+            downloadSummaryCSV();
+        } else if (detailedData.length) {
+            downloadDetailedCSV();
+        }
+    };
+
+    const downloadDetailedCSV = () => {
+        if (!detailedData.length) return;
+
+        const reportTitle =
+            "Solar Payment Information For Current Month - Retail";
+        const selectionInfo =
+            selectedCategory === "Entire CEB"
+                ? "Entire CEB"
+                : selectedCategory === "Area"
+                    ? `${selectedCategory}: ${selectedCategoryName}`
+                    : `${selectedCategory}: ${categoryValue}`;
 
         const cycleInfo = `${selectedCycleType}: ${selectedCycleDisplay}`;
         const reportTypeInfo = `Report Type: ${reportType}`;
@@ -607,214 +629,214 @@ const SolarPaymentRetail: React.FC = () => {
             ...dataRows,
         ].join("\n");
 
-		try {
-			const blob = new Blob([csvContent], {type: "text/csv;charset=utf-8;"});
-			const url = URL.createObjectURL(blob);
-			const link = document.createElement("a");
+        try {
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
 
-			const fileDescriptor =
-				selectedCategory === "Entire CEB"
-					? "EntireCEB"
-					: selectedCategory === "Area"
-					? `${selectedCategory}_${selectedCategoryName}`
-					: `${selectedCategory}_${categoryValue}`;
+            const fileDescriptor =
+                selectedCategory === "Entire CEB"
+                    ? "EntireCEB"
+                    : selectedCategory === "Area"
+                        ? `${selectedCategory}_${selectedCategoryName}`
+                        : `${selectedCategory}_${categoryValue}`;
 
-			link.setAttribute("href", url);
-			link.setAttribute(
-				"download",
-				`SolarPaymentRetail_${fileDescriptor}_${selectedCycleType.replace(
-					" ",
-					""
-				)}_${cycleValue}.csv`
-			);
-			link.style.visibility = "hidden";
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-			setTimeout(() => URL.revokeObjectURL(url), 100);
-		} catch (error) {
-			console.error("Error generating CSV:", error);
-			alert("Failed to export CSV");
-		}
-	};
+            link.setAttribute("href", url);
+            link.setAttribute(
+                "download",
+                `SolarPaymentRetail_${fileDescriptor}_${selectedCycleType.replace(
+                    " ",
+                    ""
+                )}_${cycleValue}.csv`
+            );
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        } catch (error) {
+            console.error("Error generating CSV:", error);
+            alert("Failed to export CSV");
+        }
+    };
 
-	const downloadSummaryCSV = () => {
-		const reportTitle =
-			"Solar Payment Information For Current Month - Retail Summary";
-		const headers = [
-			"Net Type",
-			"No of Accounts",
-			"Energy Exported (kWh)",
-			"Energy Imported (kWh)",
-			"Unit Sale (KWH)",
-			"Unit Sale (Rs)",
-			"KWH payable balances to Customer (Rs)",
-		];
+    const downloadSummaryCSV = () => {
+        const reportTitle =
+            "Solar Payment Information For Current Month - Retail Summary";
+        const headers = [
+            "Net Type",
+            "No of Accounts",
+            "Energy Exported (kWh)",
+            "Energy Imported (kWh)",
+            "Unit Sale (KWH)",
+            "Unit Sale (Rs)",
+            "KWH payable balances to Customer (Rs)",
+        ];
 
-		// Calculate totals for ordinary
-		const ordinaryTotals = ordinarySummaryData.reduce(
-			(acc, item) => {
-				acc.accounts += item.NoOfAccounts;
-				acc.exported += item.EnergyExported;
-				acc.imported += item.EnergyImported;
-				acc.unitSaleKwh += item.UnitSaleKwh;
-				acc.unitSaleRs += item.UnitSaleRs;
-				acc.payableBalance += item.KwhPayableBalance;
-				return acc;
-			},
-			{
-				accounts: 0,
-				exported: 0,
-				imported: 0,
-				unitSaleKwh: 0,
-				unitSaleRs: 0,
-				payableBalance: 0,
-			}
-		);
+        // Calculate totals for ordinary
+        const ordinaryTotals = ordinarySummaryData.reduce(
+            (acc, item) => {
+                acc.accounts += item.NoOfAccounts;
+                acc.exported += item.EnergyExported;
+                acc.imported += item.EnergyImported;
+                acc.unitSaleKwh += item.UnitSaleKwh;
+                acc.unitSaleRs += item.UnitSaleRs;
+                acc.payableBalance += item.KwhPayableBalance;
+                return acc;
+            },
+            {
+                accounts: 0,
+                exported: 0,
+                imported: 0,
+                unitSaleKwh: 0,
+                unitSaleRs: 0,
+                payableBalance: 0,
+            }
+        );
 
-		// Calculate totals for bulk
-		const bulkTotals = bulkSummaryData.reduce(
-			(acc, item) => {
-				acc.accounts += item.NoOfAccounts;
-				acc.exported += item.EnergyExported;
-				acc.imported += item.EnergyImported;
-				acc.unitSaleKwh += item.UnitSaleKwh;
-				acc.unitSaleRs += item.UnitSaleRs;
-				acc.payableBalance += item.KwhPayableBalance;
-				return acc;
-			},
-			{
-				accounts: 0,
-				exported: 0,
-				imported: 0,
-				unitSaleKwh: 0,
-				unitSaleRs: 0,
-				payableBalance: 0,
-			}
-		);
+        // Calculate totals for bulk
+        const bulkTotals = bulkSummaryData.reduce(
+            (acc, item) => {
+                acc.accounts += item.NoOfAccounts;
+                acc.exported += item.EnergyExported;
+                acc.imported += item.EnergyImported;
+                acc.unitSaleKwh += item.UnitSaleKwh;
+                acc.unitSaleRs += item.UnitSaleRs;
+                acc.payableBalance += item.KwhPayableBalance;
+                return acc;
+            },
+            {
+                accounts: 0,
+                exported: 0,
+                imported: 0,
+                unitSaleKwh: 0,
+                unitSaleRs: 0,
+                payableBalance: 0,
+            }
+        );
 
-		const ordinaryRows = ordinarySummaryData.map((item) => [
-			item.NetType,
-			formatNumber(item.NoOfAccounts),
-			formatNumber(item.EnergyExported),
-			formatNumber(item.EnergyImported),
-			formatNumber(item.UnitSaleKwh),
-			formatNumber(item.UnitSaleRs),
-			formatNumber(item.KwhPayableBalance),
-		]);
+        const ordinaryRows = ordinarySummaryData.map((item) => [
+            item.NetType,
+            formatNumber(item.NoOfAccounts),
+            formatNumber(item.EnergyExported),
+            formatNumber(item.EnergyImported),
+            formatNumber(item.UnitSaleKwh),
+            formatNumber(item.UnitSaleRs),
+            formatNumber(item.KwhPayableBalance),
+        ]);
 
-		const ordinaryTotalRow = [
-			"Total",
-			ordinaryTotals.accounts.toLocaleString(),
-			ordinaryTotals.exported.toLocaleString(),
-			ordinaryTotals.imported.toLocaleString(),
-			ordinaryTotals.unitSaleKwh.toLocaleString(),
-			formatCurrency(ordinaryTotals.unitSaleRs),
-			formatCurrency(ordinaryTotals.payableBalance),
-		];
+        const ordinaryTotalRow = [
+            "Total",
+            ordinaryTotals.accounts.toLocaleString(),
+            ordinaryTotals.exported.toLocaleString(),
+            ordinaryTotals.imported.toLocaleString(),
+            ordinaryTotals.unitSaleKwh.toLocaleString(),
+            formatCurrency(ordinaryTotals.unitSaleRs),
+            formatCurrency(ordinaryTotals.payableBalance),
+        ];
 
-		const bulkRows = bulkSummaryData.map((item) => [
-			item.NetType,
-			formatNumber(item.NoOfAccounts),
-			formatNumber(item.EnergyExported),
-			formatNumber(item.EnergyImported),
-			formatNumber(item.UnitSaleKwh),
-			formatNumber(item.UnitSaleRs),
-			formatNumber(item.KwhPayableBalance),
-		]);
+        const bulkRows = bulkSummaryData.map((item) => [
+            item.NetType,
+            formatNumber(item.NoOfAccounts),
+            formatNumber(item.EnergyExported),
+            formatNumber(item.EnergyImported),
+            formatNumber(item.UnitSaleKwh),
+            formatNumber(item.UnitSaleRs),
+            formatNumber(item.KwhPayableBalance),
+        ]);
 
-		const bulkTotalRow =
-			bulkSummaryData.length > 0
-				? [
-						"Total",
-						bulkTotals.accounts.toLocaleString(),
-						bulkTotals.exported.toLocaleString(),
-						bulkTotals.imported.toLocaleString(),
-						bulkTotals.unitSaleKwh.toLocaleString(),
-						formatCurrency(bulkTotals.unitSaleRs),
-						formatCurrency(bulkTotals.payableBalance),
-				  ]
-				: [];
+        const bulkTotalRow =
+            bulkSummaryData.length > 0
+                ? [
+                    "Total",
+                    bulkTotals.accounts.toLocaleString(),
+                    bulkTotals.exported.toLocaleString(),
+                    bulkTotals.imported.toLocaleString(),
+                    bulkTotals.unitSaleKwh.toLocaleString(),
+                    formatCurrency(bulkTotals.unitSaleRs),
+                    formatCurrency(bulkTotals.payableBalance),
+                ]
+                : [];
 
-		const csvRows = [
-			reportTitle,
-			`${selectedCycleType}: ${selectedCycleDisplay}`,
-			`Generated: ${new Date().toLocaleDateString()}`,
-			"",
-			"Ordinary Customer Details",
-			headers.map((h) => `"${h}"`).join(","),
-			...ordinaryRows.map((row) =>
-				row.map((cell: any) => `"${cell}"`).join(",")
-			),
-			ordinaryTotalRow.map((cell: any) => `"${cell}"`).join(","),
-		];
+        const csvRows = [
+            reportTitle,
+            `${selectedCycleType}: ${selectedCycleDisplay}`,
+            `Generated: ${new Date().toLocaleDateString()}`,
+            "",
+            "Ordinary Customer Details",
+            headers.map((h) => `"${h}"`).join(","),
+            ...ordinaryRows.map((row) =>
+                row.map((cell: any) => `"${cell}"`).join(",")
+            ),
+            ordinaryTotalRow.map((cell: any) => `"${cell}"`).join(","),
+        ];
 
-		if (bulkSummaryData.length > 0) {
-			csvRows.push(
-				"",
-				"Bulk Customer Details",
-				headers.map((h) => `"${h}"`).join(","),
-				...bulkRows.map((row) =>
-					row.map((cell: any) => `"${cell}"`).join(",")
-				),
-				bulkTotalRow.map((cell: any) => `"${cell}"`).join(",")
-			);
-		}
+        if (bulkSummaryData.length > 0) {
+            csvRows.push(
+                "",
+                "Bulk Customer Details",
+                headers.map((h) => `"${h}"`).join(","),
+                ...bulkRows.map((row) =>
+                    row.map((cell: any) => `"${cell}"`).join(",")
+                ),
+                bulkTotalRow.map((cell: any) => `"${cell}"`).join(",")
+            );
+        }
 
-		const csvContent = csvRows.join("\n");
+        const csvContent = csvRows.join("\n");
 
-		try {
-			const blob = new Blob([csvContent], {type: "text/csv;charset=utf-8;"});
-			const url = URL.createObjectURL(blob);
-			const link = document.createElement("a");
+        try {
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
 
-			link.setAttribute("href", url);
-			link.setAttribute(
-				"download",
-				`SolarPaymentRetail_Summary_${selectedCycleType.replace(
-					" ",
-					""
-				)}_${cycleValue}.csv`
-			);
-			link.style.visibility = "hidden";
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-			setTimeout(() => URL.revokeObjectURL(url), 100);
-		} catch (error) {
-			console.error("Error generating CSV:", error);
-			alert("Failed to export CSV");
-		}
-	};
+            link.setAttribute("href", url);
+            link.setAttribute(
+                "download",
+                `SolarPaymentRetail_Summary_${selectedCycleType.replace(
+                    " ",
+                    ""
+                )}_${cycleValue}.csv`
+            );
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        } catch (error) {
+            console.error("Error generating CSV:", error);
+            alert("Failed to export CSV");
+        }
+    };
 
-	const printPDF = () => {
-		if (!printRef.current) return;
+    const printPDF = () => {
+        if (!printRef.current) return;
 
-		const printWindow = window.open("", "_blank");
-		if (!printWindow) return;
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) return;
 
-		let reportTitle = "";
-		let selectionInfo = "";
+        let reportTitle = "";
+        let selectionInfo = "";
 
-		if (reportType === "Summary Report") {
-			reportTitle =
-				"SOLAR PAYMENT INFORMATION FOR CURRENT MONTH - RETAIL SUMMARY";
-			selectionInfo = `${selectedCycleType}: <span class="bold">${selectedCycleDisplay}</span>`;
-		} else {
-			reportTitle = "SOLAR PAYMENT INFORMATION FOR CURRENT MONTH - RETAIL";
-			const categoryInfo = (() => {
-				if (selectedCategory === "Entire CEB") {
-					return "Entire CEB";
-				} else if (selectedCategory === "Area") {
-					return `${selectedCategory}: <span class="bold">${selectedCategoryName}</span>`;
-				} else {
-					return `${selectedCategory}: <span class="bold">${categoryValue}</span>`;
-				}
-			})();
-			selectionInfo = `${categoryInfo}<br>${selectedCycleType}: <span class="bold">${selectedCycleDisplay}</span><br>Report Type: <span class="bold">${reportType}</span><br>Net Type: <span class="bold">${netType}</span>`;
-		}
+        if (reportType === "Summary Report") {
+            reportTitle =
+                "SOLAR PAYMENT INFORMATION FOR CURRENT MONTH - RETAIL SUMMARY";
+            selectionInfo = `${selectedCycleType}: <span class="bold">${selectedCycleDisplay}</span>`;
+        } else {
+            reportTitle = "SOLAR PAYMENT INFORMATION FOR CURRENT MONTH - RETAIL";
+            const categoryInfo = (() => {
+                if (selectedCategory === "Entire CEB") {
+                    return "Entire CEB";
+                } else if (selectedCategory === "Area") {
+                    return `${selectedCategory}: <span class="bold">${selectedCategoryName}</span>`;
+                } else {
+                    return `${selectedCategory}: <span class="bold">${categoryValue}</span>`;
+                }
+            })();
+            selectionInfo = `${categoryInfo}<br>${selectedCycleType}: <span class="bold">${selectedCycleDisplay}</span><br>Report Type: <span class="bold">${reportType}</span><br>Net Type: <span class="bold">${netType}</span>`;
+        }
 
-		printWindow.document.write(`
+        printWindow.document.write(`
       <html>
         <head>
           <title>Solar Payment Retail Report</title>
@@ -1420,7 +1442,7 @@ const SolarPaymentRetail: React.FC = () => {
                             <td className="border border-gray-300 px-2 py-1" colSpan={2}>
                                 Province Total
                             </td>
-                            
+
                             <td className="border border-gray-300 px-2 py-1 text-right">
                                 {totals.count}
                             </td>
@@ -1455,7 +1477,7 @@ const SolarPaymentRetail: React.FC = () => {
                         <td className="border border-gray-300 px-2 py-1" colSpan={3}>
                             Division Total
                         </td>
-                        
+
                         <td className="border border-gray-300 px-2 py-1 text-right">
                             {totals.count}
                         </td>
@@ -1939,10 +1961,11 @@ const SolarPaymentRetail: React.FC = () => {
                                     required={reportType === "Detailed Report"}
                                     disabled={isCategoryDisabled()}
                                 >
-                                    <option value="Area">Area</option>
-                                    <option value="Province">Province</option>
-                                    <option value="Division">Division</option>
-                                    <option value="Entire CEB">Entire CEB</option>
+                                    {allowedCategories.map((cat) => (
+                                        <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                                            {cat === "Region" ? "Division" : cat}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -1981,6 +2004,16 @@ const SolarPaymentRetail: React.FC = () => {
                                         </div>
                                     ) : areaError ? (
                                         <div className="text-red-500 text-xs py-2">{areaError}</div>
+                                    ) : locked["Area"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Area"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Area"].code}>
+                                                {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                                            </option>
+                                        </select>
                                     ) : (
                                         <select
                                             value={categoryValue}
@@ -2049,6 +2082,16 @@ const SolarPaymentRetail: React.FC = () => {
                                         <div className="text-red-500 text-xs py-2">
                                             {provinceError}
                                         </div>
+                                    ) : locked["Province"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Province"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Province"].code}>
+                                                {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                                            </option>
+                                        </select>
                                     ) : (
                                         <select
                                             value={categoryValue}
@@ -2120,6 +2163,14 @@ const SolarPaymentRetail: React.FC = () => {
                                         <div className="text-red-500 text-xs py-2">
                                             {divisionError}
                                         </div>
+                                    ) : locked["Region"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Region"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                                        </select>
                                     ) : (
                                         <select
                                             value={categoryValue}
@@ -2245,7 +2296,7 @@ const SolarPaymentRetail: React.FC = () => {
                                     <>
                                         {selectedCategory === "Entire CEB"
                                             ? "Entire CEB"
-                                            : `${selectedCategory}: ${selectedCategoryName} `} 
+                                            : `${selectedCategory}: ${selectedCategoryName} `}
                                         | {selectedCycleType}: {selectedCycleDisplay} | Type:{" "}
                                         {reportType} | Net Type: {netType}
                                     </>
@@ -2277,8 +2328,8 @@ const SolarPaymentRetail: React.FC = () => {
                     {/* Report Table */}
                     <div
                         className={`${reportType === "Summary Report"
-                                ? ""
-                                : "overflow-x-auto max-h-[calc(100vh-250px)]"
+                            ? ""
+                            : "overflow-x-auto max-h-[calc(100vh-250px)]"
                             } border border-gray-300 rounded-lg`}
                     >
                         <div ref={printRef} className="min-w-full py-4">

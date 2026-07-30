@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, JSX } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
     AreaCode: string;
@@ -85,6 +87,9 @@ const SolarPaymentBulk: React.FC = () => {
     // Report data
     const [reportData, setReportData] = useState<BulkPaymentData[]>([]);
 
+    const { user } = useUser();
+    const { allowedCategories, locked } = useReportScope();
+
     const printRef = useRef<HTMLDivElement>(null);
 
     // Helper function for error handling
@@ -149,16 +154,16 @@ const SolarPaymentBulk: React.FC = () => {
             setBillCycleError(null);
             try {
                 const response = await fetchWithErrorHandling("/misapi/api/bulk/netmtcons/billcycle/max");
-                
+
                 console.log("Bill cycle response:", response); // Debug log
-                
+
                 // The response structure is: { data: { BillCycles: [...], MaxBillCycle: "445" } }
                 const billCyclesArray = response?.data?.BillCycles;
                 const maxBillCycle = response?.data?.MaxBillCycle;
-                
+
                 if (billCyclesArray && Array.isArray(billCyclesArray) && maxBillCycle) {
                     const maxCycleNum = parseInt(maxBillCycle);
-                    
+
                     // Map bill cycles to options with format "445 - Sep 25"
                     const options: BillCycleOption[] = billCyclesArray.map((cycle: string, index: number) => {
                         const cycleNumber = maxCycleNum - index;
@@ -167,10 +172,10 @@ const SolarPaymentBulk: React.FC = () => {
                             code: cycleNumber.toString(), // "445"
                         };
                     });
-                    
+
                     console.log("Parsed bill cycle options:", options); // Debug log
                     setBillCycleOptions(options);
-                    
+
                     if (options.length === 0) {
                         setBillCycleError("No bill cycles available");
                     }
@@ -197,7 +202,13 @@ const SolarPaymentBulk: React.FC = () => {
             setIsLoadingAreas(true);
             setAreaError(null);
             try {
-                const areaData = await fetchWithErrorHandling("/misapi/api/bulk/areas");
+                let url = "/misapi/api/bulk/areas";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                } else if (locked["Province"]?.code) {
+                    url += `?provCode=${locked["Province"].code}`;
+                }
+                const areaData = await fetchWithErrorHandling(url);
                 setAreas(areaData.data || []);
             } catch (err: any) {
                 console.error("Error fetching areas:", err);
@@ -210,7 +221,7 @@ const SolarPaymentBulk: React.FC = () => {
         };
 
         fetchAreas();
-    }, []);
+    }, [user.Level]);
 
     // Fetch provinces
     useEffect(() => {
@@ -218,9 +229,11 @@ const SolarPaymentBulk: React.FC = () => {
             setIsLoadingProvinces(true);
             setProvinceError(null);
             try {
-                const provinceData = await fetchWithErrorHandling(
-                    "/misapi/api/bulk/province"
-                );
+                let url = "/misapi/api/bulk/province";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                }
+                const provinceData = await fetchWithErrorHandling(url);
                 setProvinces(provinceData.data || []);
             } catch (err: any) {
                 console.error("Error fetching provinces:", err);
@@ -233,7 +246,7 @@ const SolarPaymentBulk: React.FC = () => {
         };
 
         fetchProvinces();
-    }, []);
+    }, [user.Level]);
 
     // Fetch divisions
     useEffect(() => {
@@ -257,6 +270,16 @@ const SolarPaymentBulk: React.FC = () => {
 
         fetchDivisions();
     }, []);
+
+
+    useEffect(() => {
+        const key = reportCategory === "Division" ? "Region" : reportCategory;
+        const lock = locked[key as keyof typeof locked];
+        if (lock) {
+            setCategoryValue(lock.code);
+            setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+        }
+    }, [reportCategory, locked]);
 
     // Reset category value when report category changes
     useEffect(() => {
@@ -953,7 +976,7 @@ const SolarPaymentBulk: React.FC = () => {
                                 <td className="px-2 py-1.5 border border-gray-300 whitespace-nowrap">
                                     {row.AgreementDate}
                                 </td>
-                                
+
                             </tr>
                         );
                         rowIndex++;
@@ -974,7 +997,7 @@ const SolarPaymentBulk: React.FC = () => {
                                 <td className="px-2 py-1.5 border border-gray-300" colSpan={1}>
                                     Area Total
                                 </td>
-                                
+
                                 <td className="px-2 py-1.5 text-right border border-gray-300">
                                     {totals.count}
                                 </td>
@@ -1009,7 +1032,7 @@ const SolarPaymentBulk: React.FC = () => {
                             <td className="px-2 py-1.5 border border-gray-300" colSpan={2}>
                                 Province Total
                             </td>
-                            
+
                             <td className="px-2 py-1.5 text-right border border-gray-300">
                                 {totals.count}
                             </td>
@@ -1044,7 +1067,7 @@ const SolarPaymentBulk: React.FC = () => {
                         <td className="px-2 py-1.5 border border-gray-300" colSpan={3}>
                             Division Total
                         </td>
-                        
+
                         <td className="px-2 py-1.5 text-right border border-gray-300">
                             {totals.count}
                         </td>
@@ -1088,7 +1111,7 @@ const SolarPaymentBulk: React.FC = () => {
                         <th className="px-2 py-2 text-left border border-gray-300 font-semibold">Branch Code</th>
                         <th className="px-2 py-2 text-left border border-gray-300 font-semibold">Bank Account Number</th>
                         <th className="px-2 py-2 text-left border border-gray-300 font-semibold">Agreement Date</th>
-                        
+
                     </tr>
                 </thead>
                 <tbody>
@@ -1146,27 +1169,26 @@ const SolarPaymentBulk: React.FC = () => {
                             {/* Select Report Category Dropdown */}
                             <div className="flex flex-col">
                                 <label
-                                    className={`text-xs font-medium mb-1 ${
-                                        !billCycle ? "text-gray-400" : maroon
-                                    }`}
+                                    className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon
+                                        }`}
                                 >
                                     Select Report Category:
                                 </label>
                                 <select
                                     value={reportCategory}
                                     onChange={(e) => setReportCategory(e.target.value)}
-                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                        !billCycle
-                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                            : "border-gray-300"
-                                    }`}
+                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${!billCycle
+                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        : "border-gray-300"
+                                        }`}
                                     disabled={!billCycle}
                                     required
                                 >
-                                    <option value="Area">Area</option>
-                                    <option value="Province">Province</option>
-                                    <option value="Division">Division</option>
-                                    <option value="Entire CEB">Entire CEB</option>
+                                    {allowedCategories.map((cat) => (
+                                        <option key={cat} value={cat === "Region" ? "Division" : cat}>
+                                            {cat === "Region" ? "Division" : cat}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -1174,15 +1196,24 @@ const SolarPaymentBulk: React.FC = () => {
                             {reportCategory !== "Entire CEB" && (
                                 <div className="flex flex-col">
                                     <label
-                                        className={`text-xs font-medium mb-1 ${
-                                            isCategoryValueDisabled() ? "text-gray-400" : maroon
-                                        }`}
+                                        className={`text-xs font-medium mb-1 ${isCategoryValueDisabled() ? "text-gray-400" : maroon
+                                            }`}
                                     >
                                         Select {reportCategory}:
                                     </label>
                                     {reportCategory === "Area" && (
                                         <>
-                                            {isLoadingAreas ? (
+                                            {locked["Area"] ? (
+                                                <select
+                                                    disabled
+                                                    value={locked["Area"].code}
+                                                    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                >
+                                                    <option value={locked["Area"].code}>
+                                                        {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                                                    </option>
+                                                </select>
+                                            ) : isLoadingAreas ? (
                                                 <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                                                     Loading areas...
                                                 </div>
@@ -1194,11 +1225,10 @@ const SolarPaymentBulk: React.FC = () => {
                                                 <select
                                                     value={categoryValue}
                                                     onChange={(e) => setCategoryValue(e.target.value)}
-                                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                                        isCategoryValueDisabled()
-                                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                            : "border-gray-300"
-                                                    }`}
+                                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
+                                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        : "border-gray-300"
+                                                        }`}
                                                     required
                                                     disabled={isCategoryValueDisabled()}
                                                 >
@@ -1214,7 +1244,17 @@ const SolarPaymentBulk: React.FC = () => {
                                     )}
                                     {reportCategory === "Province" && (
                                         <>
-                                            {isLoadingProvinces ? (
+                                            {locked["Province"] ? (
+                                                <select
+                                                    disabled
+                                                    value={locked["Province"].code}
+                                                    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                >
+                                                    <option value={locked["Province"].code}>
+                                                        {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                                                    </option>
+                                                </select>
+                                            ) : isLoadingProvinces ? (
                                                 <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                                                     Loading provinces...
                                                 </div>
@@ -1226,29 +1266,25 @@ const SolarPaymentBulk: React.FC = () => {
                                                 <select
                                                     value={categoryValue}
                                                     onChange={(e) => {
-                                                const selectedProvinceCode = e.target.value;
-                                                setCategoryValue(selectedProvinceCode);
-                                                const selectedProvince = provinces.find(
-                                                    (province) => province.ProvinceCode === selectedProvinceCode
-                                                );
-                                                setSelectedCategoryName(
-                                                    selectedProvince ? selectedProvince.ProvinceName : ""
-                                                );
-                                            }}
-                                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                                        isCategoryValueDisabled()
-                                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                            : "border-gray-300"
-                                                    }`}
+                                                        const selectedProvinceCode = e.target.value;
+                                                        setCategoryValue(selectedProvinceCode);
+                                                        const selectedProvince = provinces.find(
+                                                            (province) => province.ProvinceCode === selectedProvinceCode
+                                                        );
+                                                        setSelectedCategoryName(
+                                                            selectedProvince ? selectedProvince.ProvinceName : ""
+                                                        );
+                                                    }}
+                                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
+                                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        : "border-gray-300"
+                                                        }`}
                                                     required
                                                     disabled={isCategoryValueDisabled()}
                                                 >
                                                     <option value="">Select Province</option>
                                                     {provinces.map((province) => (
-                                                        <option
-                                                            key={province.ProvinceCode}
-                                                            value={province.ProvinceCode}
-                                                        >
+                                                        <option key={province.ProvinceCode} value={province.ProvinceCode}>
                                                             {province.ProvinceCode} - {province.ProvinceName}
                                                         </option>
                                                     ))}
@@ -1258,7 +1294,15 @@ const SolarPaymentBulk: React.FC = () => {
                                     )}
                                     {reportCategory === "Division" && (
                                         <>
-                                            {isLoadingDivisions ? (
+                                            {locked["Region"] ? (
+                                                <select
+                                                    disabled
+                                                    value={locked["Region"].code}
+                                                    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                >
+                                                    <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                                                </select>
+                                            ) : isLoadingDivisions ? (
                                                 <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                                                     Loading divisions...
                                                 </div>
@@ -1270,24 +1314,20 @@ const SolarPaymentBulk: React.FC = () => {
                                                 <select
                                                     value={categoryValue}
                                                     onChange={(e) => {
-                                                const selectedDivisionCode = e.target.value;
-                                                setCategoryValue(selectedDivisionCode);
-                                                setSelectedCategoryName(selectedDivisionCode); // Division uses code as name
-                                            }}
-                                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                                        isCategoryValueDisabled()
-                                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                            : "border-gray-300"
-                                                    }`}
+                                                        const selectedDivisionCode = e.target.value;
+                                                        setCategoryValue(selectedDivisionCode);
+                                                        setSelectedCategoryName(selectedDivisionCode);
+                                                    }}
+                                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isCategoryValueDisabled()
+                                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        : "border-gray-300"
+                                                        }`}
                                                     required
                                                     disabled={isCategoryValueDisabled()}
                                                 >
                                                     <option value="">Select Division</option>
                                                     {divisions.map((division) => (
-                                                        <option
-                                                            key={division.RegionCode}
-                                                            value={division.RegionCode}
-                                                        >
+                                                        <option key={division.RegionCode} value={division.RegionCode}>
                                                             {formatDivisionOption(division)}
                                                         </option>
                                                     ))}
@@ -1311,20 +1351,18 @@ const SolarPaymentBulk: React.FC = () => {
                             {/* Select Net Type Dropdown */}
                             <div className="flex flex-col">
                                 <label
-                                    className={`text-xs font-medium mb-1 ${
-                                        isNetTypeDisabled() ? "text-gray-400" : maroon
-                                    }`}
+                                    className={`text-xs font-medium mb-1 ${isNetTypeDisabled() ? "text-gray-400" : maroon
+                                        }`}
                                 >
                                     Select Net Type:
                                 </label>
                                 <select
                                     value={netType}
                                     onChange={(e) => setNetType(e.target.value)}
-                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                                        isNetTypeDisabled()
-                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                            : "border-gray-300"
-                                    }`}
+                                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${isNetTypeDisabled()
+                                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        : "border-gray-300"
+                                        }`}
                                     required
                                     disabled={isNetTypeDisabled()}
                                 >
@@ -1344,11 +1382,10 @@ const SolarPaymentBulk: React.FC = () => {
                         <div className="w-full mt-6 flex justify-end">
                             <button
                                 type="submit"
-                                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${
-                                    loading || !canSubmit()
-                                        ? "opacity-70 cursor-not-allowed"
-                                        : "hover:opacity-90"
-                                }`}
+                                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loading || !canSubmit()
+                                    ? "opacity-70 cursor-not-allowed"
+                                    : "hover:opacity-90"
+                                    }`}
                                 disabled={loading || !canSubmit()}
                             >
                                 {loading ? (

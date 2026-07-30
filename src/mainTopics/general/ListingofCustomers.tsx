@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -15,15 +17,15 @@ interface FilterOption {
 }
 
 interface FiltersData {
-  BillCycle?: string;            billCycle?: string;
-  Tariffs?: FilterOption[];      tariffs?: FilterOption[];
+  BillCycle?: string; billCycle?: string;
+  Tariffs?: FilterOption[]; tariffs?: FilterOption[];
   Transformers?: FilterOption[]; transformers?: FilterOption[];
-  Phases?: FilterOption[];       phases?: FilterOption[];
+  Phases?: FilterOption[]; phases?: FilterOption[];
   ConnectionTypes?: FilterOption[]; connectionTypes?: FilterOption[];
-  ReaderCodes?: FilterOption[];  readerCodes?: FilterOption[];
-  DailyPacks?: FilterOption[];   dailyPacks?: FilterOption[];
-  Depots?: FilterOption[];       depots?: FilterOption[];
-  ErrorMessage?: string;         errorMessage?: string;
+  ReaderCodes?: FilterOption[]; readerCodes?: FilterOption[];
+  DailyPacks?: FilterOption[]; dailyPacks?: FilterOption[];
+  Depots?: FilterOption[]; depots?: FilterOption[];
+  ErrorMessage?: string; errorMessage?: string;
 }
 
 interface CustomerRecord {
@@ -69,49 +71,52 @@ const ListingOfCustomers: React.FC = () => {
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
   // ── Core state ─────────────────────────────────────────────────────────────
-  const [areaCode,  setAreaCode]  = useState("");
+  const [areaCode, setAreaCode] = useState("");
   const [billCycle, setBillCycle] = useState("");
-  const [loading,   setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // ── Data ───────────────────────────────────────────────────────────────────
-  const [areas,   setAreas]   = useState<Area[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [filters, setFilters] = useState<FiltersData | null>(null);
 
   // ── Loading flags ──────────────────────────────────────────────────────────
-  const [isLoadingAreas,   setIsLoadingAreas]   = useState(false);
+  const [isLoadingAreas, setIsLoadingAreas] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
-  const [filtersLoaded,    setFiltersLoaded]    = useState(false);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   // ── Error state ────────────────────────────────────────────────────────────
-  const [areaError,   setAreaError]   = useState<string | null>(null);
+  const [areaError, setAreaError] = useState<string | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
 
   // ── Report state ───────────────────────────────────────────────────────────
-  const [reportData,       setReportData]       = useState<CustomerRecord[]>([]);
-  const [reportVisible,    setReportVisible]    = useState(false);
+  const [reportData, setReportData] = useState<CustomerRecord[]>([]);
+  const [reportVisible, setReportVisible] = useState(false);
   const [selectedAreaName, setSelectedAreaName] = useState("");
 
   // ── Filter field state ─────────────────────────────────────────────────────
   const [useTariff, setUseTariff] = useState(false); const [tariff, setTariff] = useState("");
-  const [useTrans,  setUseTrans]  = useState(false); const [trans,  setTrans]  = useState("");
-  const [usePhase,  setUsePhase]  = useState(false); const [phase,  setPhase]  = useState("");
-  const [useConn,   setUseConn]   = useState(false); const [conn,   setConn]   = useState("");
+  const [useTrans, setUseTrans] = useState(false); const [trans, setTrans] = useState("");
+  const [usePhase, setUsePhase] = useState(false); const [phase, setPhase] = useState("");
+  const [useConn, setUseConn] = useState(false); const [conn, setConn] = useState("");
   const [useReader, setUseReader] = useState(false); const [reader, setReader] = useState("");
-  const [usePack,   setUsePack]   = useState(false); const [pack,   setPack]   = useState("");
-  const [useDepot,  setUseDepot]  = useState(false); const [depot,  setDepot]  = useState("");
+  const [usePack, setUsePack] = useState(false); const [pack, setPack] = useState("");
+  const [useDepot, setUseDepot] = useState(false); const [depot, setDepot] = useState("");
 
-  const [useBal,  setUseBal]  = useState(false);
-  const [balOp,   setBalOp]   = useState<Operator>("=");
-  const [balAmt,  setBalAmt]  = useState("");
+  const [useBal, setUseBal] = useState(false);
+  const [balOp, setBalOp] = useState<Operator>("=");
+  const [balAmt, setBalAmt] = useState("");
 
-  const [usePay,  setUsePay]  = useState(false);
-  const [payOp,   setPayOp]   = useState<Operator>("=");
+  const [usePay, setUsePay] = useState(false);
+  const [payOp, setPayOp] = useState<Operator>("=");
   const [payDate, setPayDate] = useState("");
 
-  const [useArr,  setUseArr]  = useState(false);
-  const [arrOp,   setArrOp]   = useState<Operator>(">=");
-  const [arrPos,  setArrPos]  = useState("1");
+  const [useArr, setUseArr] = useState(false);
+  const [arrOp, setArrOp] = useState<Operator>(">=");
+  const [arrPos, setArrPos] = useState("1");
+
+  const { user } = useUser();
+  const { locked } = useReportScope();
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +124,13 @@ const ListingOfCustomers: React.FC = () => {
   useEffect(() => {
     setIsLoadingAreas(true);
     setAreaError(null);
-    fetch("/misapi/api/bulk/areas", { headers: { Accept: "application/json" } })
+    let url = "/misapi/api/bulk/areas";
+    if (locked["Region"]?.code) {
+      url += `?regionCode=${locked["Region"].code}`;
+    } else if (locked["Province"]?.code) {
+      url += `?provCode=${locked["Province"].code}`;
+    }
+    fetch(url, { headers: { Accept: "application/json" } })
       .then(async r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         try { return await r.json(); }
@@ -128,7 +139,17 @@ const ListingOfCustomers: React.FC = () => {
       .then(d => setAreas(d.data || []))
       .catch(e => setAreaError(e.message))
       .finally(() => setIsLoadingAreas(false));
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
+
+
+  useEffect(() => {
+    if (locked["Area"]) {
+      setAreaCode(locked["Area"].code);
+      setSelectedAreaName(
+        locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code
+      );
+    }
+  }, [user.Level, user.AreaCode, user.AreaName]);
 
   // ── 2. When area changes → get bill cycle → get filters ───────────────────
   useEffect(() => {
@@ -206,14 +227,14 @@ const ListingOfCustomers: React.FC = () => {
               const fData = fJson?.data ?? fJson?.Data ?? null;
               if (fData && !cancelled) {
                 const norm: FiltersData = {
-                  billCycle:       fData.BillCycle       ?? fData.billCycle,
-                  tariffs:         fData.Tariffs         ?? fData.tariffs         ?? [],
-                  transformers:    fData.Transformers    ?? fData.transformers    ?? [],
-                  phases:          fData.Phases          ?? fData.phases          ?? [],
+                  billCycle: fData.BillCycle ?? fData.billCycle,
+                  tariffs: fData.Tariffs ?? fData.tariffs ?? [],
+                  transformers: fData.Transformers ?? fData.transformers ?? [],
+                  phases: fData.Phases ?? fData.phases ?? [],
                   connectionTypes: fData.ConnectionTypes ?? fData.connectionTypes ?? [],
-                  readerCodes:     fData.ReaderCodes     ?? fData.readerCodes     ?? [],
-                  dailyPacks:      fData.DailyPacks      ?? fData.dailyPacks      ?? [],
-                  depots:          fData.Depots          ?? fData.depots          ?? [],
+                  readerCodes: fData.ReaderCodes ?? fData.readerCodes ?? [],
+                  dailyPacks: fData.DailyPacks ?? fData.dailyPacks ?? [],
+                  depots: fData.Depots ?? fData.depots ?? [],
                 };
                 setFilters(norm);
               }
@@ -246,15 +267,15 @@ const ListingOfCustomers: React.FC = () => {
   // ── Reset all filter checkboxes and values ─────────────────────────────────
   const resetFilters = () => {
     setUseTariff(false); setTariff("");
-    setUseTrans(false);  setTrans("");
-    setUsePhase(false);  setPhase("");
-    setUseConn(false);   setConn("");
+    setUseTrans(false); setTrans("");
+    setUsePhase(false); setPhase("");
+    setUseConn(false); setConn("");
     setUseReader(false); setReader("");
-    setUsePack(false);   setPack("");
-    setUseDepot(false);  setDepot("");
-    setUseBal(false);    setBalAmt(""); setBalOp("=");
-    setUsePay(false);    setPayDate(""); setPayOp("=");
-    setUseArr(false);    setArrPos("1"); setArrOp(">=");
+    setUsePack(false); setPack("");
+    setUseDepot(false); setDepot("");
+    setUseBal(false); setBalAmt(""); setBalOp("=");
+    setUsePay(false); setPayDate(""); setPayOp("=");
+    setUseArr(false); setArrPos("1"); setArrOp(">=");
   };
 
   // ── Totals ─────────────────────────────────────────────────────────────────
@@ -283,31 +304,31 @@ const ListingOfCustomers: React.FC = () => {
       useArrearsPosition: useArr,
     };
 
-    if (useTariff && tariff)   payload.tariff = tariff;
-    if (useTrans  && trans)    payload.transformer = trans;
-    if (usePhase  && phase)    payload.phase = phase;
-    if (useConn   && conn)     payload.connectionType = conn;
-    if (useReader && reader)   payload.readerCode = reader;
-    if (usePack   && pack)     payload.dailyPackNo = pack;
-    if (useDepot  && depot)    payload.depot = depot;
-    if (useBal    && balAmt) {
+    if (useTariff && tariff) payload.tariff = tariff;
+    if (useTrans && trans) payload.transformer = trans;
+    if (usePhase && phase) payload.phase = phase;
+    if (useConn && conn) payload.connectionType = conn;
+    if (useReader && reader) payload.readerCode = reader;
+    if (usePack && pack) payload.dailyPackNo = pack;
+    if (useDepot && depot) payload.depot = depot;
+    if (useBal && balAmt) {
       payload.balanceOperator = balOp;
-      payload.balanceAmount   = balAmt;
+      payload.balanceAmount = balAmt;
     }
     if (usePay && payDate) {
       payload.lastPaymentOperator = payOp;
-      payload.lastPaymentDate     = payDate;
+      payload.lastPaymentDate = payDate;
     }
     if (useArr && arrPos) {
-      payload.arrearsOperator  = arrOp;
-      payload.arrearsPosition  = arrPos;
+      payload.arrearsOperator = arrOp;
+      payload.arrearsPosition = arrPos;
     }
 
     try {
-      const res  = await fetch("/misapi/api/listing-of-customers/report", {
-        method:  "POST",
+      const res = await fetch("/misapi/api/listing-of-customers/report", {
+        method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body:    JSON.stringify(payload),
+        body: JSON.stringify(payload),
       });
 
       const text = await res.text();
@@ -337,16 +358,16 @@ const ListingOfCustomers: React.FC = () => {
   // ── CSV export ─────────────────────────────────────────────────────────────
   const downloadCSV = () => {
     const headers = [
-      "Acct. Number","Meter Numbers","Customer Name","Address","Tariff",
-      "Current Depot","Transformer","Reader Code","KWh Charge","Current Balance",
-      "No. of Phase","Connection Type","Daily Pack No.","Walk Seq","KVA Rating",
+      "Acct. Number", "Meter Numbers", "Customer Name", "Address", "Tariff",
+      "Current Depot", "Transformer", "Reader Code", "KWh Charge", "Current Balance",
+      "No. of Phase", "Connection Type", "Daily Pack No.", "Walk Seq", "KVA Rating",
     ];
     const rows = reportData.map(r => [
       r.AccountNumber, r.MeterNumbers, r.CustomerName, r.Address, r.Tariff,
       r.CurrentDepot, r.Transformer, r.ReaderCode, r.KwhCharge, r.CurrentBalance,
       r.NoOfPhase, r.ConnectionType, r.DailyPackNo, r.WalkSeq, r.KvaRating,
     ]);
-    const totals = ["TOTAL","","","","","","","",fmt(totalKwh),fmt(totalBal),"","","","",""];
+    const totals = ["TOTAL", "", "", "", "", "", "", "", fmt(totalKwh), fmt(totalBal), "", "", "", "", ""];
     const csv = [
       [`Listing of Customers`],
       [`Area: ${selectedAreaName}`, `Bill Cycle: ${billCycle}`],
@@ -383,13 +404,13 @@ const ListingOfCustomers: React.FC = () => {
   };
 
   // ── Resolved option lists ──────────────────────────────────────────────────
-  const oTariff = pick(filters?.Tariffs,         filters?.tariffs,         []);
-  const oTrans  = pick(filters?.Transformers,    filters?.transformers,    []);
-  const oPhase  = pick(filters?.Phases,          filters?.phases,          []);
-  const oConn   = pick(filters?.ConnectionTypes, filters?.connectionTypes, []);
-  const oReader = pick(filters?.ReaderCodes,     filters?.readerCodes,     []);
-  const oPack   = pick(filters?.DailyPacks,      filters?.dailyPacks,      []);
-  const oDepot  = pick(filters?.Depots,          filters?.depots,          []);
+  const oTariff = pick(filters?.Tariffs, filters?.tariffs, []);
+  const oTrans = pick(filters?.Transformers, filters?.transformers, []);
+  const oPhase = pick(filters?.Phases, filters?.phases, []);
+  const oConn = pick(filters?.ConnectionTypes, filters?.connectionTypes, []);
+  const oReader = pick(filters?.ReaderCodes, filters?.readerCodes, []);
+  const oPack = pick(filters?.DailyPacks, filters?.dailyPacks, []);
+  const oDepot = pick(filters?.Depots, filters?.depots, []);
 
   // ready: true only after filters API call succeeded
   const ready = filtersLoaded && !isLoadingFilters;
@@ -506,13 +527,23 @@ const ListingOfCustomers: React.FC = () => {
                   <div className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-red-50 text-red-600">
                     {areaError}
                   </div>
+                ) : locked["Area"] ? (
+                  <select
+                    disabled
+                    value={locked["Area"].code}
+                    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  >
+                    <option value={locked["Area"].code}>
+                      {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                    </option>
+                  </select>
                 ) : (
                   <select
                     value={areaCode}
                     onChange={e => { setAreaCode(e.target.value); setReportError(null); }}
                     required
                     className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md
-                               focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+               focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
                   >
                     <option value="">Select Area</option>
                     {areas.map(a => (
@@ -717,10 +748,10 @@ const ListingOfCustomers: React.FC = () => {
                   <thead className="bg-gray-100 sticky top-0">
                     <tr>
                       {[
-                        "Acct. Number","Meter Numbers","Customer Name","Address",
-                        "Tariff","Current Depot","Transformer","Reader Code",
-                        "KWh Charge","Current Balance","No. of Phase",
-                        "Connection Type","Daily Pack No.","Walk Seq","KVA Rating",
+                        "Acct. Number", "Meter Numbers", "Customer Name", "Address",
+                        "Tariff", "Current Depot", "Transformer", "Reader Code",
+                        "KWh Charge", "Current Balance", "No. of Phase",
+                        "Connection Type", "Daily Pack No.", "Walk Seq", "KVA Rating",
                       ].map(h => (
                         <th key={h}
                           className="border border-gray-300 px-2 py-1 text-center whitespace-nowrap">

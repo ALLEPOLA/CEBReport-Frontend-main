@@ -27,9 +27,26 @@ import AdminHome from "../pages/AdminHome";
 import CcApplicationProgress from "../mainTopics/SolarJobs/CcApplicationProgress";
 import SolarPendingJobsReport from "../mainTopics/SolarJobs/SolarPendingJobsReport";
 import FIFODetails from "../pages/FIFODetails";
+import ReportCatalog from "../pages/ReportCatalog";
 
 const ReportRoutes = () => (
 	<>
+		<Route
+			path="/report/all-reports"
+			element={
+				<Layout>
+					<ReportCatalog />
+				</Layout>
+			}
+		/>
+		<Route
+			path="/report/catalog"
+			element={
+				<Layout>
+					<ReportCatalog />
+				</Layout>
+			}
+		/>
 		<Route
 			path="/report/general"
 			element={

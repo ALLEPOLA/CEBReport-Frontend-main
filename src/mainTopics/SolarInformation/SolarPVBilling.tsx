@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Area {
   AreaCode: string;
@@ -81,6 +83,9 @@ const SolarPVBilling: React.FC = () => {
   const [selectedCycleDisplay, setSelectedCycleDisplay] = useState<string>("");
   const [reportVisible, setReportVisible] = useState(false);
 
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+
   // Report data
   const [detailedData, setDetailedData] = useState<DetailedPVConnection[]>([]);
   const [summaryData, setSummaryData] = useState<SummaryReportData>({
@@ -132,7 +137,7 @@ const SolarPVBilling: React.FC = () => {
   ): BillCycleOption[] => {
     const maxCycleNum = parseInt(maxCycle);
     return cycles.map((cycle, index) => ({
-      display: cycleType === "Calculation Cycle" 
+      display: cycleType === "Calculation Cycle"
         ? cycle  // Show only month-year for Calculation Cycle
         : `${(maxCycleNum - index).toString()} - ${cycle}`,  // Show full format for Bill Cycle
       code: (maxCycleNum - index).toString(),
@@ -145,7 +150,13 @@ const SolarPVBilling: React.FC = () => {
       setIsLoadingAreas(true);
       setAreaError(null);
       try {
-        const areaData = await fetchWithErrorHandling("/misapi/api/bulk/areas");
+        let url = "/misapi/api/bulk/areas";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          url += `?provCode=${locked["Province"].code}`;
+        }
+        const areaData = await fetchWithErrorHandling(url);
         setAreas(areaData.data || []);
       } catch (err: any) {
         console.error("Error fetching areas:", err);
@@ -158,7 +169,7 @@ const SolarPVBilling: React.FC = () => {
     };
 
     fetchAreas();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
   // Fetch provinces
   useEffect(() => {
@@ -166,7 +177,11 @@ const SolarPVBilling: React.FC = () => {
       setIsLoadingProvinces(true);
       setProvinceError(null);
       try {
-        const provinceData = await fetchWithErrorHandling("/misapi/api/bulk/province");
+        let url = "/misapi/api/bulk/province";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        }
+        const provinceData = await fetchWithErrorHandling(url);
         setProvinces(provinceData.data || []);
       } catch (err: any) {
         console.error("Error fetching provinces:", err);
@@ -179,7 +194,7 @@ const SolarPVBilling: React.FC = () => {
     };
 
     fetchProvinces();
-  }, []);
+  }, [user.Level, user.RegionCode]);
 
   // Fetch divisions
   useEffect(() => {
@@ -201,6 +216,14 @@ const SolarPVBilling: React.FC = () => {
 
     fetchDivisions();
   }, []);
+
+  useEffect(() => {
+    const lock = locked[selectedCategory as keyof typeof locked];
+    if (lock) {
+      setCategoryValue(lock.code);
+      setSelectedCategoryName(lock.name ? `${lock.code} - ${lock.name}` : lock.code);
+    }
+  }, [selectedCategory, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName, user.AreaCode, user.AreaName]);
 
   // Fetch cycles based on cycle type
   useEffect(() => {
@@ -289,8 +312,8 @@ const SolarPVBilling: React.FC = () => {
       selectedCategory === "Entire CEB"
         ? "Entire CEB"
         : selectedCategory === "Area"
-        ? `${selectedCategory}: ${selectedCategoryName}`
-        : `${selectedCategory}: ${categoryValue}`;
+          ? `${selectedCategory}: ${selectedCategoryName}`
+          : `${selectedCategory}: ${categoryValue}`;
 
     if (reportType.includes("Detailed")) {
       const isOrdinaryReport = reportType === "Detailed Report - Ordinary";
@@ -368,9 +391,8 @@ const SolarPVBilling: React.FC = () => {
       sortedData.forEach((item) => {
         const divisionKey = item.Division || "";
         const provinceKey = `${item.Division || ""}-${item.Province || ""}`;
-        const areaKey = `${item.Division || ""}-${item.Province || ""}-${
-          item.Area || ""
-        }`;
+        const areaKey = `${item.Division || ""}-${item.Province || ""}-${item.Area || ""
+          }`;
 
         if (!divisionGroups[divisionKey]) divisionGroups[divisionKey] = [];
         divisionGroups[divisionKey].push(item);
@@ -424,9 +446,8 @@ const SolarPVBilling: React.FC = () => {
                 currentArea = "";
               }
               if (areaValue) {
-                currentArea = `${row.Division || ""}-${row.Province || ""}-${
-                  row.Area || ""
-                }`;
+                currentArea = `${row.Division || ""}-${row.Province || ""}-${row.Area || ""
+                  }`;
               }
 
               const rowData = [
@@ -755,8 +776,8 @@ const SolarPVBilling: React.FC = () => {
         selectedCategory === "Entire CEB"
           ? "EntireCEB"
           : selectedCategory === "Area"
-          ? `${selectedCategory}_${selectedCategoryName}`
-          : `${selectedCategory}_${categoryValue}`;
+            ? `${selectedCategory}_${selectedCategoryName}`
+            : `${selectedCategory}_${categoryValue}`;
 
       link.setAttribute("href", url);
       link.setAttribute(
@@ -1633,16 +1654,16 @@ const SolarPVBilling: React.FC = () => {
         // Handle response data
         const responseData = result.data || result;
         let detailedDataArray = [];
-        
+
         if (Array.isArray(responseData)) {
           detailedDataArray = responseData;
         } else if (responseData && typeof responseData === 'object') {
           detailedDataArray = [responseData];
         }
-        
+
         // Filter out any null or undefined entries
         detailedDataArray = detailedDataArray.filter(item => item != null);
-        
+
         console.log("Processed detailed data:", detailedDataArray);
         setDetailedData(detailedDataArray);
         setReportVisible(true);
@@ -1694,16 +1715,16 @@ const SolarPVBilling: React.FC = () => {
         // Handle response data
         const responseData = result.data || result;
         let detailedDataArray = [];
-        
+
         if (Array.isArray(responseData)) {
           detailedDataArray = responseData;
         } else if (responseData && typeof responseData === 'object') {
           detailedDataArray = [responseData];
         }
-        
+
         // Filter out any null or undefined entries
         detailedDataArray = detailedDataArray.filter(item => item != null);
-        
+
         console.log("Processed detailed data:", detailedDataArray);
         setDetailedData(detailedDataArray);
         setReportVisible(true);
@@ -1769,19 +1790,19 @@ const SolarPVBilling: React.FC = () => {
 
         let ordinaryArray = [];
         let bulkArray = [];
-        
+
         if (Array.isArray(ordinaryResponseData)) {
           ordinaryArray = ordinaryResponseData;
         } else if (ordinaryResponseData && typeof ordinaryResponseData === 'object') {
           ordinaryArray = [ordinaryResponseData];
         }
-        
+
         if (Array.isArray(bulkResponseData)) {
           bulkArray = bulkResponseData;
         } else if (bulkResponseData && typeof bulkResponseData === 'object') {
           bulkArray = [bulkResponseData];
         }
-        
+
         // Filter out any null or undefined entries
         ordinaryArray = ordinaryArray.filter(item => item != null);
         bulkArray = bulkArray.filter(item => item != null);
@@ -1872,10 +1893,11 @@ const SolarPVBilling: React.FC = () => {
                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
                   required
                 >
-                  <option value="Area">Area</option>
-                  <option value="Province">Province</option>
-                  <option value="Region">Region</option>
-                  <option value="Entire CEB">Entire CEB</option>
+                  {allowedCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1911,13 +1933,22 @@ const SolarPVBilling: React.FC = () => {
                     </div>
                   ) : areaError ? (
                     <div className="text-red-500 text-xs py-2">{areaError}</div>
+                  ) : locked["Area"] ? (
+                    <select
+                      disabled
+                      value={locked["Area"].code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Area"].code}>
+                        {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                      </option>
+                    </select>
                   ) : (
                     <select
                       value={categoryValue}
                       onChange={(e) => {
                         const selectedAreaCode = e.target.value;
                         setCategoryValue(selectedAreaCode);
-                        // Find and store the area name
                         const selectedArea = areas.find(
                           (area) => area.AreaCode === selectedAreaCode
                         );
@@ -1973,6 +2004,16 @@ const SolarPVBilling: React.FC = () => {
                     <div className="text-red-500 text-xs py-2">
                       {provinceError}
                     </div>
+                  ) : locked["Province"] ? (
+                    <select
+                      disabled
+                      value={locked["Province"].code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Province"].code}>
+                        {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                      </option>
+                    </select>
                   ) : (
                     <select
                       value={categoryValue}
@@ -1983,10 +2024,7 @@ const SolarPVBilling: React.FC = () => {
                     >
                       <option value="">Select Province</option>
                       {provinces.map((province) => (
-                        <option
-                          key={province.ProvinceCode}
-                          value={province.ProvinceCode}
-                        >
+                        <option key={province.ProvinceCode} value={province.ProvinceCode}>
                           {formatProvinceOption(province)}
                         </option>
                       ))}
@@ -2028,6 +2066,14 @@ const SolarPVBilling: React.FC = () => {
                     <div className="text-red-500 text-xs py-2">
                       {divisionError}
                     </div>
+                  ) : locked["Region"] ? (
+                    <select
+                      disabled
+                      value={locked["Region"].code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Region"].code}>{locked["Region"].code}</option>
+                    </select>
                   ) : (
                     <select
                       value={categoryValue}
@@ -2038,10 +2084,7 @@ const SolarPVBilling: React.FC = () => {
                     >
                       <option value="">Select Region</option>
                       {divisions.map((division) => (
-                        <option
-                          key={division.RegionCode}
-                          value={division.RegionCode}
-                        >
+                        <option key={division.RegionCode} value={division.RegionCode}>
                           {formatDivisionOption(division)}
                         </option>
                       ))}
@@ -2053,9 +2096,8 @@ const SolarPVBilling: React.FC = () => {
               {/* Cycle Type Dropdown */}
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isCycleTypeDisabled() ? "text-gray-400" : maroon
-                  }`}
+                  className={`text-xs font-medium mb-1 ${isCycleTypeDisabled() ? "text-gray-400" : maroon
+                    }`}
                 >
                   Select Cycle Type:
                 </label>
@@ -2063,11 +2105,10 @@ const SolarPVBilling: React.FC = () => {
                   value={selectedCycleType}
                   onChange={handleCycleTypeChange}
                   className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                                        ${
-                                          isCycleTypeDisabled()
-                                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                            : "border-gray-300"
-                                        }`}
+                                        ${isCycleTypeDisabled()
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "border-gray-300"
+                    }`}
                   required
                   disabled={isCycleTypeDisabled()}
                 >
@@ -2080,9 +2121,8 @@ const SolarPVBilling: React.FC = () => {
               {/* Month/Cycle Dropdown */}
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isMonthDisabled() ? "text-gray-400" : maroon
-                  }`}
+                  className={`text-xs font-medium mb-1 ${isMonthDisabled() ? "text-gray-400" : maroon
+                    }`}
                 >
                   Select Month:
                 </label>
@@ -2127,11 +2167,10 @@ const SolarPVBilling: React.FC = () => {
                       );
                     }}
                     className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                                            ${
-                                              isMonthDisabled()
-                                                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                                : "border-gray-300"
-                                            }`}
+                                            ${isMonthDisabled()
+                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        : "border-gray-300"
+                      }`}
                     required
                     disabled={isMonthDisabled()}
                   >
@@ -2148,11 +2187,10 @@ const SolarPVBilling: React.FC = () => {
               {/* Report Type Dropdown */}
               <div className="flex flex-col">
                 <label
-                  className={`text-xs font-medium mb-1 ${
-                    isReportTypeDisabled()
+                  className={`text-xs font-medium mb-1 ${isReportTypeDisabled()
                       ? "text-gray-400" // light gray when disabled
                       : maroon
-                  }`}
+                    }`}
                 >
                   Select Type:
                 </label>
@@ -2160,11 +2198,10 @@ const SolarPVBilling: React.FC = () => {
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
                   className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                                ${
-                                  isReportTypeDisabled()
-                                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                    : "border-gray-300"
-                                }`}
+                                ${isReportTypeDisabled()
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "border-gray-300"
+                    }`}
                   required
                   disabled={isReportTypeDisabled()}
                 >
@@ -2185,9 +2222,8 @@ const SolarPVBilling: React.FC = () => {
               <button
                 type="submit"
                 className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
-                            ${maroonGrad} text-white ${
-                  loading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
-                }`}
+                            ${maroonGrad} text-white ${loading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                  }`}
                 disabled={loading || isReportTypeDisabled() || !reportType}
               >
                 {loading ? (
@@ -2238,8 +2274,8 @@ const SolarPVBilling: React.FC = () => {
                 {selectedCategory === "Entire CEB"
                   ? "Entire CEB"
                   : selectedCategory === "Area"
-                  ? `${selectedCategory}: ${selectedCategoryName}`
-                  : `${selectedCategory}: ${categoryValue}`}{" "}
+                    ? `${selectedCategory}: ${selectedCategoryName}`
+                    : `${selectedCategory}: ${categoryValue}`}{" "}
                 |{selectedCycleType}: {selectedCycleDisplay} | Type:{" "}
                 {reportType}
               </p>
@@ -2257,7 +2293,7 @@ const SolarPVBilling: React.FC = () => {
               >
                 <FaPrint className="w-3 h-3" /> PDF
               </button>
-              
+
               <button
                 onClick={() => setReportVisible(false)}
                 className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white flex items-center"

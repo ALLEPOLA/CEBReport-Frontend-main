@@ -47,7 +47,7 @@ const LoginCard = () => {
               body: JSON.stringify({ ad_user_name: username, ad_password: password }),
             }
           );
-          
+
           if (response.ok) {
             let adRes: any = null;
             try {
@@ -94,7 +94,7 @@ const LoginCard = () => {
             const adminCheck = await fetch("/misapi/api/roleinfo/admin");
             if (adminCheck.ok) {
               const adminPayload = await adminCheck.json();
-              const isAdminInDb = Array.isArray(adminPayload?.data) && adminPayload.data.some((a: any) => 
+              const isAdminInDb = Array.isArray(adminPayload?.data) && adminPayload.data.some((a: any) =>
                 String(a?.EpfNo).trim() === String(username).trim()
               );
               if (!isAdminInDb) {
@@ -108,10 +108,10 @@ const LoginCard = () => {
               return;
             }
           } catch (err) {
-             console.error("Admin verification error:", err);
-             toast.error("Error verifying admin status.");
-             setLogged({ Logged: false, Errormsg: "" });
-             return;
+            console.error("Admin verification error:", err);
+            toast.error("Error verifying admin status.");
+            setLogged({ Logged: false, Errormsg: "" });
+            return;
           }
         }
 
@@ -127,9 +127,38 @@ const LoginCard = () => {
           Password: password,
         });
 
-        // Add admin flag if checked
         if (userData && isAdmin) {
-             userData.isAdmin = true;
+          userData.isAdmin = true;
+        }
+
+        // Fetch access-level info (Level + BillMap code) from the real BillMap API
+        try {
+          const billMapRes = await fetch(`/misapi/api/billmap/${username.trim()}`);
+          const billMapData = await billMapRes.json();
+          const entry = Array.isArray(billMapData) ? billMapData[0] : null;
+
+          if (entry) {
+            const level = parseInt(entry.LevelNo, 10) || 0;
+            const code = (entry.BillMap || "").trim();
+            const name = (entry.CompanyName || "").trim();
+
+            userData.Level = level;
+
+            if (level >= 80) {
+              // Chairman / top level — no lock needed, sees everything
+            } else if (level >= 70) {
+              userData.RegionCode = code;
+              userData.RegionName = name;
+            } else if (level >= 60) {
+              userData.ProvinceCode = code;
+              userData.ProvinceName = name;
+            } else {
+              userData.AreaCode = code;
+              userData.AreaName = name;
+            }
+          }
+        } catch (err) {
+          console.error("Could not load BillMap access profile:", err);
         }
 
         setUser(userData);
@@ -158,7 +187,7 @@ const LoginCard = () => {
             className="w-24 sm:w-32 md:w-35 h-auto"
           />
         </div>
-        
+
         <div className="text-center text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
           Sign In With Credentials
         </div>
@@ -198,11 +227,10 @@ const LoginCard = () => {
           <div className="mt-2 flex w-full flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              className={`w-full rounded-md px-4 py-2.5 text-sm font-semibold sm:text-base shadow-sm transition-all duration-150 ${
-                loginType === "HR"
-                  ? "bg-[#7c0000] text-white hover:bg-[#690000]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+              className={`w-full rounded-md px-4 py-2.5 text-sm font-semibold sm:text-base shadow-sm transition-all duration-150 ${loginType === "HR"
+                ? "bg-[#7c0000] text-white hover:bg-[#690000]"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               onClick={(e) => {
                 setLoginType("HR");
                 handleSubmit(e, "HR");
@@ -212,11 +240,10 @@ const LoginCard = () => {
             </button>
             <button
               type="button"
-              className={`w-full rounded-md px-4 py-2.5 text-sm font-semibold sm:text-base shadow-sm transition-all duration-150 ${
-                loginType === "AD"
-                  ? "bg-[#7c0000] text-white hover:bg-[#690000]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+              className={`w-full rounded-md px-4 py-2.5 text-sm font-semibold sm:text-base shadow-sm transition-all duration-150 ${loginType === "AD"
+                ? "bg-[#7c0000] text-white hover:bg-[#690000]"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               onClick={(e) => {
                 setLoginType("AD");
                 handleSubmit(e, "AD");
