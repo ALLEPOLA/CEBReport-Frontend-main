@@ -32,7 +32,7 @@ import ReportCatalog from "../pages/ReportCatalog";
 const ReportRoutes = () => (
 	<>
 		<Route
-			path="/report/all-reports"
+			path="/report/report-catalog"
 			element={
 				<Layout>
 					<ReportCatalog />
