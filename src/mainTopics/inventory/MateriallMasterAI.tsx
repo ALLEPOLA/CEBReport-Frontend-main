@@ -169,7 +169,7 @@ const MaterialMasterAI: React.FC = () => {
     ];
 
     const header = ["Material Code", "Material Name", "UOM", "Unit Price", "Status"];
-    const rows = reportData.map((r) => [r.matCd, r.matNm, r.majUom, r.unitPrice, r.status]);
+    const rows = reportData.map((r) => [`="${r.matCd}"`, r.matNm, r.majUom, r.unitPrice, r.status]);
 
     const csv = [...metaRows, header, ...rows]
       .map((row) => row.map(escapeCsv).join(","))
@@ -182,47 +182,6 @@ const MaterialMasterAI: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleExportPdf = () => {
-    if (!reportData.length) { setReportError("No data to export."); return; }
-    const title = "Material Master Report";
-    const rowsHtml = reportData.map((r) => `<tr>
-      <td style="border:1px solid #ccc;padding:6px 8px;text-align:center;font-size:10px">${escapeCsv(r.matCd)}</td>
-      <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px">${escapeCsv(r.matNm)}</td>
-      <td style="border:1px solid #ccc;padding:6px 8px;text-align:center;font-size:10px">${escapeCsv(r.majUom)}</td>
-      <td style="border:1px solid #ccc;padding:6px 8px;text-align:right;font-size:10px">${r.unitPrice}</td>
-      <td style="border:1px solid #ccc;padding:6px 8px;text-align:center;font-size:10px">${escapeCsv(r.status)}</td>
-    </tr>`).join("");
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title>
-<style>
-  body{font-family:Arial,sans-serif;margin:10mm;color:#111}
-  h2{color:#7A0000;font-size:16px;margin-bottom:6px}
-  .meta{font-size:11px;margin-bottom:12px}
-  .meta span{font-weight:bold}
-  table{width:100%;border-collapse:collapse;margin-top:8px}
-  th{background:linear-gradient(to right,#7A0000,#A52A2A);color:white;font-weight:bold;text-align:center;padding:6px 8px;border:1px solid #aaa;font-size:10px}
-  td{padding:6px 8px;border:1px solid #ccc;font-size:10px;vertical-align:top}
-  tr:nth-child(even){background:#f5f5f5}
-  @page{size:A4 landscape;margin:12mm}
-</style>
-</head><body>
-<h2>${title}</h2>
-<div class="meta">Material Code Filter : &nbsp;<span>${searchedMatCode || "(all)"}</span></div>
-<div class="meta">Status Filter : &nbsp;<span>${searchedStatus}</span></div>
-<table><thead><tr>
-  <th>Material Code</th>
-  <th>Material Name</th>
-  <th>UOM</th>
-  <th style="text-align:right">Unit Price</th>
-  <th>Status</th>
-</tr></thead>
-<tbody>${rowsHtml}</tbody>
-</table></body></html>`;
-    const w = window.open("", "_blank");
-    if (!w) { setReportError("Popup blocked. Please allow popups to export PDF."); return; }
-    w.document.open(); w.document.write(html); w.document.close(); w.focus();
-    setTimeout(() => { w.print(); setTimeout(() => w.close(), 500); }, 250);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -368,23 +327,6 @@ const MaterialMasterAI: React.FC = () => {
                     d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h5a2 2 0 012 2v12a2 2 0 01-2 2z" />
                 </svg>
                 CSV
-              </button>
-
-              {/* PDF */}
-              <button
-                onClick={handleExportPdf}
-                disabled={!reportData.length}
-                className={`flex items-center gap-1 px-3 py-1.5 border border-green-400 rounded-md text-xs font-medium shadow-sm
-                  focus:outline-none focus:ring-2 focus:ring-green-200 transition
-                  ${!reportData.length
-                    ? "text-green-300 bg-gray-50 cursor-not-allowed"
-                    : "text-green-700 bg-white hover:bg-green-50 hover:text-green-800"}`}
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                PDF
               </button>
 
               {/* Back */}
