@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRoleBasedSubtopics } from "../hooks/useRoleBasedSubtopics";
 import { ShieldAlert, RefreshCw } from "lucide-react";
+import { useUser } from "../contexts/UserContext";
 
 import DefaultDashboardPage from "../mainTopics/Dashboard/DefaultDashboardPage";
 import AnalyticsDashboardPage from "../mainTopics/Dashboard/AnalyticsDashboardPage";
@@ -40,6 +41,7 @@ const getDashboardKey = (name: string): string => {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { dashboardId } = useParams<{ dashboardId?: string }>();
+  const { user } = useUser();
 
   const { subtopics, loading } = useRoleBasedSubtopics([
     "Dashboard",
@@ -50,17 +52,27 @@ const Dashboard: React.FC = () => {
     "Dashboards",
   ]);
 
-  useEffect(() => {
-    if (loading || subtopics.length === 0) return;
+  const filteredSubtopics = useMemo(() => {
+    return subtopics.filter((subtopic) => {
+      const key = getDashboardKey(subtopic.name);
+      if (key === "default" && user?.Level !== 80) {
+        return false;
+      }
+      return true;
+    });
+  }, [subtopics, user?.Level]);
 
-    const allowedKeys = subtopics.map((s) => getDashboardKey(s.name));
+  useEffect(() => {
+    if (loading || filteredSubtopics.length === 0) return;
+
+    const allowedKeys = filteredSubtopics.map((s) => getDashboardKey(s.name));
     const firstAllowedKey = allowedKeys[0];
 
     // If no dashboardId in URL, OR if the URL dashboardId is no longer allowed for this role:
     if (!dashboardId || !allowedKeys.includes(dashboardId)) {
       navigate(`/dashboard/${firstAllowedKey}`, { replace: true });
     }
-  }, [dashboardId, subtopics, loading, navigate]);
+  }, [dashboardId, filteredSubtopics, loading, navigate]);
 
   // Render smooth spinner while checking permissions
   if (loading) {
@@ -75,7 +87,7 @@ const Dashboard: React.FC = () => {
   }
 
   // Render modern empty state if no dashboards assigned
-  if (subtopics.length === 0) {
+  if (filteredSubtopics.length === 0) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-8">
         <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-lg shadow-stone-200/50">
@@ -96,7 +108,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const allowedKeys = subtopics.map((s) => getDashboardKey(s.name));
+  const allowedKeys = filteredSubtopics.map((s) => getDashboardKey(s.name));
   const activeDashboard = (dashboardId && allowedKeys.includes(dashboardId)) 
     ? dashboardId 
     : allowedKeys[0];
