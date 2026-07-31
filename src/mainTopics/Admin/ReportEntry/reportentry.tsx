@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, ChangeEvent } from "react";
 import { toast } from "react-toastify";
-import { CheckSquare, RefreshCw, Search, Square } from "lucide-react";
+import { CheckSquare, RefreshCw, Search, Square, Upload, Image as ImageIcon } from "lucide-react";
+import { resolveImagePath } from "../../../components/catalog/SamplePreview";
 
 type CategoryRecord = {
     catCode: string;
@@ -15,6 +16,8 @@ type ReportEntryRecord = {
     paramList: string;
     favorite: number;
     active: number;
+    description?: string;
+    path?: string;
 };
 
 type ReportParameterRecord = {
@@ -38,6 +41,8 @@ type CreateEntryForm = {
     repId: string;
     catCode: string;
     repName: string;
+    description: string;
+    path: string;
     favorite: boolean;
     active: boolean;
 };
@@ -47,6 +52,8 @@ const initialForm: CreateEntryForm = {
     repId: "",
     catCode: "",
     repName: "",
+    description: "",
+    path: "",
     favorite: true,
     active: true,
 };
@@ -82,6 +89,9 @@ const ReportEntry = () => {
     const [isEntriesLoading, setIsEntriesLoading] = useState(false);
     const [isParametersLoading, setIsParametersLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
     const [form, setForm] = useState<CreateEntryForm>(initialForm);
     const [mode, setMode] = useState<"add" | "edit">("add");
@@ -153,6 +163,8 @@ const ReportEntry = () => {
                     paramList: item?.ParamList ?? item?.paramList ?? "",
                     favorite: Number(item?.Favorite ?? item?.favorite ?? 0),
                     active: Number(item?.Active ?? item?.active ?? 0),
+                    description: item?.Description ?? item?.description ?? "",
+                    path: item?.Path ?? item?.path ?? "",
                 }))
                 : [];
 
@@ -234,6 +246,50 @@ const ReportEntry = () => {
             .filter(Boolean);
     };
 
+    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            setSelectedImageFile(null);
+            setImagePreviewUrl(null);
+            return;
+        }
+
+        const validTypes = ["image/png", "image/jpeg", "image/jpg"];
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        const isValidExt = ext === "png" || ext === "jpg" || ext === "jpeg";
+
+        if (!validTypes.includes(file.type) && !isValidExt) {
+            toast.error("Only PNG, JPG, and JPEG images are allowed.");
+            e.target.value = "";
+            setSelectedImageFile(null);
+            setImagePreviewUrl(null);
+            return;
+        }
+
+        setSelectedImageFile(file);
+        setImagePreviewUrl(URL.createObjectURL(file));
+    };
+
+    const uploadImage = async (repId: string): Promise<string> => {
+        if (!selectedImageFile) return form.path || "";
+
+        const formData = new FormData();
+        formData.append("file", selectedImageFile);
+        formData.append("repId", repId);
+
+        const response = await fetch("/misapi/api/reportentry/upload", {
+            method: "POST",
+            body: formData,
+        });
+
+        const payload = await response.json();
+        if (payload?.errorMessage) {
+            throw new Error(payload.errorDetails ? `${payload.errorMessage} Details: ${payload.errorDetails}` : payload.errorMessage);
+        }
+
+        return payload?.data?.path || "";
+    };
+
     const handleAdd = async (e?: FormEvent) => {
         if (e) e.preventDefault();
 
@@ -289,6 +345,11 @@ const ReportEntry = () => {
                 }
             }
 
+            let generatedPath = form.path;
+            if (selectedImageFile) {
+                generatedPath = await uploadImage(normalizedRepId);
+            }
+
             const paramList = buildParamListValue(
                 parameters.map((item) => item.paraName),
                 selectedParameters
@@ -307,6 +368,8 @@ const ReportEntry = () => {
                     paramList,
                     favorite: form.favorite ? 1 : 0,
                     active: form.active ? 1 : 0,
+                    description: form.description.trim(),
+                    path: generatedPath,
                 }),
             });
 
@@ -348,6 +411,11 @@ const ReportEntry = () => {
         setIsSubmitting(true);
 
         try {
+            let generatedPath = form.path;
+            if (selectedImageFile) {
+                generatedPath = await uploadImage(form.repId.trim().toUpperCase());
+            }
+
             const paramList = buildParamListValue(
                 parameters.map((item) => item.paraName),
                 selectedParameters
@@ -366,6 +434,8 @@ const ReportEntry = () => {
                         paramList,
                         favorite: form.favorite ? 1 : 0,
                         active: form.active ? 1 : 0,
+                        description: form.description.trim(),
+                        path: generatedPath,
                     }),
                 }
             );
@@ -458,15 +528,21 @@ const ReportEntry = () => {
             repId: entry.repId,
             catCode: normalizedCatCode,
             repName: entry.repName,
+            description: entry.description || "",
+            path: entry.path || "",
             favorite: entry.active === 1 && entry.favorite === 1,
             active: entry.active === 1,
         });
         setSelectedParameters(extractParamsFromList(entry.paramList));
+        setSelectedImageFile(null);
+        setImagePreviewUrl(null);
         setMode("edit");
     };
 
     const handleReset = () => {
         setForm(initialForm);
+        setSelectedImageFile(null);
+        setImagePreviewUrl(null);
         setMode("add");
         setSelectedRepIdNo(null);
         setSelectedCatCode(null);
@@ -581,6 +657,49 @@ const ReportEntry = () => {
                                     onChange={(value) => setForm({ ...form, repName: value })}
                                     placeholder="e.g., Monthly Summary"
                                 />
+
+                                <div>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-sm font-medium text-stone-700">Description</span>
+                                        <textarea
+                                            value={form.description}
+                                            onChange={(e) => setForm({ ...form, description: e.target.value })}
+                                            placeholder="Enter report description (optional)"
+                                            rows={3}
+                                            className={fieldBaseClass}
+                                        />
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-sm font-medium text-stone-700">Sample Report Image Upload</span>
+                                        <div className="space-y-3">
+                                            <input
+                                                type="file"
+                                                accept="image/png, image/jpeg, image/jpg"
+                                                onChange={handleFileChange}
+                                                className="w-full text-sm text-stone-600 file:mr-4 file:rounded-xl file:border-0 file:bg-[#7A0000]/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#7A0000] hover:file:bg-[#7A0000]/20 cursor-pointer"
+                                            />
+                                            {imagePreviewUrl || (form.path ? resolveImagePath(form.path) : null) ? (
+                                                <div className="relative rounded-2xl border border-stone-200 bg-stone-50/70 p-3 text-center">
+                                                    <img
+                                                        src={imagePreviewUrl || (form.path ? resolveImagePath(form.path)! : "")}
+                                                        alt="Sample Report Preview"
+                                                        className="mx-auto max-h-44 rounded-xl object-contain shadow-xs"
+                                                    />
+                                                    <p className="mt-2 text-xs text-stone-500 font-mono truncate">
+                                                        {selectedImageFile ? `Selected: ${selectedImageFile.name}` : `Path: ${form.path}`}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-xl border border-dashed border-stone-300 p-3 text-center text-xs text-stone-500">
+                                                    No sample image selected or uploaded. (Only PNG, JPG, and JPEG allowed)
+                                                </div>
+                                            )}
+                                        </div>
+                                    </label>
+                                </div>
 
                                 <div>
                                     <span className="mb-2 block text-sm font-medium text-stone-700">Report Parameters</span>
