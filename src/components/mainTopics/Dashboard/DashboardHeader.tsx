@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useUser } from "../../../contexts/UserContext";
 
 interface DashboardHeaderProps {
   title: string;
@@ -14,6 +15,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const [internalDivision, setInternalDivision] = useState("all");
   const selectedDivision = externalDivision !== undefined ? externalDivision : internalDivision;
   const setDivision = onDivisionChange || setInternalDivision;
+  const { user } = useUser();
 
   const divisions = [
     { id: "all", label: "All Divisions" },
@@ -23,6 +25,18 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     { id: "d4", label: "D4" },
   ];
 
+  const filteredDivisions = divisions.filter((division) => {
+    if (user?.Level === 80) return true;
+    if (user?.RegionCode) {
+      const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+      if (match) {
+        const allowedId = `d${match[1]}`.toLowerCase();
+        return division.id === allowedId;
+      }
+    }
+    return true;
+  });
+
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-10 transition-all duration-1000 opacity-100">
       <div className="max-w-7xl mx-auto px-4 py-4">
@@ -30,7 +44,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
           <div className="ml-auto flex items-center justify-end">
             <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-              {divisions.map((division) => {
+              {filteredDivisions.map((division) => {
                 const isSelected = selectedDivision === division.id;
 
                 return (

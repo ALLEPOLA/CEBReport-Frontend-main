@@ -406,7 +406,7 @@ const DefaultDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const activeDashboard = "default";
 
-  if (user?.Level !== 80) {
+  if (!user?.Level || user.Level < 70) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-8">
         <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-lg shadow-stone-200/50">
@@ -415,7 +415,7 @@ const DefaultDashboardPage: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-stone-900">Access Denied</h2>
           <p className="mt-2 text-sm text-stone-600">
-            The default dashboard is only accessible to the Chairman.
+            You do not have permission to view the default dashboard.
           </p>
           <button
             onClick={() => navigate("/home")}
@@ -428,7 +428,15 @@ const DefaultDashboardPage: React.FC = () => {
     );
   }
 
-  const [selectedDivision, setSelectedDivision] = useState("all");
+  const [selectedDivision, setSelectedDivision] = useState(() => {
+    if (user?.Level !== 80 && user?.RegionCode) {
+      const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+      if (match) {
+        return `d${match[1]}`.toLowerCase();
+      }
+    }
+    return "all";
+  });
   const toRegion = (division: string) => {
     const match = /^d(\d+)$/i.exec(division || "");
     return match ? `R${match[1]}` : null;
