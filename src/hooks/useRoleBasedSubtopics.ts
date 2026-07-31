@@ -65,7 +65,7 @@ export const useRoleBasedSubtopics = (categoryNames: string[]) => {
       }
 
       const matchedTopics = result.data.filter((topic) =>
-        normalizedNames.has(normalize(topic.name)) || topic.path === "/dashboard"
+        normalizedNames.has(normalize(topic.name))
       );
 
       const seenSubtopicIds = new Set<number>();
