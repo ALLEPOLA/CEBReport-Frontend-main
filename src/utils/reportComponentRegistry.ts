@@ -190,6 +190,10 @@ import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboa
 import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPage";
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
 
+//SMC - Management Information
+import SMCManagementInfo from "../pages/SMCManagementInfo";
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
+
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
 /**
@@ -429,6 +433,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"collections & payments dashboard": CollectionsDashboardPage,
 	"executive dashboard": ExecutiveDashboardPage,
 	"inventory dashboard": InventoryDashboardPage,
+
+	//SMC - Management Information
+	"smc job progress": SmcJobProgressReport,
 };
 
 /**

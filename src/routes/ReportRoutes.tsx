@@ -28,6 +28,7 @@ import CcApplicationProgress from "../mainTopics/SolarJobs/CcApplicationProgress
 import SolarPendingJobsReport from "../mainTopics/SolarJobs/SolarPendingJobsReport";
 import FIFODetails from "../pages/FIFODetails";
 import ReportCatalog from "../pages/ReportCatalog";
+import SMCManagementInfo from "../pages/SMCManagementInfo";
 
 const ReportRoutes = () => (
 	<>
@@ -260,6 +261,15 @@ const ReportRoutes = () => (
 			element={
 				<Layout>
 					<SolarReligiousPurpose />
+				</Layout>
+			}
+		/>
+
+		<Route
+			path="/report/smc-management-information"
+			element={
+				<Layout>
+					<SMCManagementInfo />
 				</Layout>
 			}
 		/>
