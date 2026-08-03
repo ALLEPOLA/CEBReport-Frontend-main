@@ -191,8 +191,8 @@ import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPa
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
 
 //SMC - Management Information
-import SMCManagementInfo from "../pages/SMCManagementInfo";
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -436,6 +436,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
+	"cc t1 t2 t3 report": CCT1T2T3Report,
 };
 
 /**
