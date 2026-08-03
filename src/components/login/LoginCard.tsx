@@ -3,9 +3,30 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useUser } from "../../contexts/UserContext";
 import { useLogged } from "../../contexts/UserLoggedStateContext";
+import { loadRoleBasedSidebarData } from "../../data/SideBarData";
 import { postJSON } from "../../helpers/LoginHelper";
 import InputField from "../shared/InputField";
 import ceb from "../../assets/CEBLOGO.png";
+
+const isDashboardTopic = (topic: { name?: string; path?: string }) => {
+  const normalizedName = (topic.name ?? "").trim().toLowerCase();
+  const normalizedPath = (topic.path ?? "").trim().toLowerCase();
+
+  return (
+    normalizedName.includes("dashboard") ||
+    normalizedPath === "/dashboard" ||
+    normalizedPath.startsWith("/dashboard/")
+  );
+};
+
+const hasDashboardAccess = async (epfNo: string): Promise<boolean> => {
+  try {
+    const result = await loadRoleBasedSidebarData(epfNo.trim());
+    return (result?.data ?? []).some((topic) => isDashboardTopic(topic));
+  } catch {
+    return false;
+  }
+};
 
 const LoginCard = () => {
   const { setLogged } = useLogged();
@@ -116,11 +137,6 @@ const LoginCard = () => {
         }
 
         toast.success("Login successful!", { autoClose: 2000 });
-        if (isAdmin) {
-          navigate("/adminhome");
-        } else {
-          navigate("/home");
-        }
 
         const userData = await postJSON("/CBRSAPI/CBRSEPFNOLogin", {
           Username: username,
@@ -167,6 +183,13 @@ const LoginCard = () => {
           console.log("User details have been fetched successfully");
         } else {
           console.log("User details can't be fetched");
+        }
+
+        if (isAdmin) {
+          navigate("/adminhome");
+        } else {
+          const dashboardAccess = await hasDashboardAccess(username.trim());
+          navigate(dashboardAccess ? "/dashboard" : "/report/report-catalog");
         }
       } else {
         toast.error("Invalid username or password");
