@@ -54,19 +54,7 @@ const DashboardSelector: React.FC<DashboardSelectorProps> = ({
 
   // Dynamically map assigned dashboards from Admin Panel ONLY
   const seenKeys = new Set<string>();
-
-  let list = subtopics;
-  if (user?.Level && user.Level >= 70) {
-    const hasDefault = subtopics.some((s) => getDashboardKey(s.name) === "default");
-    if (!hasDefault) {
-      list = [
-        { id: 9999, name: "Main Dashboard", repIdNo: "default" },
-        ...subtopics,
-      ];
-    }
-  }
-
-  const dashboards = list
+  const dashboards = subtopics
     .map((subtopic) => {
       const key = getDashboardKey(subtopic.name);
       return {
