@@ -33,7 +33,7 @@ const RegionChartSection: React.FC<RegionChartSectionProps> = ({
   renderCustomTooltip
 }) => {
   const allMaterialsZero = materials.length > 0 && materials.every((m) => m.QtyOnHand === 0);
-  
+
   // Calculate total quantity for all regions
   const totalQuantity = materials.reduce((sum, material) => sum + material.QtyOnHand, 0);
 
@@ -42,7 +42,7 @@ const RegionChartSection: React.FC<RegionChartSectionProps> = ({
       <div className="flex-1 bg-gradient-to-br from-white via-gray-50 to-gray-100 rounded-xl shadow-lg border border-gray-200 p-4 flex flex-col min-h-[420px] relative">
         <div className="flex justify-between items-center mb-3 pb-1 border-b border-gray-100">
           <h3 className="text-[13px] font-semibold text-gray-700 tracking-tight flex items-center gap-2">
-            Divitional Quantity On Hand
+            Divisional Quantity On Hand
           </h3>
           <select
             value={chartType}
@@ -54,7 +54,7 @@ const RegionChartSection: React.FC<RegionChartSectionProps> = ({
             <option value="pie">Pie</option>
           </select>
         </div>
-        
+
         {/* Total Display */}
         <div className="mb-2 text-center">
           <div className="inline-block bg-blue-50 border border-blue-200 rounded-lg px-3 py-1">
@@ -199,9 +199,8 @@ const RegionChartSection: React.FC<RegionChartSectionProps> = ({
           {materials.map((region, index) => (
             <div
               key={index}
-              className={`px-3 py-2 flex items-center hover:bg-blue-50 cursor-pointer transition-colors ${
-                selectedRegion === mapRegionName(region.Region) ? "bg-blue-50" : ""
-              }`}
+              className={`px-3 py-2 flex items-center hover:bg-blue-50 cursor-pointer transition-colors ${selectedRegion === mapRegionName(region.Region) ? "bg-blue-50" : ""
+                }`}
               onClick={() => {
                 const mappedRegion = mapRegionName(region.Region);
                 setSelectedRegion(selectedRegion === mappedRegion ? null : mappedRegion);

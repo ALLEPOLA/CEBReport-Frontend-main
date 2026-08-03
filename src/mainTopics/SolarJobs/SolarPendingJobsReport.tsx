@@ -56,17 +56,17 @@ const csvEscape = (val: string | number | null | undefined): string => {
 };
 
 const columns = [
+  "Dept_id",
   "Application No",
-  "App Submit Date",
+  "App Submit_Date",
   "PIV1 Issued Date",
   "PIV1 Paid Date",
   "Estimate No",
   "PIV2 Paid Date",
   "Project No",
-  "Application Sub Type",
-  "Existing Account No",
   "Status",
-  "Cost Center"
+  "Application Sub Type",
+  "Existing Account No"
 ];
 
 const SolarPendingJobsReport: React.FC = () => {
@@ -210,6 +210,7 @@ const SolarPendingJobsReport: React.FC = () => {
     reportData.forEach((item) => {
       const cctInfo = item.DeptId ? (item.CctName ? `${item.DeptId} - ${item.CctName}` : item.DeptId) : "";
       const row = [
+        `="${cctInfo}"`,
         `="${item.ApplicationNo ?? ""}"`,
         formatDate(item.SubmitDate),
         formatDate(item.PivDate),
@@ -217,10 +218,9 @@ const SolarPendingJobsReport: React.FC = () => {
         `="${item.ApplicationId ?? ""}"`,
         formatDate(item.Piv2PaidDate),
         `="${item.ProjectNo ?? ""}"`,
-        item.ApplicationSubType || "",
-        `="${item.ExistingAccNo ?? ""}"`,
         item.Status || "",
-        `="${cctInfo}"`
+        item.ApplicationSubType || "",
+        `="${item.ExistingAccNo ?? ""}"`
       ];
       csvRows.push(row.map(csvEscape).join(","));
     });
@@ -265,6 +265,7 @@ const SolarPendingJobsReport: React.FC = () => {
     reportData.forEach((item) => {
       const cctInfo = item.DeptId ? (item.CctName ? `${item.DeptId} - ${item.CctName}` : item.DeptId) : "";
       html += `<tr>
+                <td>${escapeHtml(cctInfo)}</td>
                 <td>${escapeHtml(item.ApplicationNo)}</td>
                 <td>${formatDate(item.SubmitDate)}</td>
                 <td>${formatDate(item.PivDate)}</td>
@@ -272,10 +273,9 @@ const SolarPendingJobsReport: React.FC = () => {
                 <td>${escapeHtml(item.ApplicationId)}</td>
                 <td>${formatDate(item.Piv2PaidDate)}</td>
                 <td>${escapeHtml(item.ProjectNo)}</td>
+                <td>${escapeHtml(item.Status)}</td>
                 <td>${escapeHtml(item.ApplicationSubType)}</td>
                 <td>${escapeHtml(item.ExistingAccNo)}</td>
-                <td>${escapeHtml(item.Status)}</td>
-                <td>${escapeHtml(cctInfo)}</td>
             </tr>`;
     });
 
@@ -477,6 +477,7 @@ const SolarPendingJobsReport: React.FC = () => {
                   const cctInfo = item.DeptId ? (item.CctName ? `${item.DeptId} - ${item.CctName}` : item.DeptId) : "";
                   return (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{cctInfo}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ApplicationNo}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.SubmitDate)}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.PivDate)}</td>
@@ -484,10 +485,9 @@ const SolarPendingJobsReport: React.FC = () => {
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ApplicationId}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.Piv2PaidDate)}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ProjectNo}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.Status}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ApplicationSubType}</td>
                       <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ExistingAccNo}</td>
-                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.Status}</td>
-                      <td className="p-2 border border-gray-300 whitespace-nowrap">{cctInfo}</td>
                     </tr>
                   );
                 })}
