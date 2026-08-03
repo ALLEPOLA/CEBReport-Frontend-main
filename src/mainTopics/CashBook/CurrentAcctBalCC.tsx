@@ -362,8 +362,11 @@ const CurrentAcctBalCC: React.FC = () => {
                 const raw = Array.isArray(json)
                     ? json
                     : json.data || json.result || json.departments || [];
+                // Trim: glcompm/gldeptm are Oracle CHAR columns and come back
+                // blank-padded. Trimming here keeps DeptId clean everywhere
+                // downstream (URL building, display, comparisons).
                 const deps: Department[] = raw.map((d: any) => ({
-                    DeptId: String(d.DeptId || d.deptId || ""),
+                    DeptId: String(d.DeptId || d.deptId || "").trim(),
                     DeptName: String(d.DeptName || d.deptName || "").trim(),
                 }));
                 setDepartments(deps);
@@ -390,6 +393,7 @@ const CurrentAcctBalCC: React.FC = () => {
     }, [searchId, searchName, departments]);
 
     const fetchReport = async (dept: Department) => {
+        // Validate inputs
         if (!repYear.trim() || repYear.length !== 4 || isNaN(Number(repYear))) {
             toast.error("Please enter a valid 4-digit year.");
             return;
@@ -408,35 +412,90 @@ const CurrentAcctBalCC: React.FC = () => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+        // costCtr is sent exactly as returned by the departments endpoint
+        // (just trimmed). The backend builds gl_cd as `${costCtr}-L9100` and
+        // does its own TRIM()-based matching against the blank-padded Oracle
+        // CHAR columns — do NOT reformat/pad it on the frontend (e.g. don't
+        // append ".00"), or it will never match and you'll get 0 rows.
+        const costCtr = dept.DeptId.trim();
+
         try {
-            const url = `/misapi/api/currentacctbalcc/report?repYear=${repYear.trim()}&repMonth=${repMonth}&costCtr=${dept.DeptId}`;
+            const url = `/misapi/api/currentacctbalcc/report?repYear=${repYear.trim()}&repMonth=${repMonth}&costCtr=${encodeURIComponent(costCtr)}`;
+            console.log("costCtr sent:", JSON.stringify(costCtr));
+            console.log("Fetching URL:", url);
+
             const res = await fetch(url, { signal: controller.signal });
             clearTimeout(timeout);
 
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
+            console.log("Response status:", res.status);
 
-            if (!json.success) throw new Error(json.message || "No data");
+            // Get the raw text first to debug
+            const rawText = await res.text();
+            console.log("Raw response:", rawText);
 
-            const items: CurrentAcctBalItem[] = json.data || [];
+            // Parse JSON
+            let json;
+            try {
+                json = JSON.parse(rawText);
+            } catch (parseError) {
+                console.error("Failed to parse JSON:", parseError);
+                throw new Error("Invalid response format from server");
+            }
+
+            console.log("Parsed JSON:", json);
+
+            if (!json) {
+                throw new Error("Empty response from server");
+            }
+
+            if (json.success === false) {
+                throw new Error(json.message || "Server returned an error");
+            }
+
+            // Extract data - handling both formats
+            let items: CurrentAcctBalItem[] = [];
+            let summary: CurrentAcctBalSummary | null = null;
+
+            if (json.data && Array.isArray(json.data)) {
+                items = json.data;
+                summary = json.summary || null;
+            } else if (json.result && Array.isArray(json.result)) {
+                items = json.result;
+                summary = json.summary || null;
+            } else if (Array.isArray(json)) {
+                items = json;
+            } else if (json.items && Array.isArray(json.items)) {
+                items = json.items;
+                summary = json.summary || null;
+            }
+
+            console.log("Extracted items:", items.length, "summary:", summary);
+
             if (items.length === 0) {
-                toast.warn("No records found.");
+                toast.warn(
+                    `No records found for costCtr="${costCtr}" (${repMonth}/${repYear}).`
+                );
                 setShowReport(false);
                 setSelectedDept(null);
                 return;
             }
 
             setReportData(items);
-            setReportSummary(json.summary || null);
-            toast.success(`${items.length} records loaded.`);
+            setReportSummary(summary);
+            toast.success(`${items.length} records loaded successfully.`);
         } catch (e: any) {
-            toast.error(
-                e.name === "AbortError"
-                    ? "Request timed out."
-                    : e.message.includes("Failed to fetch")
-                        ? "Server unreachable."
-                        : e.message
-            );
+            console.error("Error in fetchReport:", e);
+
+            let errorMessage = "An error occurred while fetching data.";
+            if (e.name === "AbortError") {
+                errorMessage = "Request timed out. Please try again.";
+            } else if (e.message?.includes("Failed to fetch")) {
+                errorMessage = "Server unreachable. Please check your connection.";
+            } else if (e.message) {
+                errorMessage = e.message;
+            }
+
+            toast.error(errorMessage);
             setReportData([]);
             setReportSummary(null);
             setShowReport(false);

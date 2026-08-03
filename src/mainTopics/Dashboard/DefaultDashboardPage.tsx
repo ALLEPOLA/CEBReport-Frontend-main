@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   X,
+  ShieldAlert,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -405,7 +406,37 @@ const DefaultDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const activeDashboard = "default";
 
-  const [selectedDivision, setSelectedDivision] = useState("all");
+  if (!user?.Level || user.Level < 70) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center p-8">
+        <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-lg shadow-stone-200/50">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100">
+            <ShieldAlert className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-bold text-stone-900">Access Denied</h2>
+          <p className="mt-2 text-sm text-stone-600">
+            You do not have permission to view the default dashboard.
+          </p>
+          <button
+            onClick={() => navigate("/home")}
+            className="mt-6 px-5 py-2.5 rounded-xl bg-[#7A0000] text-white text-xs font-semibold hover:bg-[#600000] transition-colors shadow-sm"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const [selectedDivision, setSelectedDivision] = useState(() => {
+    if (user?.Level !== 80 && user?.RegionCode) {
+      const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+      if (match) {
+        return `d${match[1]}`.toLowerCase();
+      }
+    }
+    return "all";
+  });
   const toRegion = (division: string) => {
     const match = /^d(\d+)$/i.exec(division || "");
     return match ? `R${match[1]}` : null;

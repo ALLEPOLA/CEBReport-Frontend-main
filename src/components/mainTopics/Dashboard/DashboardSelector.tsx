@@ -4,6 +4,7 @@ import {
   Briefcase, Sun, CreditCard, Target, Package
 } from "lucide-react";
 import { useRoleBasedSubtopics } from "../../../hooks/useRoleBasedSubtopics";
+import { useUser } from "../../../contexts/UserContext";
 
 interface DashboardSelectorProps {
   activeDashboard: string;
@@ -40,6 +41,7 @@ const DashboardSelector: React.FC<DashboardSelectorProps> = ({
   onSelectDashboard,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useUser();
 
   const { subtopics, loading } = useRoleBasedSubtopics([
     "Dashboard",
@@ -62,6 +64,7 @@ const DashboardSelector: React.FC<DashboardSelectorProps> = ({
       };
     })
     .filter((item) => {
+      if (item.id === "default" && (!user?.Level || user.Level < 70)) return false;
       if (seenKeys.has(item.id)) return false;
       seenKeys.add(item.id);
       return true;
