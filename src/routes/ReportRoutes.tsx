@@ -172,7 +172,7 @@ const ReportRoutes = () => (
 		/>
 
 		<Route
-			path="/report/LedgerCards"
+			path="/report/ledger-card"
 			element={
 				<Layout>
 					<LedgerCardDetails />
