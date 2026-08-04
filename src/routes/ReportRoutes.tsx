@@ -153,7 +153,7 @@ const ReportRoutes = () => (
 			}
 		/>
 		<Route
-			path="/report/WorkInProgress"
+			path="/report/work-in-progress-wip"
 			element={
 				<Layout>
 					<WorkInProgress />
