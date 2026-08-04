@@ -137,15 +137,6 @@ const CCT1T2T3ReportTable: React.FC<{
         </tr>`;
         });
 
-        rowsHTML += `
-        <tr style="background:#d3d3d3; font-weight:bold;">
-          <td colspan="11" style="text-align:right;">AVERAGE</td>
-          <td style="text-align:right;">${formatDays(avgT1)}</td>
-          <td style="text-align:right;">${formatDays(avgT2)}</td>
-          <td style="text-align:right;">${formatDays(avgT3)}</td>
-        </tr>
-      `;
-
         const html = `
 <!DOCTYPE html>
 <html>
@@ -161,6 +152,11 @@ const CCT1T2T3ReportTable: React.FC<{
       th, td { border:1px solid #d1d5db; padding:4px 5px; word-wrap:break-word; }
       th { background:#7A0000; color:#1f2937; text-align:center; font-weight:bold; }
       tr.bg-gray-50 { background:#f5f5f5; }
+      .avg-table { margin-top:14px; padding:0 8px; }
+      .avg-table table { width:220px; font-size:8.5px; }
+      .avg-table td { border:1px solid #d1d5db; padding:4px 6px; }
+      .avg-table td.label { font-weight:bold; background:#f5f5f5; }
+      .avg-table td.value { text-align:right; }
       .notes { margin-top:14px; padding:0 8px; font-size:8.5px; line-height:1.6; }
       .sign-block { margin-top:34px; padding:0 8px; font-size:9px; }
       .sign-row { display:flex; justify-content:space-between; }
@@ -175,7 +171,7 @@ const CCT1T2T3ReportTable: React.FC<{
 </head>
 <body>
   <div class="company">${COMPANY_NAME} / ${departmentName}</div>
-  <div class="title">T1, T2, T3 From ${fromLabel} To ${toLabel}</div>
+  <div class="title">Cost Center Wise T1, T2, T3 Report From ${fromLabel} To ${toLabel}</div>
   <div class="info"><strong>Cost Center:</strong> ${costCenter} / ${departmentName} &nbsp;&nbsp; <strong>Records:</strong> ${totalRecords}</div>
   <table>
     <thead>
@@ -198,6 +194,15 @@ const CCT1T2T3ReportTable: React.FC<{
     </thead>
     <tbody>${rowsHTML}</tbody>
   </table>
+  <div class="avg-table">
+    <table>
+      <tbody>
+        <tr><td class="label">Average of T1</td><td class="value">${formatDays(avgT1)}</td></tr>
+        <tr><td class="label">Average of T2</td><td class="value">${formatDays(avgT2)}</td></tr>
+        <tr><td class="label">Average of T3</td><td class="value">${formatDays(avgT3)}</td></tr>
+      </tbody>
+    </table>
+  </div>
   <div class="notes">
     <div><strong>T1:</strong> Days between application submitted and estimate approved.</div>
     <div><strong>T2:</strong> Days between PIV 2 paid and energized.</div>
@@ -248,7 +253,7 @@ const CCT1T2T3ReportTable: React.FC<{
                         {COMPANY_NAME} / {departmentName}
                     </h2>
                     <h3 className={`text-sm md:text-base font-semibold text-center mb-4 ${maroon}`}>
-                        T1, T2, T3 From {fromLabel} To {toLabel}
+                        Cost Center Wise T1, T2, T3 Report From {fromLabel} To {toLabel}
                     </h3>
 
                     <div className="flex flex-col sm:flex-row justify-between text-sm mb-4 gap-2 px-2">
@@ -301,16 +306,28 @@ const CCT1T2T3ReportTable: React.FC<{
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot>
-                                    <tr className="bg-[#d3d3d3] font-bold sticky bottom-0">
-                                        <td colSpan={11} className="px-3 py-2 border border-gray-300 text-right">AVERAGE</td>
-                                        <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatDays(avgT1)}</td>
-                                        <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatDays(avgT2)}</td>
-                                        <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatDays(avgT3)}</td>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
+                    </div>
+
+                    {/* ────── Average summary table ────── */}
+                    <div className="px-2 mb-6">
+                        <table className="text-xs border-collapse border border-gray-300 w-56">
+                            <tbody>
+                                <tr>
+                                    <td className="px-3 py-2 border border-gray-300 font-bold bg-gray-50">Average of T1</td>
+                                    <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatDays(avgT1)}</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-3 py-2 border border-gray-300 font-bold bg-gray-50">Average of T2</td>
+                                    <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatDays(avgT2)}</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-3 py-2 border border-gray-300 font-bold bg-gray-50">Average of T3</td>
+                                    <td className="px-3 py-2 border border-gray-300 text-right font-mono">{formatDays(avgT3)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     {/* ────── T1/T2/T3 definitions ────── */}
@@ -501,7 +518,7 @@ const CCT1T2T3Report: React.FC = () => {
             style={{ marginLeft: "2rem" }}
         >
             <h2 className={`text-xl font-bold mb-4 ${maroon}`}>
-                T1, T2, T3 Report
+                Cost Center Wise T1, T2, T3 Report
             </h2>
 
             {/* ────── From / To date filters ────── */}
