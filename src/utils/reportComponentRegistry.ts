@@ -436,7 +436,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
-	"cc t1 t2 t3 report": CCT1T2T3Report,
+	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 };
 
 /**
