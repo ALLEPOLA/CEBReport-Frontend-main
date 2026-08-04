@@ -37,7 +37,7 @@ const ProvinceChartSection: React.FC<ProvinceChartSectionProps> = ({
       <div className="flex-1 bg-gradient-to-br from-white via-gray-50 to-gray-100 rounded-xl shadow-lg border border-gray-200 p-4 flex flex-col min-h-[420px] relative">
         <div className="flex justify-between items-center mb-3 pb-1 border-b border-gray-100">
           <h3 className="text-[13px] font-semibold text-gray-700 tracking-tight flex items-center gap-2">
-            Province Quantity On Hand
+            Provincial Quantity On Hand
           </h3>
           <select
             value={provinceChartType}
@@ -49,7 +49,7 @@ const ProvinceChartSection: React.FC<ProvinceChartSectionProps> = ({
             <option value="pie">Pie</option>
           </select>
         </div>
-        
+
         {/* Total Display */}
         {provinceStocks.length > 0 && !allProvincesZero && (
           <div className="mb-2 text-center">
