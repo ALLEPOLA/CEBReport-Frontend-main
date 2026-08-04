@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -135,6 +137,9 @@ const ReceivablePosition: React.FC = () => {
   const [resolvedBillCycle, setResolvedBillCycle] = useState("");
   const [resolvedScopeLabel, setResolvedScopeLabel] = useState("");
 
+  const { user } = useUser();
+  const { locked } = useReportScope();
+
   // ── 1. Fetch bill cycles whenever billType changes ─────────────────────
   useEffect(() => {
     const fetchCycles = async () => {
@@ -176,9 +181,25 @@ const ReceivablePosition: React.FC = () => {
     fetchCycles();
   }, [billType]);
 
+  useEffect(() => {
+    if (locked["Area"]) {
+      setScopeType("Province");
+      setScopeValue(user.ProvinceCode || "");
+    } else if (locked["Province"]) {
+      setScopeType("Province");
+      setScopeValue(locked["Province"]!.code);
+    } else if (locked["Region"] && scopeType === "Region") {
+      setScopeValue(locked["Region"]!.code);
+    }
+  }, [scopeType, user.Level, user.RegionCode, user.ProvinceCode, user.AreaCode]);
+
   // ── 2. Fetch provinces + regions whenever billType changes ─────────────
   useEffect(() => {
-    const provUrl = billType === "B" ? `/misapi/api/bulk/province` : `/misapi/api/ordinary/province`;
+    const provUrl = (() => {
+      let url = billType === "B" ? `/misapi/api/bulk/province` : `/misapi/api/ordinary/province`;
+      if (locked["Region"]?.code) url += `?regionCode=${locked["Region"].code}`;
+      return url;
+    })();
     const regUrl = billType === "B" ? `/misapi/api/bulk/region` : `/misapi/api/ordinary/region`;
 
     setProvinces([]);
@@ -223,45 +244,51 @@ const ReceivablePosition: React.FC = () => {
         setScopeListError(errors.join(" "));
       }
     })();
-  }, [billType]);
+  }, [billType, user.Level, user.RegionCode]);
 
   // ── Reset scope value when scope type changes ───────────────────────────
   useEffect(() => {
+    if (locked["Area"] || locked["Province"] || locked["Region"]) return;
     setScopeValue("");
     setScopeListError(null);
   }, [scopeType, billType]);
 
   // ── 3. Resolve area list for the current scope + billType + scopeValue ─
   const resolveAreaList = useCallback(async (): Promise<AreaInfo[]> => {
+    let list: AreaInfo[];
+
     if (scopeType === "EntireCEB") {
       const url = billType === "B" ? `/misapi/api/bulk/areas` : `/misapi/api/ordinary/areas`;
       const res = await apiFetch<any[]>(url);
       if (res.errorMessage || !res.data) throw new Error(res.errorMessage || "Failed to load areas.");
-      return res.data.map((a: any) => ({
+      list = res.data.map((a: any) => ({
         areaCode: a.AreaCode ?? a.areaCode ?? "",
         areaName: a.AreaName ?? a.areaName ?? "",
       }));
-    }
-
-    if (scopeType === "Province") {
+    } else if (scopeType === "Province") {
       const url = `/misapi/api/receivable-position/areas-by-province?provinceCode=${encodeURIComponent(scopeValue)}&billType=${billType}`;
       const res = await apiFetch<any[]>(url);
       if (res.errorMessage || !res.data) throw new Error(res.errorMessage || "Failed to load areas for province.");
-      return res.data.map((a: any) => ({
+      list = res.data.map((a: any) => ({
+        areaCode: a.AreaCode ?? a.areaCode ?? "",
+        areaName: a.AreaName ?? a.areaName ?? "",
+      }));
+    } else {
+      const url = `/misapi/api/receivable-position/areas-by-region?regionCode=${encodeURIComponent(scopeValue)}&billType=${billType}`;
+      const res = await apiFetch<any[]>(url);
+      if (res.errorMessage || !res.data) throw new Error(res.errorMessage || "Failed to load areas for region.");
+      list = res.data.map((a: any) => ({
         areaCode: a.AreaCode ?? a.areaCode ?? "",
         areaName: a.AreaName ?? a.areaName ?? "",
       }));
     }
 
-    // Region
-    const url = `/misapi/api/receivable-position/areas-by-region?regionCode=${encodeURIComponent(scopeValue)}&billType=${billType}`;
-    const res = await apiFetch<any[]>(url);
-    if (res.errorMessage || !res.data) throw new Error(res.errorMessage || "Failed to load areas for region.");
-    return res.data.map((a: any) => ({
-      areaCode: a.AreaCode ?? a.areaCode ?? "",
-      areaName: a.AreaName ?? a.areaName ?? "",
-    }));
-  }, [scopeType, scopeValue, billType]);
+    if (locked["Area"]?.code) {
+      list = list.filter((a) => a.areaCode === locked["Area"]!.code);
+    }
+
+    return list;
+  }, [scopeType, scopeValue, billType, locked]);
 
   // ── 4. Fetch report: resolve areas, then loop report calls per area ────
   const fetchReport = useCallback(async () => {
@@ -519,9 +546,8 @@ const ReceivablePosition: React.FC = () => {
 </style>
 </head><body>
 <h2>${title}</h2>
-<div class="meta">Scope : &nbsp;<span>${resolvedScopeLabel}</span> (${scopeType}) &nbsp;|&nbsp; Customer Type : &nbsp;<span>${
-      billType === "B" ? "Bulk" : "Ordinary"
-    }</span><br>Bill Cycle : &nbsp;<span>${resolvedBillCycle}</span></div>
+<div class="meta">Scope : &nbsp;<span>${resolvedScopeLabel}</span> (${scopeType}) &nbsp;|&nbsp; Customer Type : &nbsp;<span>${billType === "B" ? "Bulk" : "Ordinary"
+      }</span><br>Bill Cycle : &nbsp;<span>${resolvedBillCycle}</span></div>
 <table><thead><tr>
   <th>Area</th><th>Area Name</th>
   <th>Opening Bal</th><th>Monthly Chg</th><th>Debits</th><th>Credits</th>
@@ -563,6 +589,18 @@ const ReceivablePosition: React.FC = () => {
 
   const canSubmit = !!selectedBillCycle && (scopeType === "EntireCEB" || !!scopeValue) && !loadingReport;
 
+
+  if (user.Level === 50) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-sm text-center">
+        <h2 className="text-lg font-bold text-[#7A0000] mb-2">Access Restricted</h2>
+        <p className="text-sm text-gray-600">
+          This report isn't available at your access level. Please contact your supervisor if you believe this is an error.
+        </p>
+      </div>
+    );
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm">
@@ -601,47 +639,64 @@ const ReceivablePosition: React.FC = () => {
             </div>
 
             {/* Scope type */}
+            {/* Scope type */}
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
-              <select value={scopeType} onChange={(e) => setScopeType(e.target.value as ScopeType)} className={selectCls}>
-                <option value="Province">Province</option>
-                <option value="Region">Region</option>
-                <option value="EntireCEB">Entire CEB</option>
-              </select>
+              {locked["Area"] ? (
+                <div className={disabledSelectCls}>
+                  {user.AreaName ? `${user.AreaCode} - ${user.AreaName}` : user.AreaCode}
+                </div>
+              ) : (
+                <select value={scopeType} onChange={(e) => setScopeType(e.target.value as ScopeType)} className={selectCls}>
+                  {!locked["Region"] && !locked["Province"] && <option value="EntireCEB">Entire CEB</option>}
+                  {!locked["Province"] && <option value="Region">Region</option>}
+                  <option value="Province">Province</option>
+                </select>
+              )}
             </div>
 
             {/* Scope value */}
-            {scopeType !== "EntireCEB" && (
+            {!locked["Area"] && scopeType !== "EntireCEB" && (
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 ${maroon}`}>
                   Select {scopeType === "Province" ? "Province" : "Region"}:
                 </label>
 
                 {scopeType === "Province" && (
-                  <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
-                    <option value="">Select Province</option>
-                    {provinces.map((p) => (
-                      <option key={p.provinceCode} value={p.provinceCode}>
-                        {p.provinceName}
-                      </option>
-                    ))}
-                  </select>
+                  locked["Province"] ? (
+                    <div className={disabledSelectCls}>
+                      {locked["Province"]!.name ? `${locked["Province"]!.code} - ${locked["Province"]!.name}` : locked["Province"]!.code}
+                    </div>
+                  ) : (
+                    <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
+                      <option value="">Select Province</option>
+                      {provinces.map((p) => (
+                        <option key={p.provinceCode} value={p.provinceCode}>
+                          {p.provinceName}
+                        </option>
+                      ))}
+                    </select>
+                  )
                 )}
 
                 {scopeType === "Region" && (
-                  <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
-                    <option value="">Select Region</option>
-                    {regions.map((r) => (
-                      <option key={r.regionCode} value={r.regionCode}>
-                        {r.regionName || r.regionCode}
-                      </option>
-                    ))}
-                  </select>
+                  locked["Region"] ? (
+                    <div className={disabledSelectCls}>{locked["Region"]!.code}</div>
+                  ) : (
+                    <select value={scopeValue} onChange={(e) => setScopeValue(e.target.value)} className={selectCls}>
+                      <option value="">Select Region</option>
+                      {regions.map((r) => (
+                        <option key={r.regionCode} value={r.regionCode}>
+                          {r.regionName || r.regionCode}
+                        </option>
+                      ))}
+                    </select>
+                  )
                 )}
               </div>
             )}
 
-            {scopeType === "EntireCEB" && (
+            {!locked["Area"] && scopeType === "EntireCEB" && (
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 text-gray-400`}>Select Area:</label>
                 <div className={disabledSelectCls}>All areas island-wide</div>
