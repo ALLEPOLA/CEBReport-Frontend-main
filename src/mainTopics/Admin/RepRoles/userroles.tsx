@@ -146,8 +146,10 @@ const resolveAssignedCompanyIds = (
 		}));
 };
 
-const normalizeCostCentreId = (value: unknown): string =>
-	normalizeText(value).split("-")[0].trim();
+const normalizeCostCentreId = (value: unknown): string => {
+	const text = normalizeText(value);
+	return text.includes(" - ") ? text.split(" - ")[0].trim() : text;
+};
 
 const uniqueCostCentreIds = (values: string[]): string[] =>
 	uniqueByNormalizedKey(values.map(normalizeCostCentreId).filter(Boolean));
