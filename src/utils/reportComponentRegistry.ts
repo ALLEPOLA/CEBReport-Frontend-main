@@ -132,13 +132,13 @@ import PHVDamageBOS from "../mainTopics/PhysicalVerification/PHVDamageBOS";
 import LastDocNo from "../mainTopics/PhysicalVerification/LastDocNo";
 
 // Phisical Verification FIFO reports
-import PHVObsoleteIdleFIFO from "../mainTopics/fifo/PHVObsoleteIdleFIFO";
-import PHVDamageFIFO from "../mainTopics/fifo/PHVDamageFIFO";
-import PHVSlowMovingWHReport from "../mainTopics/fifo/PHVSlowMovingWHReport";
-import PHVNonMovingWHReport from "../mainTopics/fifo/PHVNonMovingWHReport";
-import PHVDamageBOSReport from "../mainTopics/fifo/PHVDamageBOSReport";
-import PHVObsoleteBOSReport from "../mainTopics/fifo/PHVObsoleteBOSReport";
-import PHVNonMovingBOSReport from "../mainTopics/fifo/PHVNonMovingBOSReport.tsx";
+import PHVObsoleteIdleFIFO from "../mainTopics/PHVFIFO/PHVObsoleteIdleFIFO.tsx";
+import PHVDamageFIFO from "../mainTopics/PHVFIFO/PHVDamageFIFO.tsx";
+import PHVSlowMovingWHReport from "../mainTopics/PHVFIFO/PHVSlowMovingWHReport.tsx";
+import PHVNonMovingWHReport from "../mainTopics/PHVFIFO/PHVNonMovingWHReport.tsx";
+import PHVDamageBOSReport from "../mainTopics/PHVFIFO/PHVDamageBOSReport.tsx";
+import PHVObsoleteBOSReport from "../mainTopics/PHVFIFO/PHVObsoleteBOSReport.tsx";
+import PHVNonMovingBOSReport from "../mainTopics/PHVFIFO/PHVNonMovingBOSReport.tsx";
 
 // PUCSL/LISS reports
 import PUCSLSolarConnection from "../mainTopics/PUCSL/PUCSLSolarConnection";
@@ -197,6 +197,9 @@ import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPa
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
+
+//FIFO reports
+import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -445,6 +448,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+
+	//FIFO reports
+	"issue and receipt summary": IssueReceiptSummaryReport,
 };
 
 /**
