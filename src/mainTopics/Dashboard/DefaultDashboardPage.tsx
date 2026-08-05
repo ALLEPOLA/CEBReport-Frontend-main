@@ -460,14 +460,27 @@ const DefaultDashboardPage: React.FC = () => {
   });
 
   const [selectedProvince, setSelectedProvince] = useState(() => {
-    if (user?.Level === 60 && user?.ProvinceCode) {
+    if ((user?.Level === 60 || user?.Level === 50) && user?.ProvinceCode) {
       return user.ProvinceCode;
     }
     return "";
   });
 
+  const [selectedArea, setSelectedArea] = useState(() => {
+    if (user?.Level === 50 && user?.AreaCode) {
+      return user.AreaCode;
+    }
+    return "";
+  });
+
+  const [areas, setAreas] = useState<{ AreaCode: string; AreaName: string }[]>([]);
+  const [areasLoading, setAreasLoading] = useState(false);
+
   const handleProvinceChange = (code: string) => {
     setSelectedProvince(code);
+    if (user?.Level !== 50) {
+      setSelectedArea("");
+    }
     if (code) {
       const div = getProvinceDivision(code);
       if (div) {
@@ -493,6 +506,11 @@ const DefaultDashboardPage: React.FC = () => {
       setSelectedDivision("all");
     }
   };
+
+  const handleAreaChange = (code: string) => {
+    setSelectedArea(code);
+  };
+
   const toRegion = (division: string) => {
     const match = /^d(\d+)$/i.exec(division || "");
     return match ? `R${match[1]}` : null;
@@ -508,8 +526,42 @@ const DefaultDashboardPage: React.FC = () => {
       const joiner = resultUrl.includes("?") ? "&" : "?";
       resultUrl = `${resultUrl}${joiner}province=${encodeURIComponent(selectedProvince)}`;
     }
+    if (selectedArea) {
+      const joiner = resultUrl.includes("?") ? "&" : "?";
+      resultUrl = `${resultUrl}${joiner}area=${encodeURIComponent(selectedArea)}`;
+    }
     return resultUrl;
   };
+
+  useEffect(() => {
+    let active = true;
+    const fetchAreas = async () => {
+      if (!selectedProvince) {
+        setAreas([]);
+        return;
+      }
+      setAreasLoading(true);
+      try {
+        const res = await fetch(`/misapi/api/ordinary/areas?provCode=${encodeURIComponent(selectedProvince)}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+        const json = await res.json();
+        if (!active) return;
+        setAreas(json?.data ?? []);
+      } catch (err) {
+        console.error("Failed to load areas:", err);
+      } finally {
+        if (active) {
+          setAreasLoading(false);
+        }
+      }
+    };
+    fetchAreas();
+    return () => {
+      active = false;
+    };
+  }, [selectedProvince]);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isLoaded, setIsLoaded]               = useState(false);
@@ -656,7 +708,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchOrdinaryCount();
     return () => { active = false; };
-  }, [selectedRegion, selectedProvince]);
+  }, [selectedRegion, selectedProvince, selectedArea]);
 
   useEffect(() => {
     let active = true;
@@ -682,7 +734,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchBulkCount();
     return () => { active = false; };
-  }, [selectedRegion, selectedProvince]);
+  }, [selectedRegion, selectedProvince, selectedArea]);
 
   useEffect(() => {
     let active = true;
@@ -727,7 +779,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchSolarCustomerData();
     return () => { active = false; };
-  }, [selectedRegion, selectedProvince]);
+  }, [selectedRegion, selectedProvince, selectedArea]);
 
   useEffect(() => {
     let active = true;
@@ -762,7 +814,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchBulkSolarCustomerData();
     return () => { active = false; };
-  }, [selectedRegion, selectedProvince]);
+  }, [selectedRegion, selectedProvince, selectedArea]);
 
   useEffect(() => {
     let active = true;
@@ -852,7 +904,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchSalesCollection();
     return () => { active = false; };
-  }, [selectedRegion, selectedProvince]);
+  }, [selectedRegion, selectedProvince, selectedArea]);
 
   useEffect(() => {
     let active = true;
@@ -967,7 +1019,7 @@ const DefaultDashboardPage: React.FC = () => {
 
     fetchSolarCapacityGraph();
     return () => { active = false; };
-  }, [selectedSolarBillCycle, solarCapacityInitialized, selectedRegion, selectedProvince]);
+  }, [selectedSolarBillCycle, solarCapacityInitialized, selectedRegion, selectedProvince, selectedArea]);
 
   const loggedUserId = (user?.Userno || "").trim().toUpperCase();
   const kioskUserId = loggedUserId.startsWith("KIOS") ? loggedUserId : "KIOS00";
@@ -1026,7 +1078,7 @@ const DefaultDashboardPage: React.FC = () => {
 
     fetchKioskWeeklyCollection();
     return () => { active = false; };
-  }, [kioskUserId, selectedRegion, selectedProvince]);
+  }, [kioskUserId, selectedRegion, selectedProvince, selectedArea]);
 
   useEffect(() => {
     let active = true;
@@ -1085,7 +1137,7 @@ const DefaultDashboardPage: React.FC = () => {
 
     fetchTopCustomers();
     return () => { active = false; };
-  }, [selectedRegion, selectedProvince]);
+  }, [selectedRegion, selectedProvince, selectedArea]);
 
   // ── Formatters ────────────────────────────────────────────────────────────
 
@@ -1254,6 +1306,10 @@ const DefaultDashboardPage: React.FC = () => {
                 onDivisionChange={setSelectedDivision}
                 selectedProvince={selectedProvince}
                 onProvinceChange={handleProvinceChange}
+                selectedArea={selectedArea}
+                onAreaChange={handleAreaChange}
+                areas={areas}
+                areasLoading={areasLoading}
               />
 
               <div className="max-w-7xl mx-auto px-4 py-6">

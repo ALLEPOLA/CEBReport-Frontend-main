@@ -7,6 +7,10 @@ interface DashboardHeaderProps {
   onDivisionChange?: (id: string) => void;
   selectedProvince?: string;
   onProvinceChange?: (code: string) => void;
+  selectedArea?: string;
+  onAreaChange?: (code: string) => void;
+  areas?: { AreaCode: string; AreaName: string }[];
+  areasLoading?: boolean;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -15,6 +19,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onDivisionChange,
   selectedProvince,
   onProvinceChange,
+  selectedArea,
+  onAreaChange,
+  areas = [],
+  areasLoading = false,
 }) => {
   const [internalDivision, setInternalDivision] = useState("all");
   const selectedDivision = externalDivision !== undefined ? externalDivision : internalDivision;
@@ -75,9 +83,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     return provinces;
   };
 
-  const showProvinceDropdown = user?.Level === 70 || user?.Level === 60;
+  const showProvinceDropdown = user?.Level === 70 || user?.Level === 60 || user?.Level === 50;
   const isRegionUser = user?.Level === 70;
-  const isProvinceUser = user?.Level === 60;
+  const isProvinceUser = user?.Level === 60 || user?.Level === 50;
+  const showAreaDropdown = user?.Level === 60 || user?.Level === 50;
 
   const allowedProvinces = (() => {
     if (isProvinceUser && user?.ProvinceCode) {
@@ -115,7 +124,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               <select
                 value={selectedProvince || ""}
                 onChange={(e) => onProvinceChange?.(e.target.value)}
-                disabled={isProvinceUser}
+                disabled={user?.Level === 60 || user?.Level === 50}
                 className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7A0000] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 cursor-pointer disabled:cursor-not-allowed"
               >
                 {isRegionUser && <option value="">Select Province (All)</option>}
@@ -126,6 +135,26 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 ))}
               </select>
             )}
+
+            {showAreaDropdown && (
+              <select
+                value={selectedArea || ""}
+                onChange={(e) => onAreaChange?.(e.target.value)}
+                disabled={user?.Level === 50 || areasLoading}
+                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7A0000] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 cursor-pointer disabled:cursor-not-allowed"
+              >
+                {user?.Level === 60 && <option value="">{areasLoading ? "Loading Areas..." : "Select Area (All)"}</option>}
+                {user?.Level === 50 && user?.AreaCode && !areas.some(a => a.AreaCode === user.AreaCode) && (
+                  <option value={user.AreaCode}>{user.AreaName || user.AreaCode}</option>
+                )}
+                {areas.map((a) => (
+                  <option key={a.AreaCode} value={a.AreaCode}>
+                    {a.AreaName || a.AreaCode}
+                  </option>
+                ))}
+              </select>
+            )}
+
             <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
               {filteredDivisions.map((division) => {
                 const isSelected = selectedDivision === division.id;
