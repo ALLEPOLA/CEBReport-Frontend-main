@@ -499,9 +499,16 @@ const DefaultDashboardPage: React.FC = () => {
   };
   const selectedRegion = toRegion(selectedDivision);
   const withRegion = (url: string) => {
-    if (!selectedRegion) return url;
-    const joiner = url.includes("?") ? "&" : "?";
-    return `${url}${joiner}region=${encodeURIComponent(selectedRegion)}`;
+    let resultUrl = url;
+    if (selectedRegion) {
+      const joiner = resultUrl.includes("?") ? "&" : "?";
+      resultUrl = `${resultUrl}${joiner}region=${encodeURIComponent(selectedRegion)}`;
+    }
+    if (selectedProvince) {
+      const joiner = resultUrl.includes("?") ? "&" : "?";
+      resultUrl = `${resultUrl}${joiner}province=${encodeURIComponent(selectedProvince)}`;
+    }
+    return resultUrl;
   };
 
   // ── UI state ──────────────────────────────────────────────────────────────
@@ -649,7 +656,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchOrdinaryCount();
     return () => { active = false; };
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedProvince]);
 
   useEffect(() => {
     let active = true;
@@ -675,7 +682,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchBulkCount();
     return () => { active = false; };
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedProvince]);
 
   useEffect(() => {
     let active = true;
@@ -720,7 +727,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchSolarCustomerData();
     return () => { active = false; };
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedProvince]);
 
   useEffect(() => {
     let active = true;
@@ -755,7 +762,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchBulkSolarCustomerData();
     return () => { active = false; };
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedProvince]);
 
   useEffect(() => {
     let active = true;
@@ -845,7 +852,7 @@ const DefaultDashboardPage: React.FC = () => {
     };
     fetchSalesCollection();
     return () => { active = false; };
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedProvince]);
 
   useEffect(() => {
     let active = true;
@@ -960,7 +967,7 @@ const DefaultDashboardPage: React.FC = () => {
 
     fetchSolarCapacityGraph();
     return () => { active = false; };
-  }, [selectedSolarBillCycle, solarCapacityInitialized, selectedRegion]);
+  }, [selectedSolarBillCycle, solarCapacityInitialized, selectedRegion, selectedProvince]);
 
   const loggedUserId = (user?.Userno || "").trim().toUpperCase();
   const kioskUserId = loggedUserId.startsWith("KIOS") ? loggedUserId : "KIOS00";
@@ -1019,7 +1026,7 @@ const DefaultDashboardPage: React.FC = () => {
 
     fetchKioskWeeklyCollection();
     return () => { active = false; };
-  }, [kioskUserId, selectedRegion]);
+  }, [kioskUserId, selectedRegion, selectedProvince]);
 
   useEffect(() => {
     let active = true;
@@ -1078,7 +1085,7 @@ const DefaultDashboardPage: React.FC = () => {
 
     fetchTopCustomers();
     return () => { active = false; };
-  }, [selectedRegion]);
+  }, [selectedRegion, selectedProvince]);
 
   // ── Formatters ────────────────────────────────────────────────────────────
 
