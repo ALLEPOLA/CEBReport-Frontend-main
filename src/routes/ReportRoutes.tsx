@@ -29,6 +29,7 @@ import SolarPendingJobsReport from "../mainTopics/SolarJobs/SolarPendingJobsRepo
 import FIFODetails from "../pages/FIFODetails";
 import ReportCatalog from "../pages/ReportCatalog";
 import SMCManagementInfo from "../pages/SMCManagementInfo";
+import FIFO from "../pages/FIFO";
 
 const ReportRoutes = () => (
 	<>
@@ -270,6 +271,15 @@ const ReportRoutes = () => (
 			element={
 				<Layout>
 					<SMCManagementInfo />
+				</Layout>
+			}
+		/>
+
+		<Route
+			path="/report/fifo"
+			element={
+				<Layout>
+					<FIFO />
 				</Layout>
 			}
 		/>
