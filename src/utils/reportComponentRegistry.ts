@@ -102,6 +102,7 @@ import IssuesRaisedForJobsReport from "../mainTopics/inventory/Issuesraisedforjo
 import GrnRaisedForPurchasingReport from "../mainTopics/inventory/Grnraisedforpurchasingreport";
 import CcGrnNotGenReport from "../mainTopics/inventory/Ccgrnnotgenreport";
 import BranchGrnNotGenReport from "../mainTopics/inventory/BranchGrnNotGenReport";
+import MaterialFlowReport from "../mainTopics/inventory/MaterialFlowReport.tsx";
 import IssueSummaryProvinceReport from "../mainTopics/inventory/IssueSummaryProvinceReport";
 
 // JobCard reports
@@ -195,6 +196,7 @@ import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPa
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
+import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -338,6 +340,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"province wise quantity on hand": ProvinceWiseQuantityOnHand,
 	"provincial quantity on hand cross tab": ProvincialQtyHand,
 	"quantity on hand all region material active online": QtyOnHandAllRegion,
+	"flow report": MaterialFlowReport,
 	"issue summary province usage": IssueSummaryProvinceReport,
 
 	// JobCard reports
@@ -441,6 +444,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
+	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
 };
 
 /**
