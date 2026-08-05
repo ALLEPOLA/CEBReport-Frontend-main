@@ -25,3 +25,16 @@ export function useReportScope() {
 
   return { level, allowedCategories, locked };
 }
+
+export function isWithinUserScope(
+  user: { Level?: number; RegionCode?: string; ProvinceCode?: string; AreaCode?: string },
+  recordArea?: string,
+  recordProvince?: string,
+  recordRegion?: string
+): boolean {
+  const level = user.Level ?? 80;
+  if (level >= 80) return true;
+  if (level >= 70) return recordRegion === user.RegionCode;
+  if (level >= 60) return recordProvince === user.ProvinceCode;
+  return recordArea === user.AreaCode;
+}
