@@ -406,7 +406,7 @@ const DefaultDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const activeDashboard = "default";
 
-  if (!user?.Level || user.Level < 60) {
+  if (!user?.Level || user.Level < 50) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-8">
         <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-lg shadow-stone-200/50">
