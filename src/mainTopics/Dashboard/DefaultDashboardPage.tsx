@@ -406,7 +406,7 @@ const DefaultDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const activeDashboard = "default";
 
-  if (!user?.Level || user.Level < 70) {
+  if (!user?.Level || user.Level < 60) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-8">
         <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 text-center shadow-lg shadow-stone-200/50">
@@ -428,15 +428,71 @@ const DefaultDashboardPage: React.FC = () => {
     );
   }
 
+  const getProvinceDivision = (provinceCode?: string): string | null => {
+    if (!provinceCode) return null;
+    const code = provinceCode.trim().toUpperCase();
+    const d1 = ["1", "3", "8", "D"];
+    const d2 = ["5", "7", "A", "E"];
+    const d3 = ["2", "6", "9", "C"];
+    const d4 = ["4", "B", "F"];
+    
+    if (d1.includes(code)) return "d1";
+    if (d2.includes(code)) return "d2";
+    if (d3.includes(code)) return "d3";
+    if (d4.includes(code)) return "d4";
+    return null;
+  };
+
   const [selectedDivision, setSelectedDivision] = useState(() => {
-    if (user?.Level !== 80 && user?.RegionCode) {
-      const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
-      if (match) {
-        return `d${match[1]}`.toLowerCase();
+    if (user?.Level !== 80) {
+      if (user?.RegionCode) {
+        const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+        if (match) {
+          return `d${match[1]}`.toLowerCase();
+        }
+      }
+      if (user?.ProvinceCode) {
+        const div = getProvinceDivision(user.ProvinceCode);
+        if (div) return div;
       }
     }
     return "all";
   });
+
+  const [selectedProvince, setSelectedProvince] = useState(() => {
+    if (user?.Level === 60 && user?.ProvinceCode) {
+      return user.ProvinceCode;
+    }
+    return "";
+  });
+
+  const handleProvinceChange = (code: string) => {
+    setSelectedProvince(code);
+    if (code) {
+      const div = getProvinceDivision(code);
+      if (div) {
+        setSelectedDivision(div);
+      }
+    } else {
+      if (user?.Level !== 80) {
+        if (user?.RegionCode) {
+          const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+          if (match) {
+            setSelectedDivision(`d${match[1]}`.toLowerCase());
+            return;
+          }
+        }
+        if (user?.ProvinceCode) {
+          const div = getProvinceDivision(user.ProvinceCode);
+          if (div) {
+            setSelectedDivision(div);
+            return;
+          }
+        }
+      }
+      setSelectedDivision("all");
+    }
+  };
   const toRegion = (division: string) => {
     const match = /^d(\d+)$/i.exec(division || "");
     return match ? `R${match[1]}` : null;
@@ -1189,6 +1245,8 @@ const DefaultDashboardPage: React.FC = () => {
                 title="Dashboard"
                 selectedDivision={selectedDivision}
                 onDivisionChange={setSelectedDivision}
+                selectedProvince={selectedProvince}
+                onProvinceChange={handleProvinceChange}
               />
 
               <div className="max-w-7xl mx-auto px-4 py-6">

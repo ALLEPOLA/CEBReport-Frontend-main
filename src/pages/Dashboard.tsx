@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
   const filteredSubtopics = useMemo(() => {
     return subtopics.filter((subtopic) => {
       const key = getDashboardKey(subtopic.name);
-      if (key === "default" && (!user?.Level || user.Level < 70)) {
+      if (key === "default" && (!user?.Level || user.Level < 60)) {
         return false;
       }
       return true;
