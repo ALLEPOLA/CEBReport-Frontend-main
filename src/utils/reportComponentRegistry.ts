@@ -103,6 +103,7 @@ import GrnRaisedForPurchasingReport from "../mainTopics/inventory/Grnraisedforpu
 import CcGrnNotGenReport from "../mainTopics/inventory/Ccgrnnotgenreport";
 import BranchGrnNotGenReport from "../mainTopics/inventory/BranchGrnNotGenReport";
 import MaterialFlowReport from "../mainTopics/inventory/MaterialFlowReport.tsx";
+import IssueSummaryProvinceReport from "../mainTopics/inventory/IssueSummaryProvinceReport";
 
 // JobCard reports
 import JobCardInfo from "../mainTopics/JobCards/JobCardInfo";
@@ -160,6 +161,7 @@ import RoofTopSolarInputData from "../mainTopics/SolarInformation/RoofTopSolarIn
 import SolarBillingReport from "../mainTopics/SolarJobs/SolarBillingReport";
 import SolarPendingJobsReport from "../mainTopics/SolarJobs/SolarPendingJobsReport";
 import CcApplicationProgress from "../mainTopics/SolarJobs/CcApplicationProgress";
+import CCSolarPendingReport from "../mainTopics/SolarJobs/CCSolarPendingReport.tsx";
 
 // Solar Religious Purpose reports
 import AreaWiseSRPApplicationPIV from "../mainTopics/SRP/AreaWiseSRPApplicationPIV";
@@ -339,6 +341,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"provincial quantity on hand cross tab": ProvincialQtyHand,
 	"quantity on hand all region material active online": QtyOnHandAllRegion,
 	"flow report": MaterialFlowReport,
+	"issue summary province usage": IssueSummaryProvinceReport,
 
 	// JobCard reports
 	"job card details": JobCardInfo,
@@ -396,6 +399,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"area wise solar sent to billing details": SolarBillingReport,
 	"solar retail rooftop pending jobs after piv2 paid": SolarPendingJobsReport,
 	"c/c solar application progress": CcApplicationProgress,
+	"cost center wise solar retail rooftop pending jobs after piv2 paid": CCSolarPendingReport,
 
 	// Solar Religious Purpose reports
 	"area wise srp application piv pivi to be paid report": AreaWiseSRPApplicationPIV,
