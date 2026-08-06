@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 interface BillCycleOption {
-  display: string; // "438 - Jan 2026"
-  code: string;    // "438"
+  display: string; // "450-Feb 26"
+  code: string; // "450"
 }
 
 interface ProvinceOption {
@@ -19,34 +19,56 @@ interface RegionOption {
   RegionName: string;
 }
 
-interface SalesAndCollectionRow {
-  ProvinceCode: string;
-  AreaName: string;
-  OrdinarySupply: string;
-  BulkSupply: string;
-  TotalNetSales: string;
-  OrdinaryCollection: string;
-  BulkCollection: string;
-  TotalCollections: string;
-  CollectionPercentage: string;
-  RawOrdinarySupply: number;
-  RawBulkSupply: number;
-  RawTotalNetSales: number;
-  RawOrdinaryCollection: number;
-  RawBulkCollection: number;
-  RawTotalCollections: number;
-  RawCollectionPercentage: number;
-  ErrorMessage: string | null;
+type ReportType = "Province" | "Region" | "EntireCEB";
+
+interface SalesRow {
+  regionCode: string;
+  regionName: string;
+  areaCode: string;
+  areaName: string;
+  rawOrdinarySupplyNet: number;
+  rawHeavySupplyNet: number;
+  rawTotalNetSales: number;
+  rawOrdinarySupplyCollections: number;
+  rawBulkSupplyCollections: number;
+  rawCollectionsOnSales: number;
+  rawPercentCollections: number;
+}
+
+interface RegionGroup {
+  regionCode: string;
+  regionName: string;
+  rows: SalesRow[];
+  subTotal: {
+    ordinarySupplyNet: number;
+    heavySupplyNet: number;
+    totalNetSales: number;
+    ordinarySupplyCollections: number;
+    bulkSupplyCollections: number;
+    collectionsOnSales: number;
+    percentCollections: number;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 const fmt = (num: number, decimals = 2) =>
-  num.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  num.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+const parseNumber = (value: any): number => {
+  if (value === undefined || value === null || value === "") return 0;
+  if (typeof value === "number") return value;
+  const num = parseFloat(String(value).replace(/,/g, ""));
+  return isNaN(num) ? 0 : num;
+};
+
+// Reduce a raw cycle label like "Feb 2026", "Feb-26", "Feb" down to just the
+// 3-letter month abbreviation — used to build the "450-Feb 26" style label.
+const toMonthAbbrev = (rawLabel: string): string => {
+  const first = String(rawLabel).trim().split(/[\s-]+/)[0] ?? "";
+  return first.slice(0, 3);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -55,11 +77,15 @@ const SalesAndCollection: React.FC = () => {
   const maroon = "text-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
+  const selectCls =
+    "w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent";
+  const disabledSelectCls =
+    "w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [billCycle, setBillCycle] = useState<string>("");
-  // reportType: "EntireCEB" | "Province" | "Region"
-  const [reportType, setReportType] = useState<string>("EntireCEB");
-  const [provinceName, setProvinceName] = useState<string>("");
+  const [reportType, setReportType] = useState<ReportType>("Province");
+  const [provinceCode, setProvinceCode] = useState<string>("");
   const [regionCode, setRegionCode] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -69,12 +95,14 @@ const SalesAndCollection: React.FC = () => {
   const [regions, setRegions] = useState<RegionOption[]>([]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
-  const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(false);
-  const [dropdownError, setDropdownError] = useState<string | null>(null);
+  const [isLoadingCycles, setIsLoadingCycles] = useState(false);
+  const [isLoadingGeo, setIsLoadingGeo] = useState(false);
+  const [cycleError, setCycleError] = useState<string | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
 
   // ── Report state ───────────────────────────────────────────────────────────
-  const [reportData, setReportData] = useState<SalesAndCollectionRow[]>([]);
+  const [reportData, setReportData] = useState<SalesRow[]>([]);
   const [reportVisible, setReportVisible] = useState(false);
   const [selectedBillCycleDisplay, setSelectedBillCycleDisplay] = useState<string>("");
   const [selectedSubLabel, setSelectedSubLabel] = useState<string>("");
@@ -83,184 +111,326 @@ const SalesAndCollection: React.FC = () => {
 
   // ── Generic fetch helper ───────────────────────────────────────────────────
   const fetchWithErrorHandling = async (url: string) => {
-    try {
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!response.ok) {
-        let errorMsg = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.errorMessage) errorMsg = errorData.errorMessage;
-        } catch {
-          errorMsg = response.statusText;
-        }
-        throw new Error(errorMsg);
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) {
+      let errorMsg = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData?.errorMessage) errorMsg = errorData.errorMessage;
+      } catch {
+        errorMsg = response.statusText;
       }
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error(`Expected JSON but got ${contentType}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error(`Error fetching ${url}:`, error);
-      throw error;
+      throw new Error(errorMsg);
     }
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error(`Expected JSON but got ${contentType}`);
+    }
+    return await response.json();
   };
 
-  // ── Fetch all dropdown data in one call on mount ───────────────────────────
+  // ── 1. Fetch bill cycles on mount ───────────────────────────────────────────
   useEffect(() => {
-    const fetchDropdowns = async () => {
-      setIsLoadingDropdowns(true);
-      setDropdownError(null);
+    const fetchBillCycles = async () => {
+      setIsLoadingCycles(true);
+      setCycleError(null);
       try {
-        const response = await fetchWithErrorHandling(`/misapi/api/sales-collection/dropdowns`);
-        console.log("Dropdowns response:", response);
-
-        // Bill cycles
-        const billCyclesArray = response?.billCycles ?? response?.data?.billCycles;
-        const maxBillCycle = response?.maxBillCycle ?? response?.data?.maxBillCycle;
-        if (billCyclesArray && Array.isArray(billCyclesArray) && maxBillCycle) {
-          const maxCycleNum = parseInt(maxBillCycle, 10);
-          const options: BillCycleOption[] = billCyclesArray.map((cycle: string, index: number) => ({
-            display: `${maxCycleNum - index} - ${cycle}`,
-            code: String(maxCycleNum - index),
-          }));
-          setBillCycleOptions(options);
-        } else {
-          setDropdownError("Invalid bill cycle data format");
+        const response = await fetchWithErrorHandling(`/misapi/api/receivable-position/billcycle/max?billType=O`);
+        const raw = response?.data ?? response;
+        const cycles: string[] = raw?.BillCycles ?? raw?.billCycles ?? [];
+        const maxCycle: string = raw?.MaxBillCycle ?? raw?.maxBillCycle ?? "";
+        const maxNum = parseInt(maxCycle, 10);
+        if (!cycles.length || isNaN(maxNum)) {
+          setCycleError("No bill cycle data found.");
+          return;
         }
-
-        // Provinces
-        const provData = response?.provinces ?? response?.data?.provinces ?? [];
-        setProvinces(provData);
-
-        // Regions
-        const regData = response?.regions ?? response?.data?.regions ?? [];
-        setRegions(regData);
+        const options: BillCycleOption[] = cycles.map((rawLabel, i) => {
+          const code = String(maxNum - i);
+          return { code, display: `${code}-${toMonthAbbrev(rawLabel)} ${rawLabel.slice(-2)}` };
+        });
+        setBillCycleOptions(options);
+        setBillCycle(options[0].code);
       } catch (err: any) {
-        console.error("Error fetching dropdowns:", err);
-        setDropdownError(err.message || "Failed to load dropdown data. Please try again.");
+        setCycleError(err.message || "Failed to load bill cycles.");
       } finally {
-        setIsLoadingDropdowns(false);
+        setIsLoadingCycles(false);
       }
     };
-    fetchDropdowns();
+    fetchBillCycles();
   }, []);
 
-  // ── Reset sub-filters when reportType changes ──────────────────────────────
+  // ── 2. Fetch regions + provinces on mount ───────────────────────────────────
   useEffect(() => {
-    setProvinceName("");
+    const fetchGeo = async () => {
+      setIsLoadingGeo(true);
+      setGeoError(null);
+      try {
+        const [regRes, provRes] = await Promise.all([
+          fetchWithErrorHandling(`/misapi/api/ordinary/region`),
+          fetchWithErrorHandling(`/misapi/api/ordinary/province`),
+        ]);
+
+        const regArr = regRes?.data ?? regRes ?? [];
+        const provArr = provRes?.data ?? provRes ?? [];
+
+        setRegions(
+          (Array.isArray(regArr) ? regArr : []).map((r: any) => ({
+            RegionCode: r.RegionCode ?? r.regionCode ?? "",
+            RegionName: r.RegionName ?? r.regionName ?? "",
+          })).filter((r: RegionOption) => r.RegionCode)
+        );
+        setProvinces(
+          (Array.isArray(provArr) ? provArr : []).map((p: any) => ({
+            ProvinceCode: p.ProvinceCode ?? p.provinceCode ?? "",
+            ProvinceName: p.ProvinceName ?? p.provinceName ?? "",
+          })).filter((p: ProvinceOption) => p.ProvinceCode)
+        );
+      } catch (err: any) {
+        setGeoError(err.message || "Failed to load province/region lists.");
+      } finally {
+        setIsLoadingGeo(false);
+      }
+    };
+    fetchGeo();
+  }, []);
+
+  // ── Reset sub-filters when reportType changes ────────────────────────────────
+  useEffect(() => {
+    setProvinceCode("");
     setRegionCode("");
   }, [reportType]);
 
   // ── Submit guard ───────────────────────────────────────────────────────────
-  const canSubmit = () => {
-    if (!billCycle) return false;
-    if (reportType === "Province" && !provinceName) return false;
-    if (reportType === "Region" && !regionCode) return false;
-    return true;
-  };
-
-  // ── Computed totals ────────────────────────────────────────────────────────
-  const totalOrdSup     = reportData.reduce((s, r) => s + r.RawOrdinarySupply, 0);
-  const totalBulkSup    = reportData.reduce((s, r) => s + r.RawBulkSupply, 0);
-  const totalNetSales   = reportData.reduce((s, r) => s + r.RawTotalNetSales, 0);
-  const totalOrdCol     = reportData.reduce((s, r) => s + r.RawOrdinaryCollection, 0);
-  const totalBulkCol    = reportData.reduce((s, r) => s + r.RawBulkCollection, 0);
-  const totalCollections = reportData.reduce((s, r) => s + r.RawTotalCollections, 0);
-  const totalCollPct    = totalNetSales === 0 ? 0 : (totalCollections / totalNetSales) * 100;
+  const canSubmit =
+    !!billCycle &&
+    !loading &&
+    (reportType === "EntireCEB" || (reportType === "Province" ? !!provinceCode : !!regionCode));
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit()) return;
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
     setLoading(true);
     setReportError(null);
 
     try {
-      let url = `/misapi/api/sales-collection/report?billCycle=${billCycle}&reportType=${reportType}`;
-      if (reportType === "Province") url += `&provinceName=${encodeURIComponent(provinceName)}`;
-      if (reportType === "Region") url += `&regionCode=${encodeURIComponent(regionCode)}`;
+      const params = new URLSearchParams();
+      params.set("billCycle", billCycle);
+      params.set("reportType", reportType);
+      if (reportType === "Province") params.set("provinceCode", provinceCode);
+      if (reportType === "Region") params.set("regionCode", regionCode);
 
-      console.log("Request URL:", url);
-      const response = await fetchWithErrorHandling(url);
-      console.log("API Response:", response);
+      const response = await fetchWithErrorHandling(`/misapi/api/sales-collection/report?${params.toString()}`);
 
-      if (response.errorMessage) {
+      if (response?.errorMessage) {
         setReportError(response.errorMessage);
         return;
       }
 
-      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        setReportData(response.data);
-        setReportVisible(true);
+      const arr: any[] = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : [];
 
-        // Bill cycle display
-        const opt = billCycleOptions.find(o => o.code === billCycle);
-        let bcDisplay = opt?.display ?? billCycle;
-        if (opt) {
-          const parts = opt.display.split(" - ");
-          if (parts.length === 2) {
-            const [mon, yr] = parts[1].split(" ");
-            bcDisplay = `${parts[0]}-${mon} ${yr?.slice(2) ?? ""}`;
-          }
-        }
-        setSelectedBillCycleDisplay(bcDisplay);
-
-        // Sub-label
-        if (reportType === "Province") {
-          const prov = provinces.find(p => p.ProvinceName === provinceName);
-          setSelectedSubLabel(prov?.ProvinceName ?? provinceName);
-        } else if (reportType === "Region") {
-          const reg = regions.find(r => r.RegionCode === regionCode);
-          setSelectedSubLabel(reg ? `${reg.RegionCode} - ${reg.RegionName}` : regionCode);
-        } else {
-          setSelectedSubLabel("Entire CEB");
-        }
-      } else {
+      if (!arr.length) {
         setReportError("No data available for the selected criteria.");
+        return;
+      }
+
+      // One-time diagnostic: log the exact keys the API actually returned,
+      // so a future field-name mismatch (like Heavy vs Bulk) is easy to spot.
+      // (No process.env check here — this project has no Node type defs;
+      // it's just a console.debug, so it's harmless to leave in.)
+      console.debug("[SalesAndCollection] raw report row keys:", Object.keys(arr[0]), arr[0]);
+
+      const rows: SalesRow[] = arr.map((item: any) => {
+        const ordinaryNet = parseNumber(item.OrdinarySupplyNet ?? item.ordinarySupplyNet ?? item.OrdinarySupply ?? item.ordinarySupply);
+        // "Heavy" (net side) and "Bulk" (collections side) refer to the same
+        // customer category in this API — some responses use one term, some
+        // the other — so both are tried here.
+        const heavyNet = parseNumber(
+          item.HeavySupplyNet ??
+            item.heavySupplyNet ??
+            item.HeavySupply ??
+            item.heavySupply ??
+            item.BulkSupplyNet ??
+            item.bulkSupplyNet ??
+            item.BulkSupply ??
+            item.bulkSupply
+        );
+        const ordinaryColl = parseNumber(
+          item.OrdinarySupplyCollections ?? item.ordinarySupplyCollections ?? item.OrdinaryCollection ?? item.ordinaryCollection
+        );
+        const bulkColl = parseNumber(item.BulkSupplyCollections ?? item.bulkSupplyCollections ?? item.BulkCollection ?? item.bulkCollection);
+        const totalNetSales = parseNumber(item.TotalNetSales ?? item.totalNetSales) || ordinaryNet + heavyNet;
+        const collectionsOnSales = parseNumber(item.TotalCollections ?? item.totalCollections ?? item.CollectionsOnSales ?? item.collectionsOnSales) || ordinaryColl + bulkColl;
+        const percentCollections =
+          parseNumber(item.CollectionPercentage ?? item.collectionPercentage ?? item.PercentCollections ?? item.percentCollections) ||
+          (totalNetSales !== 0 ? (collectionsOnSales / totalNetSales) * 100 : 0);
+
+        return {
+          regionCode: String(item.RegionCode ?? item.regionCode ?? ""),
+          regionName: String(item.RegionName ?? item.regionName ?? item.RegionCode ?? item.regionCode ?? ""),
+          areaCode: String(item.AreaCode ?? item.areaCode ?? ""),
+          areaName: String(item.AreaName ?? item.areaName ?? ""),
+          rawOrdinarySupplyNet: ordinaryNet,
+          rawHeavySupplyNet: heavyNet,
+          rawTotalNetSales: totalNetSales,
+          rawOrdinarySupplyCollections: ordinaryColl,
+          rawBulkSupplyCollections: bulkColl,
+          rawCollectionsOnSales: collectionsOnSales,
+          rawPercentCollections: percentCollections,
+        };
+      });
+
+      setReportData(rows);
+      setReportVisible(true);
+
+      const opt = billCycleOptions.find((o) => o.code === billCycle);
+      setSelectedBillCycleDisplay(opt?.display ?? billCycle);
+
+      if (reportType === "Province") {
+        const prov = provinces.find((p) => p.ProvinceCode === provinceCode);
+        setSelectedSubLabel(prov?.ProvinceName ?? provinceCode);
+      } else if (reportType === "Region") {
+        const reg = regions.find((r) => r.RegionCode === regionCode);
+        setSelectedSubLabel(reg ? `${reg.RegionCode} - ${reg.RegionName}` : regionCode);
+      } else {
+        setSelectedSubLabel("Entire CEB");
       }
     } catch (err: any) {
-      console.error("Error fetching report:", err);
       setReportError(err.message || "Failed to generate report. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Group rows by region (matches the "Sub Total" region banding in FR4) ────
+  const groups: RegionGroup[] = useMemo(() => {
+    const map = new Map<string, RegionGroup>();
+    reportData.forEach((row) => {
+      const key = row.regionCode || "__single__";
+      if (!map.has(key)) {
+        map.set(key, {
+          regionCode: row.regionCode,
+          regionName: row.regionName,
+          rows: [],
+          subTotal: {
+            ordinarySupplyNet: 0,
+            heavySupplyNet: 0,
+            totalNetSales: 0,
+            ordinarySupplyCollections: 0,
+            bulkSupplyCollections: 0,
+            collectionsOnSales: 0,
+            percentCollections: 0,
+          },
+        });
+      }
+      const grp = map.get(key)!;
+      grp.rows.push(row);
+      grp.subTotal.ordinarySupplyNet += row.rawOrdinarySupplyNet;
+      grp.subTotal.heavySupplyNet += row.rawHeavySupplyNet;
+      grp.subTotal.totalNetSales += row.rawTotalNetSales;
+      grp.subTotal.ordinarySupplyCollections += row.rawOrdinarySupplyCollections;
+      grp.subTotal.bulkSupplyCollections += row.rawBulkSupplyCollections;
+      grp.subTotal.collectionsOnSales += row.rawCollectionsOnSales;
+    });
+    map.forEach((grp) => {
+      grp.subTotal.percentCollections =
+        grp.subTotal.totalNetSales !== 0 ? (grp.subTotal.collectionsOnSales / grp.subTotal.totalNetSales) * 100 : 0;
+    });
+    return Array.from(map.values());
+  }, [reportData]);
+
+  // ── Grand totals ─────────────────────────────────────────────────────────────
+  const totals = useMemo(() => {
+    const t = reportData.reduce(
+      (acc, r) => {
+        acc.ordinarySupplyNet += r.rawOrdinarySupplyNet;
+        acc.heavySupplyNet += r.rawHeavySupplyNet;
+        acc.totalNetSales += r.rawTotalNetSales;
+        acc.ordinarySupplyCollections += r.rawOrdinarySupplyCollections;
+        acc.bulkSupplyCollections += r.rawBulkSupplyCollections;
+        acc.collectionsOnSales += r.rawCollectionsOnSales;
+        return acc;
+      },
+      {
+        ordinarySupplyNet: 0,
+        heavySupplyNet: 0,
+        totalNetSales: 0,
+        ordinarySupplyCollections: 0,
+        bulkSupplyCollections: 0,
+        collectionsOnSales: 0,
+        percentCollections: 0,
+      }
+    );
+    t.percentCollections = t.totalNetSales !== 0 ? (t.collectionsOnSales / t.totalNetSales) * 100 : 0;
+    return t;
+  }, [reportData]);
+
   // ── CSV Export ─────────────────────────────────────────────────────────────
   const downloadAsCSV = () => {
     if (!reportData.length) return;
 
     const headers = [
-      "Province Code", "Area",
-      "Ordinary Supply (Net)", "Heavy Supply (Net)", "Total Net Sales (without Street Lights)",
-      "Ordinary Supply (Collections)", "Bulk Supply (Collections)", "Collections on Sales (Without Street Lights)",
+      "Region",
+      "Area",
+      "Ordinary Supply (Net)",
+      "Heavy Supply (Net)",
+      "Total Net Sales (without Street Lights)",
+      "Ordinary Supply (Collections)",
+      "Bulk Supply (Collections)",
+      "Collections on Sales (Without Street Lights)",
       "% of Collections on Sales (Without Street Lights)",
     ];
 
-    const rows = reportData.map(r => [
-      r.ProvinceCode, r.AreaName,
-      r.OrdinarySupply, r.BulkSupply, r.TotalNetSales,
-      r.OrdinaryCollection, r.BulkCollection, r.TotalCollections,
-      r.CollectionPercentage,
-    ]);
+    const rows: (string | number)[][] = [];
+    groups.forEach((grp) => {
+      grp.rows.forEach((r, i) => {
+        rows.push([
+          i === 0 ? grp.regionCode : "",
+          r.areaName,
+          fmt(r.rawOrdinarySupplyNet),
+          fmt(r.rawHeavySupplyNet),
+          fmt(r.rawTotalNetSales),
+          fmt(r.rawOrdinarySupplyCollections),
+          fmt(r.rawBulkSupplyCollections),
+          fmt(r.rawCollectionsOnSales),
+          fmt(r.rawPercentCollections),
+        ]);
+      });
+      rows.push([
+        "",
+        "Sub Total",
+        fmt(grp.subTotal.ordinarySupplyNet),
+        fmt(grp.subTotal.heavySupplyNet),
+        fmt(grp.subTotal.totalNetSales),
+        fmt(grp.subTotal.ordinarySupplyCollections),
+        fmt(grp.subTotal.bulkSupplyCollections),
+        fmt(grp.subTotal.collectionsOnSales),
+        fmt(grp.subTotal.percentCollections),
+      ]);
+    });
 
     const totalsRow = [
-      "TOTAL", "",
-      fmt(totalOrdSup), fmt(totalBulkSup), fmt(totalNetSales),
-      fmt(totalOrdCol), fmt(totalBulkCol), fmt(totalCollections),
-      totalCollPct.toFixed(2) + "%",
+      "",
+      "Total",
+      fmt(totals.ordinarySupplyNet),
+      fmt(totals.heavySupplyNet),
+      fmt(totals.totalNetSales),
+      fmt(totals.ordinarySupplyCollections),
+      fmt(totals.bulkSupplyCollections),
+      fmt(totals.collectionsOnSales),
+      fmt(totals.percentCollections),
     ];
 
     const csv = [
-      ["Sales & Collection – Region Wise"],
-      ["Report Type:", selectedSubLabel],
-      ["Bill Month:", selectedBillCycleDisplay],
+      ["Sales & Collections"],
+      ["Bill Cycle:", selectedBillCycleDisplay],
+      ["Scope:", selectedSubLabel],
       [],
       headers,
       ...rows,
       totalsRow,
-    ].map(row => row.map(c => `"${c}"`).join(",")).join("\n");
+    ]
+      .map((row) => row.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
@@ -271,14 +441,14 @@ const SalesAndCollection: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // ── Print PDF ──────────────────────────────────────────────────────────────
+  // ── Print PDF (prints the rendered on-screen table for exact visual parity) ─
   const printPDF = () => {
     if (!printRef.current) return;
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`
       <html><head>
-        <title>Sales & Collection – Region Wise</title>
+        <title>Sales & Collections</title>
         <style>
           body  { font-family: Arial, sans-serif; font-size: 10px; margin: 10mm; }
           h2    { color: #7A0000; font-size: 13px; margin-bottom: 6px; }
@@ -286,82 +456,119 @@ const SalesAndCollection: React.FC = () => {
           .meta span { font-weight: bold; }
           table { width: 100%; border-collapse: collapse; margin-top: 8px; }
           th    { background: #d3d3d3; font-weight: bold; text-align: center;
-                  padding: 5px 4px; border: 1px solid #aaa; font-size: 10px; }
-          td    { padding: 3px 4px; border: 1px solid #ccc; font-size: 10px; vertical-align: top; }
-          tr:nth-child(even) { background: #f9f9f9; }
-          .total-row td { background: #d3d3d3; font-weight: bold; }
+                  padding: 5px 4px; border: 1px solid #aaa; font-size: 9px; }
+          td    { padding: 3px 4px; border: 1px solid #ccc; font-size: 9px; vertical-align: top; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
-          @page { margin-bottom: 18mm;
-            @bottom-left  { content: "Generated: ${new Date().toLocaleString()} | Reporting@2026";
-                            font-size:9px; color:#666; font-family:Arial; }
-            @bottom-right { content: "Page " counter(page) " of " counter(pages);
-                            font-size:9px; color:#666; font-family:Arial; }
-          }
+          @page { size: A4 landscape; margin: 8mm; }
         </style>
       </head><body>
-        <h2>Sales &amp; Collection – Region Wise</h2>
+        <h2>Sales &amp; Collections (In Rupees)</h2>
         <div class="meta">
-          Report Type : &nbsp;<span>${selectedSubLabel}</span><br>
-          Bill Month : &nbsp;<span>${selectedBillCycleDisplay}</span>
+          Bill Cycle : &nbsp;<span>${selectedBillCycleDisplay}</span><br>
+          Scope : &nbsp;<span>${selectedSubLabel}</span> (${reportType === "EntireCEB" ? "Entire CEB" : reportType})
         </div>
         ${printRef.current.innerHTML}
       </body></html>
     `);
     w.document.close();
     w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 500);
+    setTimeout(() => {
+      w.print();
+      w.close();
+    }, 500);
   };
 
   // ── Table ──────────────────────────────────────────────────────────────────
   const renderTable = () => {
-    if (!reportData.length)
-      return (
-        <div className="text-center py-10 text-gray-500 text-sm">
-          No records found for the selected criteria.
-        </div>
-      );
+    if (!reportData.length) {
+      return <div className="text-center py-10 text-gray-500 text-sm">No records found for the selected criteria.</div>;
+    }
 
     return (
       <table className="w-full border-collapse text-xs">
         <thead>
-          <tr className="bg-gray-100 text-gray-800">
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Province<br/>Code</th>
+          <tr className="bg-gray-100 text-gray-800 sticky top-0">
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold w-10"></th>
             <th className="border border-gray-300 px-2 py-2 text-center font-bold">Area</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Ordinary Supply<br/>(Net)</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Heavy Supply<br/>(Net)</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Total Net Sales<br/>(without Street Lights)</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Ordinary Supply<br/>(Collections)</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Bulk Supply<br/>(Collections)</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">Collections on Sales<br/>(Without Street Lights)</th>
-            <th className="border border-gray-300 px-2 py-2 text-center font-bold">% of Collections on Sales<br/>(Without Street Lights)</th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              Ordinary Supply
+              <br />
+              (Net)
+            </th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              Heavy Supply
+              <br />
+              (Net)
+            </th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              Total Net Sales
+              <br />
+              (without Street Lights)
+            </th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              Ordinary Supply
+              <br />
+              (Collections)
+            </th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              Bulk Supply
+              <br />
+              (Collections)
+            </th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              Collections on Sales
+              <br />
+              (Without Street Lights)
+            </th>
+            <th className="border border-gray-300 px-2 py-2 text-center font-bold">
+              % of Collections on Sales
+              <br />
+              (Without Street Lights)
+            </th>
           </tr>
         </thead>
         <tbody>
-          {reportData.map((r, i) => (
-            <tr key={`${r.AreaName}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-              <td className="border border-gray-300 px-2 py-1 text-center">{r.ProvinceCode || "—"}</td>
-              <td className="border border-gray-300 px-2 py-1 whitespace-nowrap">{r.AreaName}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.OrdinarySupply}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.BulkSupply}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.TotalNetSales}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.OrdinaryCollection}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.BulkCollection}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.TotalCollections}</td>
-              <td className="border border-gray-300 px-2 py-1 text-right font-mono">{r.CollectionPercentage}</td>
-            </tr>
+          {groups.map((grp, gi) => (
+            <React.Fragment key={grp.regionCode || gi}>
+              {grp.rows.map((r, i) => (
+                <tr key={`${grp.regionCode}-${r.areaCode}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                  <td className="border border-gray-300 px-2 py-1 text-center font-mono">{i === 0 ? grp.regionCode : ""}</td>
+                  <td className="border border-gray-300 px-2 py-1 whitespace-nowrap">{r.areaName}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawOrdinarySupplyNet)}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawHeavySupplyNet)}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawTotalNetSales)}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawOrdinarySupplyCollections)}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawBulkSupplyCollections)}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawCollectionsOnSales)}</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(r.rawPercentCollections)}</td>
+                </tr>
+              ))}
+              <tr className="bg-yellow-50 font-bold">
+                <td className="border border-gray-300 px-2 py-1"></td>
+                <td className="border border-gray-300 px-2 py-1">Sub Total</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.ordinarySupplyNet)}</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.heavySupplyNet)}</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.totalNetSales)}</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.ordinarySupplyCollections)}</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.bulkSupplyCollections)}</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.collectionsOnSales)}</td>
+                <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(grp.subTotal.percentCollections)}</td>
+              </tr>
+            </React.Fragment>
           ))}
 
-          {/* Totals row */}
+          {/* Grand total row */}
           <tr className="bg-gray-200 font-bold">
-            <td className="border border-gray-300 px-2 py-1 text-center font-bold" colSpan={2}>TOTAL</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalOrdSup)}</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalBulkSup)}</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalNetSales)}</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalOrdCol)}</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalBulkCol)}</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{fmt(totalCollections)}</td>
-            <td className="border border-gray-300 px-2 py-1 text-right font-mono font-bold">{totalCollPct.toFixed(2)}%</td>
+            <td className="border border-gray-300 px-2 py-1"></td>
+            <td className="border border-gray-300 px-2 py-1">Total</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.ordinarySupplyNet)}</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.heavySupplyNet)}</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.totalNetSales)}</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.ordinarySupplyCollections)}</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.bulkSupplyCollections)}</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.collectionsOnSales)}</td>
+            <td className="border border-gray-300 px-2 py-1 text-right font-mono">{fmt(totals.percentCollections)}</td>
           </tr>
         </tbody>
       </table>
@@ -373,150 +580,116 @@ const SalesAndCollection: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm">
-
       {/* ── FORM ────────────────────────────────────────────────────────────── */}
       {!reportVisible && (
         <>
-          <h1 className={`text-xl font-bold ${maroon} mb-4`}>
-            Sales &amp; Collection – Region Wise
-          </h1>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>Sales &amp; Collection – Region Wise</h1>
 
-          {dropdownError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              {dropdownError}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-
-            {/* Row 1 — Bill Cycle */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>
-                  Select Month:
-                </label>
-                {isLoadingDropdowns ? (
-                  <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
-                    Loading bill cycles...
-                  </div>
-                ) : (
-                  <select
-                    value={billCycle}
-                    onChange={e => setBillCycle(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
-                    required
-                  >
-                    <option value="">Select Month</option>
-                    {billCycleOptions.map(o => (
-                      <option key={o.code} value={o.code}>{o.display}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Report Type */}
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon}`}>
-                  Report Type:
-                </label>
-                <select
-                  value={reportType}
-                  onChange={e => setReportType(e.target.value)}
-                  disabled={!billCycle}
-                  className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
-                    !billCycle
-                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                      : "border-gray-300"
-                  }`}
-                >
-                  <option value="EntireCEB">Entire CEB</option>
-                  <option value="Province">Province</option>
-                  <option value="Region">Region</option>
-                </select>
-              </div>
-
-              {/* Province / Region dropdown (conditional) */}
-              {reportType !== "EntireCEB" && (
-                <div className="flex flex-col">
-                  {reportType === "Province" && (
-                    <>
-                      <label className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon}`}>
-                        Select Province:
-                      </label>
-                      <select
-                        value={provinceName}
-                        onChange={e => setProvinceName(e.target.value)}
-                        disabled={!billCycle || isLoadingDropdowns}
-                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                          ${(!billCycle || isLoadingDropdowns)
-                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                            : "border-gray-300"}`}
-                        required
-                      >
-                        <option value="">Select Province</option>
-                        {provinces.map(p => (
-                          <option key={p.ProvinceCode} value={p.ProvinceName}>
-                            {p.ProvinceCode} - {p.ProvinceName}
-                          </option>
-                        ))}
-                      </select>
-                    </>
-                  )}
-
-                  {reportType === "Region" && (
-                    <>
-                      <label className={`text-xs font-medium mb-1 ${!billCycle ? "text-gray-400" : maroon}`}>
-                        Select Region:
-                      </label>
-                      <select
-                        value={regionCode}
-                        onChange={e => setRegionCode(e.target.value)}
-                        disabled={!billCycle || isLoadingDropdowns}
-                        className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                          ${(!billCycle || isLoadingDropdowns)
-                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                            : "border-gray-300"}`}
-                        required
-                      >
-                        <option value="">Select Region</option>
-                        {regions.map(r => (
-                          <option key={r.RegionCode} value={r.RegionCode}>
-                            {r.RegionCode} - {r.RegionName}
-                          </option>
-                        ))}
-                      </select>
-                    </>
-                  )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Bill Cycle */}
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Bill Cycle:</label>
+              {isLoadingCycles ? (
+                <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading bill cycles...</div>
+              ) : cycleError ? (
+                <div className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-red-50 text-red-600">
+                  {cycleError}
                 </div>
+              ) : (
+                <select value={billCycle} onChange={(e) => setBillCycle(e.target.value)} className={selectCls}>
+                  {billCycleOptions.map((o) => (
+                    <option key={o.code} value={o.code}>
+                      {o.display}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
 
-            {/* Submit */}
-            <div className="w-full mt-6 flex justify-end">
-              <button
-                type="submit"
-                disabled={loading || !canSubmit()}
-                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
-                  ${maroonGrad} text-white
-                  ${loading || !canSubmit() ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
-              >
-                {loading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Loading...
-                  </span>
-                ) : "Generate Report"}
-              </button>
+            {/* Report Type */}
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
+              <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={selectCls}>
+                <option value="Province">Province</option>
+                <option value="Region">Region</option>
+                <option value="EntireCEB">Entire CEB</option>
+              </select>
             </div>
-          </form>
 
-          {!reportVisible && reportError && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              {reportError}
-            </div>
+            {/* Province / Region dropdown (conditional) */}
+            {reportType !== "EntireCEB" && (
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 ${maroon}`}>
+                  Select {reportType === "Province" ? "Province" : "Region"}:
+                </label>
+
+                {reportType === "Province" &&
+                  (isLoadingGeo ? (
+                    <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading provinces...</div>
+                  ) : (
+                    <select value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} className={selectCls}>
+                      <option value="">Select Province</option>
+                      {provinces.map((p) => (
+                        <option key={p.ProvinceCode} value={p.ProvinceCode}>
+                          {p.ProvinceName}
+                        </option>
+                      ))}
+                    </select>
+                  ))}
+
+                {reportType === "Region" &&
+                  (isLoadingGeo ? (
+                    <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading regions...</div>
+                  ) : (
+                    <select value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={selectCls}>
+                      <option value="">Select Region</option>
+                      {regions.map((r) => (
+                        <option key={r.RegionCode} value={r.RegionCode}>
+                          {r.RegionName || r.RegionCode}
+                        </option>
+                      ))}
+                    </select>
+                  ))}
+              </div>
+            )}
+
+            {reportType === "EntireCEB" && (
+              <div className="flex flex-col">
+                <label className="text-xs font-medium mb-1 text-gray-400">Select Area:</label>
+                <div className={disabledSelectCls}>All areas island-wide</div>
+              </div>
+            )}
+          </div>
+
+          {geoError && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{geoError}</div>
+          )}
+
+          {/* Submit */}
+          <div className="w-full mt-6 flex justify-end">
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
+                ${maroonGrad} text-white
+                ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading...
+                </span>
+              ) : (
+                "Generate Report"
+              )}
+            </button>
+          </div>
+
+          {reportError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
           )}
         </>
       )}
@@ -524,36 +697,40 @@ const SalesAndCollection: React.FC = () => {
       {/* ── REPORT ──────────────────────────────────────────────────────────── */}
       {reportVisible && (
         <div className="mt-2">
-
           {/* Report header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <div>
-              <h2 className={`text-lg font-bold ${maroon}`}>
-                Sales &amp; Collection – Region Wise
-              </h2>
+              <h2 className={`text-lg font-bold ${maroon}`}>Sales &amp; Collections</h2>
               <p className="text-sm text-gray-600 mt-1">
-                {reportType === "EntireCEB" ? "Entire CEB" : selectedSubLabel}
-                {" "}| Bill Month: {selectedBillCycleDisplay}
+                {selectedBillCycleDisplay} | {selectedSubLabel}
               </p>
             </div>
             <div className="flex space-x-2 mt-2 md:mt-0">
               <button
                 onClick={downloadAsCSV}
-                className="flex items-center gap-1 px-3 py-1.5 border border-blue-400 text-blue-700
-                           bg-white rounded-md text-xs font-medium shadow-sm hover:bg-blue-50 hover:text-blue-800
-                           focus:outline-none focus:ring-2 focus:ring-blue-200 transition">
+                disabled={!reportData.length}
+                className={`flex items-center gap-1 px-3 py-1.5 border border-blue-400 rounded-md text-xs font-medium shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-blue-200 transition
+                  ${!reportData.length ? "text-blue-300 bg-gray-50 cursor-not-allowed" : "text-blue-700 bg-white hover:bg-blue-50 hover:text-blue-800"}`}
+              >
                 <FaFileDownload className="w-3 h-3" /> CSV
               </button>
               <button
                 onClick={printPDF}
-                className="flex items-center gap-1 px-3 py-1.5 border border-green-400 text-green-700
-                           bg-white rounded-md text-xs font-medium shadow-sm hover:bg-green-50 hover:text-green-800
-                           focus:outline-none focus:ring-2 focus:ring-green-200 transition">
+                disabled={!reportData.length}
+                className={`flex items-center gap-1 px-3 py-1.5 border border-green-400 rounded-md text-xs font-medium shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-green-200 transition
+                  ${!reportData.length ? "text-green-300 bg-gray-50 cursor-not-allowed" : "text-green-700 bg-white hover:bg-green-50 hover:text-green-800"}`}
+              >
                 <FaPrint className="w-3 h-3" /> PDF
               </button>
               <button
-                onClick={() => { setReportVisible(false); setReportError(null); }}
-                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white">
+                onClick={() => {
+                  setReportVisible(false);
+                  setReportError(null);
+                }}
+                className="px-4 py-1.5 bg-[#7A0000] hover:bg-[#A52A2A] text-xs rounded-md text-white"
+              >
                 Back to Form
               </button>
             </div>
@@ -564,17 +741,13 @@ const SalesAndCollection: React.FC = () => {
             <div ref={printRef} className="min-w-full py-4">
               {renderTable()}
               {reportData.length > 0 && (
-                <p className="text-xs text-gray-500 mt-2 text-right px-2">
-                  Total records: {reportData.length.toLocaleString()}
-                </p>
+                <p className="text-xs text-gray-500 mt-2 text-right px-2">Total areas: {reportData.length.toLocaleString()}</p>
               )}
             </div>
           </div>
 
           {reportError && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              {reportError}
-            </div>
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
           )}
         </div>
       )}
