@@ -200,6 +200,7 @@ import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPa
 
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
+import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -451,6 +452,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
+	"quantity on hand material wise fifo": QuantityMatFIFOReport,
 };
 
 /**
