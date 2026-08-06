@@ -102,6 +102,8 @@ import IssuesRaisedForJobsReport from "../mainTopics/inventory/Issuesraisedforjo
 import GrnRaisedForPurchasingReport from "../mainTopics/inventory/Grnraisedforpurchasingreport";
 import CcGrnNotGenReport from "../mainTopics/inventory/Ccgrnnotgenreport";
 import BranchGrnNotGenReport from "../mainTopics/inventory/BranchGrnNotGenReport";
+import MaterialFlowReport from "../mainTopics/inventory/MaterialFlowReport.tsx";
+import IssueSummaryProvinceReport from "../mainTopics/inventory/IssueSummaryProvinceReport";
 
 // JobCard reports
 import JobCardInfo from "../mainTopics/JobCards/JobCardInfo";
@@ -130,13 +132,13 @@ import PHVDamageBOS from "../mainTopics/PhysicalVerification/PHVDamageBOS";
 import LastDocNo from "../mainTopics/PhysicalVerification/LastDocNo";
 
 // Phisical Verification FIFO reports
-import PHVObsoleteIdleFIFO from "../mainTopics/fifo/PHVObsoleteIdleFIFO";
-import PHVDamageFIFO from "../mainTopics/fifo/PHVDamageFIFO";
-import PHVSlowMovingWHReport from "../mainTopics/fifo/PHVSlowMovingWHReport";
-import PHVNonMovingWHReport from "../mainTopics/fifo/PHVNonMovingWHReport";
-import PHVDamageBOSReport from "../mainTopics/fifo/PHVDamageBOSReport";
-import PHVObsoleteBOSReport from "../mainTopics/fifo/PHVObsoleteBOSReport";
-import PHVNonMovingBOSReport from "../mainTopics/fifo/PHVNonMovingBOSReport.tsx";
+import PHVObsoleteIdleFIFO from "../mainTopics/PHVFIFO/PHVObsoleteIdleFIFO.tsx";
+import PHVDamageFIFO from "../mainTopics/PHVFIFO/PHVDamageFIFO.tsx";
+import PHVSlowMovingWHReport from "../mainTopics/PHVFIFO/PHVSlowMovingWHReport.tsx";
+import PHVNonMovingWHReport from "../mainTopics/PHVFIFO/PHVNonMovingWHReport.tsx";
+import PHVDamageBOSReport from "../mainTopics/PHVFIFO/PHVDamageBOSReport.tsx";
+import PHVObsoleteBOSReport from "../mainTopics/PHVFIFO/PHVObsoleteBOSReport.tsx";
+import PHVNonMovingBOSReport from "../mainTopics/PHVFIFO/PHVNonMovingBOSReport.tsx";
 
 // PUCSL/LISS reports
 import PUCSLSolarConnection from "../mainTopics/PUCSL/PUCSLSolarConnection";
@@ -159,6 +161,7 @@ import RoofTopSolarInputData from "../mainTopics/SolarInformation/RoofTopSolarIn
 import SolarBillingReport from "../mainTopics/SolarJobs/SolarBillingReport";
 import SolarPendingJobsReport from "../mainTopics/SolarJobs/SolarPendingJobsReport";
 import CcApplicationProgress from "../mainTopics/SolarJobs/CcApplicationProgress";
+import CCSolarPendingReport from "../mainTopics/SolarJobs/CCSolarPendingReport.tsx";
 
 // Solar Religious Purpose reports
 import AreaWiseSRPApplicationPIV from "../mainTopics/SRP/AreaWiseSRPApplicationPIV";
@@ -189,6 +192,14 @@ import SolarDashboardPage from "../mainTopics/Dashboard/SolarDashboardPage";
 import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboardPage";
 import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPage";
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
+
+//SMC - Management Information
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
+import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
+
+//FIFO reports
+import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -290,10 +301,10 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cash sheet within date range for selected payee": CashSheetDateRangePayeeReport,
 	"cheque details with exp code region": ChequeDetailsExpRegionReport,
 	"cheque details with expcode": ChequeDetailsExp,
-	"price variance" : PriceVarianceReport,
-	"cheque details within period" : ChequeDetailWPReport,
-	"price variance wh wise" : PriceVarianceWHReport,
-	"cheque summary" : ChequeSummaryReport, 
+	"price variance": PriceVarianceReport,
+	"cheque details within period": ChequeDetailWPReport,
+	"price variance wh wise": PriceVarianceWHReport,
+	"cheque summary": ChequeSummaryReport,
 	"region wise period status": RegionPeriodStatusReport,
 	"province wise period status" : ProvinceWisePeriodStatus,
     "cost center wise current account balance" : CurrentAcctBalCC,
@@ -332,6 +343,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"province wise quantity on hand": ProvinceWiseQuantityOnHand,
 	"provincial quantity on hand cross tab": ProvincialQtyHand,
 	"quantity on hand all region material active online": QtyOnHandAllRegion,
+	"flow report": MaterialFlowReport,
+	"issue summary province usage": IssueSummaryProvinceReport,
 
 	// JobCard reports
 	"job card details": JobCardInfo,
@@ -389,6 +402,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"area wise solar sent to billing details": SolarBillingReport,
 	"solar retail rooftop pending jobs after piv2 paid": SolarPendingJobsReport,
 	"c/c solar application progress": CcApplicationProgress,
+	"cost center wise solar retail rooftop pending jobs after piv2 paid": CCSolarPendingReport,
 
 	// Solar Religious Purpose reports
 	"area wise srp application piv pivi to be paid report": AreaWiseSRPApplicationPIV,
@@ -429,6 +443,14 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"collections & payments dashboard": CollectionsDashboardPage,
 	"executive dashboard": ExecutiveDashboardPage,
 	"inventory dashboard": InventoryDashboardPage,
+
+	//SMC - Management Information
+	"smc job progress": SmcJobProgressReport,
+	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
+	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+
+	//FIFO reports
+	"issue and receipt summary": IssueReceiptSummaryReport,
 };
 
 /**

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface Province {
   ProvinceCode: string;
@@ -64,6 +66,9 @@ const CustomersHighestOutstanding: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
   const printTableRef = useRef<HTMLTableElement>(null);
 
+  const { user } = useUser();
+  const { locked } = useReportScope();
+
   const maroon = "text-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
@@ -73,13 +78,14 @@ const CustomersHighestOutstanding: React.FC = () => {
       setIsLoadingProvinces(true);
       setProvinceError(null);
       try {
-        const res = await fetch("/misapi/api/ordinary/province", {
-          headers: { Accept: "application/json" },
-        });
+        let url = "/misapi/api/ordinary/province";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        }
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const provData = data.data || [];
-        setProvinces(provData);
+        setProvinces(data.data || []);
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         setProvinceError(errorMsg || "Failed to load provinces");
@@ -88,7 +94,14 @@ const CustomersHighestOutstanding: React.FC = () => {
       }
     };
     fetchProvinces();
-  }, []);
+  }, [user.Level, user.RegionCode]);
+
+  useEffect(() => {
+    if (locked["Province"]) {
+      setScope("Province");
+      setSelectedCode(locked["Province"]!.code);
+    }
+  }, [scope, user.Level, user.ProvinceCode]);
 
   // Fetch Divisions (Regions)
   useEffect(() => {
@@ -115,6 +128,11 @@ const CustomersHighestOutstanding: React.FC = () => {
 
   // Sync selectedCode when scope changes or list loads
   useEffect(() => {
+    if (locked["Province"]) return; // handled by the forcing effect above
+    if (scope === "Division" && locked["Region"]) {
+      setSelectedCode(locked["Region"]!.code);
+      return;
+    }
     if (scope === "Province" && provinces.length > 0) {
       if (!selectedCode || !provinces.some((p) => p.ProvinceCode === selectedCode)) {
         setSelectedCode(provinces[0].ProvinceCode);
@@ -126,7 +144,7 @@ const CustomersHighestOutstanding: React.FC = () => {
     } else {
       setSelectedCode("");
     }
-  }, [scope, provinces, divisions, selectedCode]);
+  }, [scope, provinces, divisions, selectedCode, locked]);
 
   const handleViewReport = async () => {
     if (!selectedCode) {
@@ -246,7 +264,7 @@ const CustomersHighestOutstanding: React.FC = () => {
     rows.push(`Min Months in Arrears: ${monthsInArrears}`);
     rows.push(`Min Outstanding Balance: ${outstandingBalance}`);
     rows.push("");
-    
+
     if (scope === "Division") {
       rows.push("Province,Area Name,Account No,Name,Address,Telephone,Last Cash Date,Current Reading Date,Current Balance,kWh Charge,Current Balance - kWh Charge,Tariff,Months in Arrears,Units");
     } else {
@@ -295,7 +313,7 @@ const CustomersHighestOutstanding: React.FC = () => {
     const totalArrears = records.reduce((sum, r) => sum + (r.arrearsBalance ?? r.ArrearsBalance ?? 0), 0);
 
     return (
-      <tr 
+      <tr
         key={`total-${areaName}`}
         className="font-bold border-b border-gray-300"
         style={{ backgroundColor: "#E2F0D9" }}
@@ -334,7 +352,7 @@ const CustomersHighestOutstanding: React.FC = () => {
     const totalArrears = records.reduce((sum, r) => sum + (r.arrearsBalance ?? r.ArrearsBalance ?? 0), 0);
 
     return (
-      <tr 
+      <tr
         key="grand-total"
         className="font-bold border-b border-gray-300"
         style={{ backgroundColor: "#FFF2CC" }}
@@ -431,14 +449,14 @@ const CustomersHighestOutstanding: React.FC = () => {
           className="bg-white hover:bg-gray-50 text-gray-900 border-b border-gray-300"
         >
           {scope === "Division" && (
-            <td 
+            <td
               className="p-2 border border-gray-300 font-medium text-gray-700"
               style={{ borderBottom: isLastOfProvince ? undefined : "hidden" }}
             >
               {showProvince ? province : ""}
             </td>
           )}
-          <td 
+          <td
             className="p-2 border border-gray-300 font-medium text-gray-700"
             style={{ borderBottom: isLastOfArea ? undefined : "hidden" }}
           >
@@ -551,6 +569,17 @@ const CustomersHighestOutstanding: React.FC = () => {
     );
   };
 
+  if (user.Level === 50) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-sm text-center">
+        <h2 className="text-lg font-bold text-[#7A0000] mb-2">Access Restricted</h2>
+        <p className="text-sm text-gray-600">
+          This report isn't available at your access level. Please contact your supervisor if you believe this is an error.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-4 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans max-h-[82vh] overflow-y-auto">
       {!results && (
@@ -568,18 +597,25 @@ const CustomersHighestOutstanding: React.FC = () => {
           <div className="border border-gray-200 rounded-xl p-4 bg-white shadow mb-6">
             {/* Inputs Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
               {/* Scope Dropdown */}
               <div className="flex flex-col">
                 <label className={`${maroon} text-xs font-medium mb-1`}>Select Scope:</label>
-                <select
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value as "Province" | "Division")}
-                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white text-gray-800"
-                  disabled={loading}
-                >
-                  <option value="Province">Province</option>
-                  <option value="Division">Division</option>
-                </select>
+                {locked["Province"] ? (
+                  <div className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-500 border-gray-200">
+                    Province
+                  </div>
+                ) : (
+                  <select
+                    value={scope}
+                    onChange={(e) => setScope(e.target.value as "Province" | "Division")}
+                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white text-gray-800"
+                    disabled={loading}
+                  >
+                    <option value="Province">Province</option>
+                    <option value="Division">Division</option>
+                  </select>
+                )}
               </div>
 
               {/* Dropdown for Province or Division */}
@@ -588,7 +624,17 @@ const CustomersHighestOutstanding: React.FC = () => {
                   {scope === "Province" ? "Province" : "Division"}
                 </label>
                 {scope === "Province" ? (
-                  isLoadingProvinces ? (
+                  locked["Province"] ? (
+                    <select
+                      disabled
+                      value={locked["Province"]!.code}
+                      className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    >
+                      <option value={locked["Province"]!.code}>
+                        {locked["Province"]!.name ? `${locked["Province"]!.code} - ${locked["Province"]!.name}` : locked["Province"]!.code}
+                      </option>
+                    </select>
+                  ) : isLoadingProvinces ? (
                     <div className="py-1 text-xs text-gray-500">Loading provinces...</div>
                   ) : provinceError ? (
                     <div className="text-red-600 text-xs py-1">{provinceError}</div>
@@ -607,6 +653,14 @@ const CustomersHighestOutstanding: React.FC = () => {
                       ))}
                     </select>
                   )
+                ) : locked["Region"] ? (
+                  <select
+                    disabled
+                    value={locked["Region"]!.code}
+                    className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  >
+                    <option value={locked["Region"]!.code}>{locked["Region"]!.code}</option>
+                  </select>
                 ) : isLoadingDivisions ? (
                   <div className="py-1 text-xs text-gray-500">Loading divisions...</div>
                 ) : divisionError ? (
@@ -669,9 +723,8 @@ const CustomersHighestOutstanding: React.FC = () => {
               <button
                 onClick={handleViewReport}
                 disabled={loading}
-                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${
-                  loading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
-                }`}
+                className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                  }`}
               >
                 {loading ? "Loading..." : "View Report"}
               </button>

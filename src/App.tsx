@@ -1,4 +1,4 @@
-import {Routes, Route} from "react-router-dom";
+import {Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./index.css";
@@ -41,11 +41,7 @@ function App() {
 
 				<Route
 					path="/home"
-					element={
-						<Layout>
-							<HomePage />
-						</Layout>
-					}
+					element={<Navigate to="/report/report-catalog" replace />}
 				/>
 
 				<Route

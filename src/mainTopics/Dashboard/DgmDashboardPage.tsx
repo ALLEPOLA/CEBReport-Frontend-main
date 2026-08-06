@@ -168,6 +168,7 @@ const DgmDashboardPage: React.FC = () => {
   const [stockValue, setStockValue] = useState<number | null>(null);
   const [appCounts, setAppCounts] = useState<{ deptId: string; description: string; appType: string; noOfApplications: number }[]>([]);
   const [connectionsGiven, setConnectionsGiven] = useState<{ deptId: string; description: string; appType: string; noOfConnections: number }[]>([]);
+  const [pendingApplications, setPendingApplications] = useState<{ deptId: string; description: string; appType: string; applicationNo: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -196,7 +197,7 @@ const DgmDashboardPage: React.FC = () => {
   // UX Interactive States
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "apps-desc" | "conns-desc" | "pending-desc">("name");
-  const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
+  const [viewMode, setViewMode] = useState<"chart" | "table" | "pending">("chart");
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
 
   const companyDropdownRef = useRef<HTMLDivElement>(null);
@@ -271,7 +272,7 @@ const DgmDashboardPage: React.FC = () => {
       try {
         const queryBase = `?companyId=${selectedCompanyId}${fetchCount > 0 ? "&refresh=true" : ""}`;
         const queryAppConn = `?companyId=${selectedCompanyId}&year=${selectedYear}${fetchCount > 0 ? "&refresh=true" : ""}`;
-        const [r1, r2, r3, r4] = await Promise.all([
+        const [r1, r2, r3, r4, r5] = await Promise.all([
           fetch(`/misapi/api/dgm/piv-total${queryBase}`, {
             headers: { Accept: "application/json" },
           }),
@@ -284,15 +285,19 @@ const DgmDashboardPage: React.FC = () => {
           fetch(`/misapi/api/dgm/connections-given${queryAppConn}`, {
             headers: { Accept: "application/json" },
           }),
+          fetch(`/misapi/api/dgm/pending-applications${queryAppConn}`, {
+            headers: { Accept: "application/json" },
+          }),
         ]);
-        if (!r1.ok || !r2.ok || !r3.ok || !r4.ok) {
+        if (!r1.ok || !r2.ok || !r3.ok || !r4.ok || !r5.ok) {
           throw new Error("Failed to fetch DGM dashboard data");
         }
-        const [pivData, stockData, appData, connData] = await Promise.all([
+        const [pivData, stockData, appData, connData, pendingData] = await Promise.all([
           r1.json(),
           r2.json(),
           r3.json(),
           r4.json(),
+          r5.json(),
         ]);
 
         const getVal = (obj: any) => obj?.Value ?? obj?.value;
@@ -315,12 +320,17 @@ const DgmDashboardPage: React.FC = () => {
         const connList = Array.isArray(getVal(connData)) ? getVal(connData) : Array.isArray(connData) ? connData : [];
         setConnectionsGiven(connList);
 
+        // 5. Pending Applications Data
+        const pendingList = Array.isArray(getVal(pendingData)) ? getVal(pendingData) : Array.isArray(pendingData) ? pendingData : [];
+        setPendingApplications(pendingList);
+
         // Track latest FetchedAt
         const latestTime = new Date(Math.max(
           new Date(getAt(pivData) || 0).getTime(),
           new Date(getAt(stockData) || 0).getTime(),
           new Date(getAt(appData) || 0).getTime(),
-          new Date(getAt(connData) || 0).getTime()
+          new Date(getAt(connData) || 0).getTime(),
+          new Date(getAt(pendingData) || 0).getTime()
         ));
         setLastUpdated(latestTime.getTime() > 0 ? latestTime.toLocaleTimeString() : null);
       } catch (err: any) {
@@ -456,6 +466,37 @@ const DgmDashboardPage: React.FC = () => {
     connectionsGiven.forEach(it => { if (it.description) set.add(it.description); });
     return Array.from(set).sort();
   }, [appCounts, connectionsGiven]);
+
+  // Group pending applications by deptId and apply search filter
+  const groupedPendingApplications = useMemo(() => {
+    let filtered = pendingApplications;
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(
+        (app) =>
+          app.deptId.toLowerCase().includes(term) ||
+          app.applicationNo.toLowerCase().includes(term) ||
+          app.description.toLowerCase().includes(term)
+      );
+    }
+    const grouped: Record<string, typeof pendingApplications> = {};
+    filtered.forEach((app) => {
+      if (!grouped[app.deptId]) {
+        grouped[app.deptId] = [];
+      }
+      grouped[app.deptId].push(app);
+    });
+    return grouped;
+  }, [pendingApplications, searchTerm]);
+
+  const [expandedPendingDepts, setExpandedPendingDepts] = useState<Record<string, boolean>>({});
+
+  const togglePendingDeptExpand = (deptId: string) => {
+    setExpandedPendingDepts((prev) => ({
+      ...prev,
+      [deptId]: !prev[deptId],
+    }));
+  };
 
   const toggleDeptExpand = (name: string) => {
     setExpandedDepts((prev) => ({
@@ -871,13 +912,112 @@ const DgmDashboardPage: React.FC = () => {
                         <Table className="w-4 h-4" />
                       </button>
                     </div>
+
+                    {/* Standalone Pending Details Button on the Right */}
+                    <button
+                      type="button"
+                      onClick={() => setViewMode(viewMode === "pending" ? "chart" : "pending")}
+                      className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border shadow-sm cursor-pointer ${
+                        viewMode === "pending"
+                          ? "bg-red-600 text-white border-red-600 shadow-red-200"
+                          : "bg-red-50 text-red-600 border-red-200/80 hover:bg-red-100/80"
+                      }`}
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Pending Details</span>
+                      {pendingApplications.length > 0 && (
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          viewMode === "pending" ? "bg-white/20 text-white" : "bg-red-200/60 text-red-700"
+                        }`}>
+                          {pendingApplications.length}
+                        </span>
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                {/* Main Content Area (Chart or Table) */}
+                {/* Main Content Area (Chart, Table, or Pending) */}
                 {loading ? (
                   <div className="h-80 w-full bg-slate-50 rounded-2xl animate-pulse flex items-center justify-center">
                     <span className="text-sm font-semibold text-slate-400 animate-bounce">Loading data...</span>
+                  </div>
+                ) : viewMode === "pending" ? (
+                  <div className="flex flex-col gap-4 max-h-[460px] overflow-y-auto pr-1">
+                    {/* Summary Banner */}
+                    <div className="bg-red-50/50 border border-red-100/80 rounded-2xl p-4 flex items-center gap-3 sticky top-0 z-10 shadow-sm backdrop-blur-md">
+                      <div className="bg-red-100/80 p-2 rounded-xl text-red-600">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-red-800 font-bold text-sm">
+                          {Object.values(groupedPendingApplications).flat().length} Pending Applications
+                        </div>
+                        <div className="text-red-600/80 text-xs font-semibold">
+                          Across {Object.keys(groupedPendingApplications).length} Departments
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Grouped Accordion */}
+                    <div className="flex flex-col gap-3">
+                      {Object.entries(groupedPendingApplications).sort(([a], [b]) => a.localeCompare(b)).map(([deptId, apps]) => {
+                        const isExpanded = expandedPendingDepts[deptId];
+                        return (
+                          <div key={deptId} className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-sm">
+                            <button
+                              onClick={() => togglePendingDeptExpand(deptId)}
+                              className="w-full flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="text-slate-400">
+                                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </div>
+                                <span className="font-extrabold text-slate-800 font-mono tracking-tight text-sm">{deptId}</span>
+                              </div>
+                              <span className="bg-red-50 text-red-600 border border-red-100 px-3 py-1 rounded-full text-[11px] font-bold shadow-sm">
+                                {apps.length} pending
+                              </span>
+                            </button>
+                            
+                            {isExpanded && (
+                              <div className="border-t border-slate-100">
+                                <table className="w-full text-left text-xs text-slate-700">
+                                  <thead className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    <tr>
+                                      <th className="px-6 py-3 border-b border-slate-100 w-16 text-center">#</th>
+                                      <th className="px-6 py-3 border-b border-slate-100">Application No</th>
+                                      <th className="px-6 py-3 border-b border-slate-100">Type</th>
+                                      <th className="px-6 py-3 border-b border-slate-100">Description</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {apps.map((app, idx) => (
+                                      <tr key={app.applicationNo} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                                        <td className="px-6 py-3 font-mono font-bold text-slate-700">{app.applicationNo}</td>
+                                        <td className="px-6 py-3 font-semibold">
+                                          <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded border border-slate-200">
+                                            {app.appType}
+                                          </span>
+                                        </td>
+                                        <td className="px-6 py-3 font-medium text-slate-600">{app.description}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      
+                      {Object.keys(groupedPendingApplications).length === 0 && (
+                        <div className="py-12 flex flex-col items-center gap-2 text-center text-slate-400">
+                          <AlertCircle className="w-10 h-10 opacity-20" />
+                          <span className="text-sm font-semibold">No pending applications found.</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : sortedApplicationData.length === 0 ? (
                   <div className="h-80 flex flex-col items-center justify-center text-slate-400 gap-2">

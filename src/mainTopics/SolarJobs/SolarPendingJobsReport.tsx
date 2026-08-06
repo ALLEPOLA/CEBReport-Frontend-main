@@ -1,419 +1,503 @@
-import React, { useEffect, useState } from "react";
-import {
-	Search,
-	RotateCcw,
-	Eye,
-	ChevronLeft,
-	Download,
-	FileText,
-} from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { Search, RotateCcw, Eye } from "lucide-react";
 import { useUser } from "../../contexts/UserContext";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import DateRangePicker from "../../components/utils/DateRangePicker";
+import ReportViewer from "../../components/utils/ReportViewer";
 
 interface Province {
-	ProvinceId: string;
-	ProvinceName: string;
+  ProvinceId: string;
+  ProvinceName: string;
+}
+
+interface SolarPendingRow {
+  ApplicationId: string;
+  ApplicationNo: string;
+  SubmitDate: string | null;
+  ProjectNo: string;
+  PivDate: string | null;
+  ApplicationSubType: string;
+  PaidDate: string | null;
+  Piv2PaidDate: string | null;
+  ExistingAccNo: string;
+  Status: string;
+  DeptId: string;
+  CctName: string;
+  ProvinceName: string;
 }
 
 const formatLocalYmd = (date: Date) => {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, "0");
-	const day = String(date.getDate()).padStart(2, "0");
-	return `${year}-${month}-${day}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const today = new Date();
 const defaultFromDate = formatLocalYmd(new Date(today.getFullYear(), today.getMonth(), 1));
 const defaultToDate = formatLocalYmd(today);
 
+const formatDate = (date: string | null): string => {
+  if (!date) return "";
+  const dateObj = new Date(date);
+  if (Number.isNaN(dateObj.getTime())) return date;
+  return dateObj.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
+const csvEscape = (val: string | number | null | undefined): string => {
+  if (val == null) return '""';
+  const str = String(val);
+  if (/[,\n"']/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+};
+
+const columns = [
+  "Dept_id",
+  "Application No",
+  "App Submit_Date",
+  "PIV1 Issued Date",
+  "PIV1 Paid Date",
+  "Estimate No",
+  "PIV2 Paid Date",
+  "Project No",
+  "Status",
+  "Application Sub Type",
+  "Existing Account No"
+];
+
 const SolarPendingJobsReport: React.FC = () => {
-	const { user } = useUser();
-	const epfNo = user?.Userno || "";
+  const { user } = useUser();
+  const epfNo = user?.Userno || "";
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-	// Province list state
-	const [data, setData] = useState<Province[]>([]);
-	const [filtered, setFiltered] = useState<Province[]>([]);
-	const [searchId, setSearchId] = useState("");
-	const [searchName, setSearchName] = useState("");
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [page, setPage] = useState(1);
-	const pageSize = 9;
+  // Province list state
+  const [data, setData] = useState<Province[]>([]);
+  const [filtered, setFiltered] = useState<Province[]>([]);
+  const [searchId, setSearchId] = useState("");
+  const [searchName, setSearchName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 9;
 
-	// Date range
-	const [fromDate, setFromDate] = useState(defaultFromDate);
-	const [toDate, setToDate] = useState(defaultToDate);
+  // Date range
+  const [fromDate, setFromDate] = useState(defaultFromDate);
+  const [toDate, setToDate] = useState(defaultToDate);
 
-	// PDF report modal state
-	const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
-	const [modalOpen, setModalOpen] = useState(false);
-	const [pdfLoading, setPdfLoading] = useState(false);
-	const [pdfError, setPdfError] = useState<string | null>(null);
-	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // Report modal state
+  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
+  const [reportData, setReportData] = useState<SolarPendingRow[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
-	const maroon = "text-[#7A0000]";
-	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
-	const shadedMaroon = "bg-[#A52A2A]/40";
+  const maroon = "text-[#7A0000]";
+  const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
+  const shadedMaroon = "bg-[#A52A2A]/40";
 
-	// Load provinces (Usercompanies)
-	useEffect(() => {
-		const run = async () => {
-			if (!epfNo) {
-				setError("No EPF number available. Please login again.");
-				setLoading(false);
-				return;
-			}
-			setLoading(true);
-			try {
-				const res = await fetch(`/misapi/api/incomeexpenditure/Usercompanies/${encodeURIComponent(epfNo)}/60`);
-				if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-				const parsed = await res.json();
-				let raw: any[] = [];
-				if (Array.isArray(parsed)) raw = parsed;
-				else if (parsed.data) raw = parsed.data;
-				else if (parsed.result) raw = parsed.result;
+  // Load provinces (Usercompanies)
+  useEffect(() => {
+    const run = async () => {
+      if (!epfNo) {
+        setError("No EPF number available. Please login again.");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await fetch(`/misapi/api/incomeexpenditure/Usercompanies/${encodeURIComponent(epfNo)}/60`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const parsed = await res.json();
+        let raw: any[] = [];
+        if (Array.isArray(parsed)) raw = parsed;
+        else if (parsed.data) raw = parsed.data;
+        else if (parsed.result) raw = parsed.result;
 
-				const final: Province[] = (raw || []).map((it: any) => ({
-					ProvinceId: (it.CompId ?? it.compId ?? "").toString().trim(),
-					ProvinceName: (it.CompNm ?? it.CompName ?? "").toString().trim(),
-				})).filter(p => p.ProvinceId !== "");
+        const final: Province[] = (raw || [])
+          .map((it: any) => ({
+            ProvinceId: (it.CompId ?? it.compId ?? "").toString().trim(),
+            ProvinceName: (it.CompNm ?? it.CompName ?? "").toString().trim(),
+          }))
+          .filter((p) => p.ProvinceId !== "");
 
-				setData(final);
-				setFiltered(final);
-			} catch (e: any) {
-				setError(e.message);
-			} finally {
-				setLoading(false);
-			}
-		};
-		run();
-	}, [epfNo]);
+        setData(final);
+        setFiltered(final);
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [epfNo]);
 
-	// Filter provinces
-	useEffect(() => {
-		const f = data.filter(
-			(d) =>
-				(!searchId || d.ProvinceId.toLowerCase().includes(searchId.toLowerCase())) &&
-				(!searchName || d.ProvinceName.toLowerCase().includes(searchName.toLowerCase()))
-		);
-		setFiltered(f);
-		setPage(1);
-	}, [searchId, searchName, data]);
+  // Filter provinces
+  useEffect(() => {
+    const f = data.filter(
+      (d) =>
+        (!searchId || d.ProvinceId.toLowerCase().includes(searchId.toLowerCase())) &&
+        (!searchName || d.ProvinceName.toLowerCase().includes(searchName.toLowerCase()))
+    );
+    setFiltered(f);
+    setPage(1);
+  }, [searchId, searchName, data]);
 
-	// View PDF report
-	const handleViewReport = async (prov: Province) => {
-		if (!fromDate || !toDate) {
-			toast.error("Please select a valid date range before viewing.", {
-				position: "top-right",
-				autoClose: 4000,
-			});
-			return;
-		}
+  // View Report (JSON data API)
+  const handleViewReport = async (prov: Province) => {
+    if (!fromDate || !toDate) {
+      toast.error("Please select a valid date range before viewing.");
+      return;
+    }
 
-		const params = new URLSearchParams({
-			fromDate: fromDate,
-			toDate: toDate,
-			provinceId: prov.ProvinceId,
-		});
-		const directUrl = `/misapi/api/solarjobs/pending-jobs/pdf?${params.toString()}`;
+    setSelectedProvince(prov);
+    setReportLoading(true);
+    setReportData([]);
+    setShowReport(true);
 
-		setSelectedProvince(prov);
-		setModalOpen(true);
-		setPdfLoading(true);
-		setPdfError(null);
-		setPdfUrl(null);
+    try {
+      const params = new URLSearchParams({
+        fromDate: fromDate,
+        toDate: toDate,
+        provinceId: prov.ProvinceId,
+      });
+      const url = `/misapi/api/solarjobs/pending-jobs/list?${params.toString()}`;
 
-		try {
-			const response = await fetch(directUrl);
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(text || `HTTP ${response.status}`);
-			}
-			const blob = await response.blob();
-			const objectUrl = URL.createObjectURL(blob);
-			setPdfUrl(objectUrl);
-		} catch (err: any) {
-			setPdfError(err.message || "Failed to generate report.");
-			toast.error("Failed to load Jasper report: " + (err.message || "Unknown error"));
-		} finally {
-			setPdfLoading(false);
-		}
-	};
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-	// Download CSV
-	const handleDownloadCSV = async () => {
-		if (!fromDate || !toDate || !selectedProvince) return;
-		try {
-			const params = new URLSearchParams({
-				fromDate: fromDate,
-				toDate: toDate,
-				provinceId: selectedProvince.ProvinceId,
-			});
-			const res = await fetch(`/misapi/api/solarjobs/pending-jobs/list?${params.toString()}`);
-			if (!res.ok) throw new Error("Failed to fetch data for CSV");
-			const json = await res.json();
-			const dataList = json.data || [];
-			if (dataList.length === 0) {
-				toast.info("No data available to download.");
-				return;
-			}
-			const headers = Object.keys(dataList[0]);
-			const csvRows = [headers.join(",")];
-			for (const row of dataList) {
-				const values = headers.map((h) => {
-					const val = row[h] == null ? "" : row[h];
-					return `"${String(val).replace(/"/g, '""')}"`;
-				});
-				csvRows.push(values.join(","));
-			}
-			const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `Solar_Pending_Jobs_${selectedProvince.ProvinceId}.csv`;
-			a.click();
-			URL.revokeObjectURL(url);
-		} catch (err: any) {
-			toast.error(err.message || "Failed to download CSV");
-		}
-	};
+      const json = await res.json();
+      const items: SolarPendingRow[] = Array.isArray(json)
+        ? json
+        : json.data || [];
 
-	const handleCloseModal = () => {
-		setModalOpen(false);
-		setSelectedProvince(null);
-		setPdfError(null);
-		if (pdfUrl) {
-			URL.revokeObjectURL(pdfUrl);
-			setPdfUrl(null);
-		}
-	};
+      if (json.errorMessage) {
+        throw new Error(json.errorMessage);
+      }
 
-	const paginatedProvinces = filtered.slice((page - 1) * pageSize, page * pageSize);
+      setReportData(items);
+      items.length === 0
+        ? toast.warn("No records found")
+        : toast.success("Report loaded successfully");
+    } catch (err: any) {
+      toast.error("Failed to load report: " + (err.message || "Unknown error"));
+      setShowReport(false);
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
-	return (
-		<div className="w-full p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans relative">
-			{/* Header */}
-			<div className="flex justify-between items-center mb-4">
-				<h2 className={`text-xl font-bold ${maroon}`}>Solar Retail Rooftop Pending Jobs after PIV2 Paid</h2>
-			</div>
+  const closeReport = () => {
+    setShowReport(false);
+    setReportData([]);
+    setSelectedProvince(null);
+  };
 
-			{/* Date Range - Right aligned */}
-			<div className="flex justify-end mb-4">
-				<DateRangePicker
-					fromDate={fromDate}
-					toDate={toDate}
-					onFromChange={setFromDate}
-					onToChange={setToDate}
-				/>
-			</div>
+  const handleDownloadCSV = () => {
+    if (reportData.length === 0 || !selectedProvince) return;
 
-			{/* Search Inputs */}
-			<div className="flex flex-wrap items-center gap-3 mb-4">
-				<div className="relative">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-					<input
-						type="text"
-						value={searchId}
-						placeholder="Search by ID"
-						onChange={(e) => setSearchId(e.target.value)}
-						className="pl-10 pr-4 py-1.5 w-48 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
-						autoComplete="off"
-					/>
-				</div>
+    const provLabel = `${selectedProvince.ProvinceId} / ${selectedProvince.ProvinceName}`;
 
-				<div className="relative">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-					<input
-						type="text"
-						value={searchName}
-						placeholder="Search by Name"
-						onChange={(e) => setSearchName(e.target.value)}
-						className="pl-10 pr-4 py-1.5 w-48 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
-						autoComplete="off"
-					/>
-				</div>
+    const csvRows: string[] = [
+      `Solar Retail Rooftop Pending Jobs after PIV2 Paid- From ${fromDate} To ${toDate}`,
+      `Province : ${provLabel}`,
+      "",
+      columns.map(csvEscape).join(",")
+    ];
 
-				{(searchId || searchName) && (
-					<button
-						onClick={() => { setSearchId(""); setSearchName(""); }}
-						className="flex items-center gap-1.5 px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded border text-xs font-medium"
-					>
-						<RotateCcw className="w-3.5 h-3.5" /> Clear
-					</button>
-				)}
-			</div>
+    reportData.forEach((item) => {
+      const cctInfo = item.DeptId ? (item.CctName ? `${item.DeptId} - ${item.CctName}` : item.DeptId) : "";
+      const row = [
+        `="${cctInfo}"`,
+        `="${item.ApplicationNo ?? ""}"`,
+        formatDate(item.SubmitDate),
+        formatDate(item.PivDate),
+        formatDate(item.PaidDate),
+        `="${item.ApplicationId ?? ""}"`,
+        formatDate(item.Piv2PaidDate),
+        `="${item.ProjectNo ?? ""}"`,
+        item.Status || "",
+        item.ApplicationSubType || "",
+        `="${item.ExistingAccNo ?? ""}"`
+      ];
+      csvRows.push(row.map(csvEscape).join(","));
+    });
 
-			{/* Provinces list */}
-			{loading && (
-				<div className="text-center py-8">
-					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7A0000] mx-auto"></div>
-					<p className="mt-2 text-gray-600">Loading provinces...</p>
-				</div>
-			)}
-			{error && (
-				<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-					Error: {error}
-				</div>
-			)}
-			{!loading && !error && filtered.length === 0 && (
-				<div className="text-gray-600 bg-gray-100 p-4 rounded">No provinces found.</div>
-			)}
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Solar_Pending_Jobs_${selectedProvince.ProvinceId}_${fromDate}_to_${toDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
-			{!loading && !error && filtered.length > 0 && (
-				<>
-					<div className="overflow-x-auto rounded-lg border border-gray-200">
-						<div className="max-h-[50vh] overflow-y-auto">
-							<table className="w-full table-fixed text-left text-gray-700 text-sm">
-								<thead className={`${maroonGrad} text-white sticky top-0`}>
-									<tr>
-										<th className="px-4 py-2 w-1/4">Province Code</th>
-										<th className="px-4 py-2 w-1/2">Province Name</th>
-										<th className="px-4 py-2 w-1/4 text-center">Action</th>
-									</tr>
-								</thead>
-								<tbody>
-									{paginatedProvinces.map((d, i) => (
-										<tr
-											key={`${d.ProvinceId}-${i}`}
-											className={`${i % 2 ? "bg-white" : "bg-gray-50"} ${selectedProvince?.ProvinceId === d.ProvinceId ? "ring-2 ring-[#7A0000] ring-inset" : ""
-												}`}
-										>
-											<td className="px-4 py-2 truncate font-mono">{d.ProvinceId}</td>
-											<td className="px-4 py-2 truncate">{d.ProvinceName}</td>
-											<td className="px-4 py-2 text-center">
-												<button
-													onClick={() => handleViewReport(d)}
-													disabled={!(fromDate && toDate)}
-													className={`px-3 py-1 rounded-md text-xs font-medium shadow transition-all flex items-center justify-center mx-auto gap-1 ${fromDate && toDate
-														? `${maroonGrad} text-white hover:brightness-110`
-														: `${shadedMaroon} text-white cursor-not-allowed`
-														}`}
-												>
-													<Eye className="w-3 h-3" />
-													View
-												</button>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					</div>
+  const printPDF = () => {
+    if (reportData.length === 0 || !iframeRef.current || !selectedProvince) return;
 
-					{/* Pagination */}
-					<div className="flex justify-end items-center gap-3 mt-3">
-						<button
-							onClick={() => setPage((p) => Math.max(1, p - 1))}
-							disabled={page === 1}
-							className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
-						>
-							Previous
-						</button>
-						<span className="text-xs text-gray-500">
-							Page {page} of {Math.ceil(filtered.length / pageSize) || 1}
-						</span>
-						<button
-							onClick={() => setPage((p) => Math.min(Math.ceil(filtered.length / pageSize), p + 1))}
-							disabled={page >= Math.ceil(filtered.length / pageSize) || filtered.length === 0}
-							className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
-						>
-							Next
-						</button>
-					</div>
-				</>
-			)}
+    const provLabel = `${selectedProvince.ProvinceId} / ${selectedProvince.ProvinceName}`;
 
-			{/* ── PDF Report Modal ─────────────────────────────────────────────── */}
-			{modalOpen && (
-				<div className="fixed top-20 right-0 bottom-0 left-0 lg:left-64 z-[60] flex p-4 sm:p-6 bg-gray-900/80 backdrop-blur-sm">
-					<div className="relative bg-white w-full h-full flex flex-col rounded-xl shadow-2xl overflow-hidden border border-gray-300">
-						{/* Modal header */}
-						<div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b bg-white shadow-sm shrink-0 gap-4">
-							<div>
-								<h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-									<FileText className="w-4 h-4 text-[#7A0000]" />
-									Solar Retail Rooftop Pending Jobs after PIV2 Paid
-								</h2>
-								<p className="text-xs text-gray-500 mt-0.5">
-									Province:{" "}
-									<span className="font-semibold text-[#7A0000]">
-										{selectedProvince?.ProvinceId} — {selectedProvince?.ProvinceName}
-									</span>
-									{fromDate && toDate && (
-										<>
-											&nbsp;&nbsp;|&nbsp;&nbsp;Period:{" "}
-											{fromDate} to {toDate}
-										</>
-									)}
-								</p>
-							</div>
+    const tableStyle = `
+        table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 10px; }
+        th, td { border: 1px solid #000; padding: 5px; word-wrap: break-word; vertical-align: middle; }
+        th { font-weight: bold; background-color: #f0f0f0; text-align: center; }
+        td { text-align: left; }
+        `;
 
-							<div className="flex items-center gap-2">
-								<button
-									onClick={handleDownloadCSV}
-									className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 text-white text-xs font-semibold rounded-md shadow hover:bg-green-800 transition"
-								>
-									<Download className="w-3.5 h-3.5" />
-									Download CSV
-								</button>
-								{pdfUrl && (
-									<a
-										href={pdfUrl}
-										download={`Solar_Pending_Jobs_${selectedProvince?.ProvinceId}.pdf`}
-										className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7A0000] text-white text-xs font-semibold rounded-md shadow hover:brightness-110 transition"
-									>
-										<Download className="w-3.5 h-3.5" />
-										Download PDF
-									</a>
-								)}
-								<button
-									onClick={handleCloseModal}
-									className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 bg-white text-xs font-semibold rounded-md hover:bg-gray-100 transition"
-								>
-									<ChevronLeft className="w-3.5 h-3.5" />
-									Go Back
-								</button>
-							</div>
-						</div>
+    let html = `
+        <html><head><title>Solar Retail Rooftop Pending Jobs after PIV2 Paid</title>
+        <style>${tableStyle}</style></head>
+        <body>
+        <h2 style="text-align: center; text-decoration: underline; margin-bottom: 4px;">Solar Retail Rooftop Pending Jobs after PIV2 Paid- From ${fromDate} To ${toDate}</h2>
+        <p style="text-align: center; font-weight: bold; margin-top: 0; margin-bottom: 12px;">Province : ${provLabel}</p>
+        <table>
+        <thead><tr>
+        ${columns.map((c) => `<th>${c}</th>`).join("")}
+        </tr></thead>
+        <tbody>
+        `;
 
-						{/* Modal body */}
-						<div className="flex-1 overflow-hidden bg-gray-100">
-							{pdfLoading && (
-								<div className="flex flex-col items-center justify-center h-full gap-4">
-									<div className="animate-spin rounded-full h-12 w-12 border-4 border-[#7A0000] border-t-transparent"></div>
-									<p className="text-[#7A0000] font-medium text-sm">Generating Report...</p>
-									<p className="text-gray-500 text-xs">This may take a moment</p>
-								</div>
-							)}
+    reportData.forEach((item) => {
+      const cctInfo = item.DeptId ? (item.CctName ? `${item.DeptId} - ${item.CctName}` : item.DeptId) : "";
+      html += `<tr>
+                <td>${escapeHtml(cctInfo)}</td>
+                <td>${escapeHtml(item.ApplicationNo)}</td>
+                <td>${formatDate(item.SubmitDate)}</td>
+                <td>${formatDate(item.PivDate)}</td>
+                <td>${formatDate(item.PaidDate)}</td>
+                <td>${escapeHtml(item.ApplicationId)}</td>
+                <td>${formatDate(item.Piv2PaidDate)}</td>
+                <td>${escapeHtml(item.ProjectNo)}</td>
+                <td>${escapeHtml(item.Status)}</td>
+                <td>${escapeHtml(item.ApplicationSubType)}</td>
+                <td>${escapeHtml(item.ExistingAccNo)}</td>
+            </tr>`;
+    });
 
-							{!pdfLoading && pdfError && (
-								<div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-									<div className="bg-red-50 border border-red-300 rounded-lg p-6 max-w-lg w-full text-center">
-										<FileText className="w-10 h-10 text-red-400 mx-auto mb-3" />
-										<h3 className="font-semibold text-red-700 mb-2">Report Generation Failed</h3>
-										<p className="text-red-600 text-xs">{pdfError}</p>
-										<p className="text-gray-500 text-xs mt-3">
-											Please ensure the Jasper report service and JAR are deployed on the backend server.
-										</p>
-									</div>
-								</div>
-							)}
+    html += "</tbody></table></body></html>";
 
-							{!pdfLoading && !pdfError && pdfUrl && (
-								<iframe
-									src={pdfUrl}
-									className="w-full h-full border-none"
-									title="Jasper Report - Solar Retail Rooftop Pending Jobs"
-								/>
-							)}
-						</div>
-					</div>
-				</div>
-			)}
-		</div>
-	);
+    const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      setTimeout(() => {
+        iframeRef.current?.contentWindow?.focus();
+        iframeRef.current?.contentWindow?.print();
+      }, 500);
+    }
+  };
+
+  const escapeHtml = (text: string | null | undefined): string => {
+    if (text == null) return "";
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  const paginatedProvinces = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const provHeader = selectedProvince
+    ? `${selectedProvince.ProvinceId} / ${selectedProvince.ProvinceName}`
+    : "";
+
+  return (
+    <div className="w-full p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans relative">
+      <iframe ref={iframeRef} style={{ display: "none" }} title="print-frame" />
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className={`text-xl font-bold ${maroon}`}>
+          Solar Retail Rooftop Pending Jobs after PIV2 Paid
+        </h2>
+      </div>
+
+      {/* Filter and Control Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        {/* Date Range Picker */}
+        <DateRangePicker
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromChange={setFromDate}
+          onToChange={setToDate}
+        />
+
+        {/* Search Inputs */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              value={searchId}
+              placeholder="Search by ID"
+              onChange={(e) => setSearchId(e.target.value)}
+              className="pl-10 pr-4 py-1.5 w-44 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              value={searchName}
+              placeholder="Search by Name"
+              onChange={(e) => setSearchName(e.target.value)}
+              className="pl-10 pr-4 py-1.5 w-44 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+              autoComplete="off"
+            />
+          </div>
+
+          {(searchId || searchName) && (
+            <button
+              onClick={() => {
+                setSearchId("");
+                setSearchName("");
+              }}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded border text-xs font-medium"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Provinces list */}
+      {loading && (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7A0000] mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading provinces...</p>
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          Error: {error}
+        </div>
+      )}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="text-gray-600 bg-gray-100 p-4 rounded">No provinces found.</div>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <>
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="max-h-[50vh] overflow-y-auto">
+              <table className="w-full table-fixed text-left text-gray-700 text-sm">
+                <thead className={`${maroonGrad} text-white sticky top-0`}>
+                  <tr>
+                    <th className="px-4 py-2 w-1/4">Province Code</th>
+                    <th className="px-4 py-2 w-1/2">Province Name</th>
+                    <th className="px-4 py-2 w-1/4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedProvinces.map((d, i) => (
+                    <tr
+                      key={`${d.ProvinceId}-${i}`}
+                      className={`${i % 2 ? "bg-white" : "bg-gray-50"} ${
+                        selectedProvince?.ProvinceId === d.ProvinceId ? "ring-2 ring-[#7A0000] ring-inset" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-2 truncate font-mono">{d.ProvinceId}</td>
+                      <td className="px-4 py-2 truncate">{d.ProvinceName}</td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={() => handleViewReport(d)}
+                          disabled={!(fromDate && toDate)}
+                          className={`px-3 py-1 rounded-md text-xs font-medium shadow transition-all flex items-center justify-center mx-auto gap-1 ${
+                            fromDate && toDate
+                              ? `${maroonGrad} text-white hover:brightness-110`
+                              : `${shadedMaroon} text-white cursor-not-allowed`
+                          }`}
+                        >
+                          <Eye className="w-3 h-3" />
+                          {selectedProvince?.ProvinceId === d.ProvinceId ? "Viewing" : "View"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex justify-end items-center gap-3 mt-3">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-gray-500">
+              Page {page} of {Math.ceil(filtered.length / pageSize) || 1}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(Math.ceil(filtered.length / pageSize), p + 1))}
+              disabled={page >= Math.ceil(filtered.length / pageSize) || filtered.length === 0}
+              className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Report Viewer Modal */}
+      {showReport && selectedProvince && (
+        <ReportViewer
+          title={`Solar Retail Rooftop Pending Jobs after PIV2 Paid- From ${fromDate} To ${toDate}`}
+          subtitlebold="Province :"
+          subtitlenormal={provHeader}
+          loading={reportLoading}
+          hasData={reportData.length > 0}
+          handleDownloadCSV={handleDownloadCSV}
+          printPDF={printPDF}
+          closeReport={closeReport}
+          currency=""
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-max border border-gray-300">
+              <thead className="bg-[#f0f0f0] sticky top-0 z-10">
+                <tr className="text-gray-900 font-bold text-[11px]">
+                  {columns.map((c, i) => (
+                    <th key={i} className="p-2 border border-gray-300 text-center">{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white">
+                {reportData.map((item, idx) => {
+                  const cctInfo = item.DeptId ? (item.CctName ? `${item.DeptId} - ${item.CctName}` : item.DeptId) : "";
+                  return (
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{cctInfo}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ApplicationNo}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.SubmitDate)}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.PivDate)}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.PaidDate)}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ApplicationId}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{formatDate(item.Piv2PaidDate)}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ProjectNo}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.Status}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ApplicationSubType}</td>
+                      <td className="p-2 border border-gray-300 whitespace-nowrap">{item.ExistingAccNo}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </ReportViewer>
+      )}
+    </div>
+  );
 };
 
 export default SolarPendingJobsReport;

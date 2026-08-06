@@ -98,6 +98,8 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   Dashboard: { icon: MdDashboard, path: "/dashboard" },
   DashBoard: { icon: MdDashboard, path: "/dashboard" },
   "Main Dashboard": { icon: MdDashboard, path: "/dashboard" },
+  "Report Catalog": { icon: TbReportAnalytics, path: "/report/report-catalog" },
+  "All Reports": { icon: TbReportAnalytics, path: "/report/report-catalog" },
   General: { icon: MdPayment, path: "/report/general" },
   "Customer Details": { icon: RiBankLine, path: "/report/billing-payment" },
   Analysis: { icon: FaBoxes, path: "/report/analysis" },
@@ -340,13 +342,31 @@ export const buildTopics = (roleReports: RoleReportApiItem[]): Topic[] => {
     topicIndex += 1;
   }
 
+  // Always ensure Report Catalog is present in topics for all authenticated users
+  const hasReportCatalog = topics.some(
+    (t) =>
+      t.name.toLowerCase() === "report catalog" ||
+      t.name.toLowerCase() === "all reports" ||
+      t.path.toLowerCase() === "/report/report-catalog"
+  );
+
+  if (!hasReportCatalog) {
+    topics.push({
+      id: 9999,
+      name: "Report Catalog",
+      icon: CATEGORY_CONFIG["Report Catalog"]?.icon || TbReportAnalytics,
+      path: "/report/report-catalog",
+      subtopics: [],
+    });
+  }
+
   // Sort topics with specific order: Dashboard first, then Report Catalog, then alphabetical
   topics.sort((a, b) => {
     const aIsDashboard = a.name.toLowerCase() === "dashboard" || a.path.toLowerCase() === "/dashboard";
     const bIsDashboard = b.name.toLowerCase() === "dashboard" || b.path.toLowerCase() === "/dashboard";
     
-    const aIsReportCatalog = a.name.toLowerCase() === "report catalog" || a.name.toLowerCase() === "all reports";
-    const bIsReportCatalog = b.name.toLowerCase() === "report catalog" || b.name.toLowerCase() === "all reports";
+    const aIsReportCatalog = a.name.toLowerCase() === "report catalog" || a.name.toLowerCase() === "all reports" || a.path.toLowerCase() === "/report/report-catalog";
+    const bIsReportCatalog = b.name.toLowerCase() === "report catalog" || b.name.toLowerCase() === "all reports" || b.path.toLowerCase() === "/report/report-catalog";
 
     // Dashboard always comes first
     if (aIsDashboard && !bIsDashboard) {
@@ -428,7 +448,7 @@ export const loadRoleBasedSidebarData = async (epfNo: string): Promise<SidebarRe
 
   if (!trimmedEpfNo) {
     return {
-      data: [],
+      data: buildTopics([]),
       message: "Unable to load reports because user information is missing.",
       billMap: null,
       levelNo: null,
@@ -444,7 +464,7 @@ export const loadRoleBasedSidebarData = async (epfNo: string): Promise<SidebarRe
 
     if (roleResponse.errorMessage) {
       return {
-        data: [],
+        data: buildTopics([]),
         message: roleResponse.errorMessage,
         billMap: null,
         levelNo: null,
@@ -458,8 +478,8 @@ export const loadRoleBasedSidebarData = async (epfNo: string): Promise<SidebarRe
 
     if (roleIds.length === 0) {
       return {
-        data: [],
-        message: "No role was assigned to this user.",
+        data: buildTopics([]),
+        message: null,
         billMap: null,
         levelNo: null,
       };
@@ -502,36 +522,7 @@ export const loadRoleBasedSidebarData = async (epfNo: string): Promise<SidebarRe
     }
 
     const reports = Array.from(reportsByKey.values());
-
-    // // Inject the FIFO report under Physical Verification (as an accordion item) and under FIFO category
-    // const hasFifoReport = reports.some(
-    //   (r) =>
-    //     getReportRepId(r) === "fifo-obsolete-idle" ||
-    //     getReportName(r).toLowerCase().includes("fifo")
-    // );
-    // if (!hasFifoReport) {
-    //   reports.push({
-    //     RepIdNo: "fifo-obsolete-idle",
-    //     CategoryName: "Physical Verification",
-    //     ReportName: "PHV Obsolete / Idle (FIFO)",
-    //   });
-    //   reports.push({
-    //     RepIdNo: "fifo-obsolete-idle-cat",
-    //     CategoryName: "Physical Verification - FIFO",
-    //     ReportName: "PHV Obsolete / Idle (FIFO)",
-    //   });
-    // }
-
     const topics = buildTopics(reports);
-
-    if (topics.length === 0) {
-      return {
-        data: [],
-        message: "No reports are available for your role.",
-        billMap,
-        levelNo,
-      };
-    }
 
     return {
       data: topics,
@@ -541,8 +532,8 @@ export const loadRoleBasedSidebarData = async (epfNo: string): Promise<SidebarRe
     };
   } catch {
     return {
-      data: [],
-      message: "Failed to load sidebar reports. Please try again in a moment.",
+      data: buildTopics([]),
+      message: null,
       billMap: null,
       levelNo: null,
     };

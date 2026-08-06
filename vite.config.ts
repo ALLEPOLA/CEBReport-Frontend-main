@@ -61,19 +61,40 @@ export default defineConfig(({ mode }) => {
 								},
 			*/
 
-				"/misapi/api/reportcatalog/all":{
+				"/misapi/api/reportcatalog/all": {
 					target: env.VITE_LOCAL_API,
 					changeOrigin: true,
-                    secure: false,
-                    rewrite: (path) => path.replace(/^\/misapi/, ""),
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
-                
+
+				"/misapi/api/materialflow/gradecodes": {
+					target: env.VITE_LOCAL_API,
+					changeOrigin: true,
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
+				"/misapi/api/materialflow/report": {
+					target: env.VITE_LOCAL_API,
+					changeOrigin: true,
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
+				"/misapi/api/pivpaidnotenagized/report": {
+					target: env.VITE_LOCAL_API,
+					changeOrigin: true,
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
 
 				"/misapi": {
 					target: env.VITE_SERVER_API,
 					changeOrigin: true,
 					secure: false,
-					// rewrite: (path) => path.replace(/^\/misapi/, ""),
+					//rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
 
 				"/api": {
