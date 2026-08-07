@@ -64,7 +64,7 @@ const DashboardSelector: React.FC<DashboardSelectorProps> = ({
       };
     })
     .filter((item) => {
-      if (item.id === "default" && (!user?.Level || user.Level < 60)) return false;
+      if (item.id === "default" && (!user?.Level || user.Level < 50)) return false;
       if (seenKeys.has(item.id)) return false;
       seenKeys.add(item.id);
       return true;
