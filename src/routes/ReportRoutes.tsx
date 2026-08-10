@@ -30,6 +30,7 @@ import FIFODetails from "../pages/FIFODetails";
 import ReportCatalog from "../pages/ReportCatalog";
 import SMCManagementInfo from "../pages/SMCManagementInfo";
 import FIFO from "../pages/FIFO";
+import Construction from "../pages/Construction";
 
 const ReportRoutes = () => (
 	<>
@@ -280,6 +281,15 @@ const ReportRoutes = () => (
 			element={
 				<Layout>
 					<FIFO />
+				</Layout>
+			}
+		/>
+
+		<Route
+			path="/report/construction"
+			element={
+				<Layout>
+					<Construction />
 				</Layout>
 			}
 		/>
