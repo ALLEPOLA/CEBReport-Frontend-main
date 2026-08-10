@@ -229,20 +229,7 @@ const HeadOfficePOSCollection: React.FC = () => {
             Head Office POS Collection
           </h2>
 
-          {/* Scope Status Banner */}
-          {level < 80 && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-xs flex justify-between items-center">
-              <span>
-                <strong>Access Level Scoped:</strong> Viewing data restricted to{" "}
-                {level === 70
-                  ? `Region: ${user?.RegionCode || "N/A"}`
-                  : level === 60
-                  ? `Province: ${user?.ProvinceName || user?.ProvinceCode || "N/A"}`
-                  : `Area: ${user?.AreaName || user?.AreaCode || "N/A"}`}
-              </span>
-              {scopeLoading && <span className="animate-pulse">Loading boundary data...</span>}
-            </div>
-          )}
+
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
