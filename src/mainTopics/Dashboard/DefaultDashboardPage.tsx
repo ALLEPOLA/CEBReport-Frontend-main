@@ -563,6 +563,45 @@ const DefaultDashboardPage: React.FC = () => {
     };
   }, [selectedProvince]);
 
+  useEffect(() => {
+    if (user?.Level !== 50 || !user?.AreaCode) return;
+
+    let active = true;
+    const resolveAreaParent = async () => {
+      try {
+        const res = await fetch("/misapi/api/ordinary/areas", {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error("Failed to load areas list");
+        const json = await res.json();
+        if (!active) return;
+
+        const allAreas: any[] = json?.data ?? [];
+        const matched = allAreas.find(
+          (a) => String(a.AreaCode || a.areaCode || "").trim() === String(user.AreaCode).trim()
+        );
+
+        if (matched) {
+          const parentProv = matched.ProvCode || matched.provCode || "";
+          if (parentProv) {
+            setSelectedProvince(parentProv);
+            const div = getProvinceDivision(parentProv);
+            if (div) {
+              setSelectedDivision(div);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to resolve parent province/region for area user:", err);
+      }
+    };
+
+    resolveAreaParent();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isLoaded, setIsLoaded]               = useState(false);
   const [activeSolarPieChart, setActiveSolarPieChart] = useState<string | null>(null);

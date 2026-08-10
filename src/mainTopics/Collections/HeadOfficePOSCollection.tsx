@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FaFileDownload, FaPrint } from 'react-icons/fa';
+import { useReportScope } from '../../hooks/useReportScope';
+import { useUser } from '../../contexts/UserContext';
 
 interface HeadOfficePOSCollectionResult {
   AreaName?: string;
@@ -13,6 +15,11 @@ interface HeadOfficePOSCollectionResult {
 }
 
 const HeadOfficePOSCollection: React.FC = () => {
+  const { level, locked } = useReportScope();
+  useUser();
+  const [allowedAreaCodes, setAllowedAreaCodes] = useState<Set<string> | null>(null);
+  const [scopeLoading, setScopeLoading] = useState(false);
+
   const [reportType, setReportType] = useState('Bulk');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -20,6 +27,47 @@ const HeadOfficePOSCollection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<HeadOfficePOSCollectionResult[] | null>(null);
+
+  const lockedRegionCode = locked["Region"]?.code;
+  const lockedProvinceCode = locked["Province"]?.code;
+
+  useEffect(() => {
+    let active = true;
+    const fetchScopeAreas = async () => {
+      // Only fetch areas list if Province (60) or Region (70)
+      if (level !== 60 && level !== 70) return;
+
+      setScopeLoading(true);
+      try {
+        let url = "/misapi/api/ordinary/areas";
+        if (level === 70 && lockedRegionCode) {
+          url += `?regionCode=${encodeURIComponent(lockedRegionCode)}`;
+        } else if (level === 60 && lockedProvinceCode) {
+          url += `?provCode=${encodeURIComponent(lockedProvinceCode)}`;
+        }
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch areas for scope");
+        const payload = await res.json();
+        
+        if (active && payload?.data) {
+          const areaCodes = new Set<string>(
+            payload.data.map((a: any) => String(a.AreaCode || a.areaCode || "").trim().toLowerCase())
+          );
+          setAllowedAreaCodes(areaCodes);
+        }
+      } catch (err) {
+        console.error("Error fetching scope areas:", err);
+      } finally {
+        if (active) setScopeLoading(false);
+      }
+    };
+
+    fetchScopeAreas();
+    return () => {
+      active = false;
+    };
+  }, [level, lockedRegionCode, lockedProvinceCode]);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +112,22 @@ const HeadOfficePOSCollection: React.FC = () => {
         throw new Error("No data returned from server");
       }
 
-      setResults(backendData);
+      let filteredData = backendData;
+
+      if (level < 60 && locked["Area"]?.code) {
+        const targetArea = locked["Area"].code.trim().toLowerCase();
+        filteredData = backendData.filter((r: any) => {
+          const code = (r.AreaCode || r.areaCode || "").trim().toLowerCase();
+          return code === targetArea;
+        });
+      } else if ((level === 60 || level === 70) && allowedAreaCodes) {
+        filteredData = backendData.filter((r: any) => {
+          const code = (r.AreaCode || r.areaCode || "").trim().toLowerCase();
+          return allowedAreaCodes.has(code);
+        });
+      }
+
+      setResults(filteredData);
     } catch (err: any) {
       setError(err.message || "Failed to fetch report");
     } finally {
@@ -166,11 +229,13 @@ const HeadOfficePOSCollection: React.FC = () => {
             Head Office POS Collection
           </h2>
 
+
+
           {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700 text-xs">{error}</p>
-        </div>
-      )}
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-xs">{error}</p>
+            </div>
+          )}
 
       <div className="border border-gray-200 rounded-xl p-4 bg-white shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
@@ -219,10 +284,10 @@ const HeadOfficePOSCollection: React.FC = () => {
         <div className="w-full mt-6 flex justify-end">
           <button 
             onClick={handleViewReport}
-            disabled={loading}
-            className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:opacity-90'}`}
+            disabled={loading || scopeLoading}
+            className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow ${maroonGrad} text-white ${(loading || scopeLoading) ? 'opacity-70 cursor-not-allowed' : 'hover:opacity-90'}`}
           >
-            {loading ? "Loading..." : "View Report"}
+            {loading ? "Loading..." : scopeLoading ? "Preparing Access..." : "View Report"}
           </button>
         </div>
       </div>

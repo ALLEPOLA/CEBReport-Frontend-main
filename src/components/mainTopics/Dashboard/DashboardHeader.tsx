@@ -89,6 +89,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const showAreaDropdown = user?.Level === 60 || user?.Level === 50;
 
   const allowedProvinces = (() => {
+    if (user?.Level === 50 && selectedProvince) {
+      return provinces.filter(p => p.code === selectedProvince);
+    }
     if (isProvinceUser && user?.ProvinceCode) {
       return provinces.filter(p => p.code === user.ProvinceCode);
     }
@@ -109,6 +112,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     }
     if (user?.ProvinceCode) {
       const allowedId = getProvinceDivision(user.ProvinceCode);
+      return division.id === allowedId;
+    }
+    if (user?.Level === 50 && selectedProvince) {
+      const allowedId = getProvinceDivision(selectedProvince);
       return division.id === allowedId;
     }
     return true;
@@ -155,26 +162,28 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </select>
             )}
 
-            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-              {filteredDivisions.map((division) => {
-                const isSelected = selectedDivision === division.id;
+            {user?.Level !== 50 && (
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                {filteredDivisions.map((division) => {
+                  const isSelected = selectedDivision === division.id;
 
-                return (
-                  <button
-                    key={division.id}
-                    type="button"
-                    onClick={() => setDivision(division.id)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                      isSelected
-                        ? "bg-white shadow-sm text-gray-900"
-                        : "text-gray-600 hover:bg-white/50"
-                    }`}
-                  >
-                    {division.label}
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={division.id}
+                      type="button"
+                      onClick={() => setDivision(division.id)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        isSelected
+                          ? "bg-white shadow-sm text-gray-900"
+                          : "text-gray-600 hover:bg-white/50"
+                      }`}
+                    >
+                      {division.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
