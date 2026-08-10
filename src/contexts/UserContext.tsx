@@ -28,6 +28,7 @@ type User = {
   ProvinceCode?: string;
   ProvinceName?: string;
   RegionCode?: string;
+  Company?: string;
 };
 
 type UserContextType = {

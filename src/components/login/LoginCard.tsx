@@ -161,6 +161,20 @@ const LoginCard = () => {
           console.error("Could not load BillMap access profile:", err);
         }
 
+        // Fetch user role info (Company from REP_ROLE_NEW)
+        try {
+          const userRoleRes = await fetch(`/misapi/api/userrole/${username.trim()}`);
+          if (userRoleRes.ok) {
+            const userRoleData = await userRoleRes.json();
+            const roleList = Array.isArray(userRoleData?.data) ? userRoleData.data : [];
+            if (roleList.length > 0 && roleList[0]?.COMPANY) {
+              userData.Company = String(roleList[0].COMPANY).trim();
+            }
+          }
+        } catch (err) {
+          console.error("Could not load user role info:", err);
+        }
+
         setUser(userData);
 
         if (userData?.Logged) {
