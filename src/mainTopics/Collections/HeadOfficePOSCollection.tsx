@@ -16,7 +16,7 @@ interface HeadOfficePOSCollectionResult {
 
 const HeadOfficePOSCollection: React.FC = () => {
   const { level, locked } = useReportScope();
-  const { user } = useUser();
+  useUser();
   const [allowedAreaCodes, setAllowedAreaCodes] = useState<Set<string> | null>(null);
   const [scopeLoading, setScopeLoading] = useState(false);
 
