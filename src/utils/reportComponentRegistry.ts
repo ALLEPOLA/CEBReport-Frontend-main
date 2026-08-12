@@ -209,6 +209,7 @@ import ConstructionCompletedReport from "../mainTopics/Construction/Construction
 
 //Common Reports
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
+import AreaWiseCashBookInquiryReport from "../mainTopics/Common/AreaWiseCashBookInquiryReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -469,6 +470,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//Common Reports
 	"inventory document inquiry": InventoryDocInquiryReport,
+	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 };
 
 /**
