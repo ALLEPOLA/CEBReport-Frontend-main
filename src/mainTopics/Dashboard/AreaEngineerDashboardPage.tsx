@@ -191,6 +191,7 @@ const SOLAR_NET_TYPE_COLORS = [
   "#d45113",
   "#f9a03f",
   "#f8dda4",
+  "#8B5E3C",
 ];
 
 const AreaEngineerDashboardPage: React.FC = () => {
@@ -438,20 +439,31 @@ const AreaEngineerDashboardPage: React.FC = () => {
       .filter(m => m.provinceQtyOnHand > 0)
       .slice(0, 5);
 
-    const totalQty = top.reduce((sum, m) => sum + m.provinceQtyOnHand, 0);
-    if (totalQty === 0) return [];
+    const totalStockVal = top.reduce((sum, m) => {
+      const stockVal = (m.provinceStockValue !== undefined && m.provinceStockValue !== null && !isNaN(m.provinceStockValue) && m.provinceStockValue > 0)
+        ? m.provinceStockValue
+        : (m.unitPrice || 0) * (m.provinceQtyOnHand || 0);
+      return sum + stockVal;
+    }, 0);
 
-    return top.map(m => ({
-      matCd: m.matCd,
-      matNm: m.matNm,
-      qty: m.provinceQtyOnHand,
-      val: m.provinceStockValue,
-      pct: (m.provinceQtyOnHand / totalQty) * 100
-    }));
+    if (totalStockVal === 0) return [];
+
+    return top.map(m => {
+      const stockVal = (m.provinceStockValue !== undefined && m.provinceStockValue !== null && !isNaN(m.provinceStockValue) && m.provinceStockValue > 0)
+        ? m.provinceStockValue
+        : (m.unitPrice || 0) * (m.provinceQtyOnHand || 0);
+      return {
+        matCd: m.matCd,
+        matNm: m.matNm,
+        qty: m.provinceQtyOnHand,
+        stockValue: stockVal,
+        pct: (stockVal / totalStockVal) * 100
+      };
+    });
   }, [materialMasterData]);
 
-  const totalMaterialDonutQty = useMemo(() => {
-    return materialPieChartItems.reduce((sum, item) => sum + item.qty, 0);
+  const totalMaterialDonutStockValue = useMemo(() => {
+    return materialPieChartItems.reduce((sum, item) => sum + item.stockValue, 0);
   }, [materialPieChartItems]);
 
   // Data processing for Construction Progress
@@ -929,8 +941,8 @@ const AreaEngineerDashboardPage: React.FC = () => {
                             <p className="text-[11px] font-semibold truncate text-gray-200">
                               {materialPieChartItems[activeMaterialPieIndex].matCd}
                             </p>
-                            <p className="text-sm font-extrabold mt-0.5 text-white">
-                              {materialPieChartItems[activeMaterialPieIndex].qty.toLocaleString()} <span className="text-[10px] font-normal text-gray-300">Units</span>
+                            <p className="text-xs font-extrabold mt-0.5 text-white font-mono">
+                              LKR {materialPieChartItems[activeMaterialPieIndex].stockValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                             <p className="text-[11px] text-emerald-400 font-mono mt-0.5">
                               {materialPieChartItems[activeMaterialPieIndex].pct.toFixed(1)}%
@@ -939,9 +951,11 @@ const AreaEngineerDashboardPage: React.FC = () => {
                         </div>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-center">
-                            <p className="text-xl font-black text-gray-900 font-mono">{totalMaterialDonutQty.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Units</p>
+                          <div className="text-center px-2">
+                            <p className="text-xs font-black text-gray-900 font-mono">
+                              LKR {totalMaterialDonutStockValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">Total Stock Value</p>
                           </div>
                         </div>
                       )}
@@ -976,7 +990,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
 
                             <div className="flex items-center gap-3 ml-4 flex-shrink-0">
                               <span className="text-xs font-extrabold text-slate-900 font-mono">
-                                {item.qty.toLocaleString()}
+                                LKR {item.stockValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 font-mono">
                                 {item.pct.toFixed(1)}%
