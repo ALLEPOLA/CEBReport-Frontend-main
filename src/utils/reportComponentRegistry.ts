@@ -206,6 +206,9 @@ import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx"
 // Construction 
 import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
 
+//Common Reports
+import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
+
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
 /**
@@ -461,6 +464,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	// Construction Reports
 	"bulk connection details": BulkConnectionDetailsReport,
+
+	//Common Reports
+	"inventory document inquiry": InventoryDocInquiryReport,
 };
 
 /**
