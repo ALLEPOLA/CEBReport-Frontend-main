@@ -1,7 +1,7 @@
 // InventoryDocInquiryReport.tsx
-import React, {useState} from "react";
-import {Download, Printer, Search} from "lucide-react";
-import {toast} from "react-toastify";
+import React, { useState } from "react";
+import { Download, Printer, Search, X } from "lucide-react";
+import { toast } from "react-toastify";
 
 interface InventoryDocInquiryItem {
 	DocNo: string | null;
@@ -96,7 +96,7 @@ const InventoryDocInquiryReport: React.FC = () => {
 			const docNoParam = encodeURIComponent(docNoInput.trim());
 			const url = `/misapi/api/inventorydocinquiry/report?docNo=${docNoParam}`;
 
-			const res = await fetch(url, {credentials: "include", signal: controller.signal});
+			const res = await fetch(url, { credentials: "include", signal: controller.signal });
 			clearTimeout(timeoutId);
 
 			if (!res.ok) {
@@ -190,7 +190,7 @@ const InventoryDocInquiryReport: React.FC = () => {
 		rows.push(`Total,,,,${csvEscape(formatNumber(grandTotalTrxVal))}`);
 
 		const csv = [...titleRows, ...rows].join("\n");
-		const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
+		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
@@ -363,6 +363,12 @@ const InventoryDocInquiryReport: React.FC = () => {
 									className="flex items-center gap-1 px-3 py-1.5 border border-green-400 text-green-700 bg-white rounded-md text-xs font-medium shadow-sm hover:bg-green-50"
 								>
 									<Printer className="w-4 h-4" /> PDF
+								</button>
+								<button
+									onClick={closeReport}
+									className="flex items-center gap-1 px-3 py-1.5 border border-red-400 text-red-700 bg-white rounded-md text-xs font-medium shadow-sm hover:bg-red-50"
+								>
+									<X className="w-4 h-4" /> Close
 								</button>
 							</div>
 
