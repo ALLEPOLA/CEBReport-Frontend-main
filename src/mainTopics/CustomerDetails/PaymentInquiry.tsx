@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MdPermIdentity, MdDateRange } from "react-icons/md";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useReportScope } from "../../hooks/useReportScope";
+import { useUser } from "../../contexts/UserContext";
 
 interface PaymentRecord {
   id: string;
@@ -90,6 +92,12 @@ const formatDateDMY = (dateStr: string) => {
 };
 
 const PaymentInquiry: React.FC = () => {
+  const { level, locked } = useReportScope();
+  useUser();
+  const lockedRegionCode = locked["Region"]?.code;
+  const lockedProvinceCode = locked["Province"]?.code;
+  const lockedAreaCode = locked["Area"]?.code;
+
   const maroon = "text-[#7A0000]";
   const maroonBg = "bg-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
@@ -141,25 +149,71 @@ const PaymentInquiry: React.FC = () => {
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        const response = await fetch("/misapi/api/customerdetails/pos-provinces");
+        let url = "/misapi/api/customerdetails/pos-provinces";
+        if (level === 70 && lockedRegionCode) {
+          url = `/misapi/api/ordinary/province?regionCode=${encodeURIComponent(lockedRegionCode)}`;
+        }
+
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error("Failed to fetch provinces");
         }
         const result = await response.json();
-        const provs = result.data?.provinces || result.data?.Provinces;
+        const provs = result.data?.provinces || result.data?.Provinces || result.data || result;
         if (Array.isArray(provs)) {
           const mapped = provs.map((p: any) => ({
-            id: p.provCode || p.ProvCode,
-            label: p.provName || p.ProvName,
+            id: String(p.provCode || p.ProvCode || p.provinceCode || p.ProvinceCode || "").trim(),
+            label: String(p.provName || p.ProvName || p.provinceName || p.ProvinceName || "").trim(),
           }));
-          setProvinces([{ id: "", label: "Select Province" }, ...mapped]);
+          const unique = mapped.filter((item, index, self) =>
+            item.id && self.findIndex((t) => t.id === item.id) === index
+          );
+          setProvinces([{ id: "", label: "Select Province" }, ...unique]);
+
+          // Lock to province if Level 60
+          if (level === 60 && lockedProvinceCode) {
+            const lockedCode = lockedProvinceCode.trim();
+            const exists = unique.some((m: any) => m.id.trim() === lockedCode);
+            if (exists) {
+              setProvince(lockedCode);
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching provinces:", error);
       }
     };
     fetchProvinces();
-  }, []);
+  }, [level, lockedRegionCode, lockedProvinceCode]);
+
+  // If Level < 60 (Area Manager), automatically resolve province code from the area code
+  useEffect(() => {
+    if (level >= 60 || !lockedAreaCode) return;
+
+    const resolveAreaProvince = async () => {
+      try {
+        const areaCode = lockedAreaCode.trim().toLowerCase();
+        const response = await fetch("/misapi/api/ordinary/areas");
+        if (!response.ok) throw new Error("Failed to fetch ordinary areas");
+        const result = await response.json();
+        
+        if (result?.data && Array.isArray(result.data)) {
+          const matchedArea = result.data.find(
+            (a: any) => String(a.AreaCode || a.areaCode || "").trim().toLowerCase() === areaCode
+          );
+          if (matchedArea) {
+            const resolvedProvCode = String(matchedArea.ProvCode || matchedArea.provCode || "").trim();
+            setProvince(resolvedProvCode);
+            setArea(lockedAreaCode.trim());
+          }
+        }
+      } catch (err) {
+        console.error("Error resolving province for locked area:", err);
+      }
+    };
+
+    resolveAreaProvince();
+  }, [level, lockedAreaCode]);
 
   // Fetch areas and counters when province changes
   useEffect(() => {
@@ -169,14 +223,22 @@ const PaymentInquiry: React.FC = () => {
       setCounters([{ id: "", label: "Select Counter" }]);
       */
       setCounters([{ id: "", label: "All Counters" }]);
-      setArea("");
+      if (level >= 60) {
+        setArea("");
+      } else if (lockedAreaCode) {
+        setArea(lockedAreaCode.trim());
+      }
       setCounter("");
       return;
     }
 
     const fetchAreasAndCounters = async () => {
       // Clear current selection and lists
-      setArea("");
+      if (level >= 60) {
+        setArea("");
+      } else if (lockedAreaCode) {
+        setArea(lockedAreaCode.trim());
+      }
       setCounter("");
 
       try {
@@ -190,10 +252,17 @@ const PaymentInquiry: React.FC = () => {
         const list = result.data?.areas || result.data?.Areas;
         if (Array.isArray(list)) {
           const mapped = list.map((a: any) => ({
-            id: a.areaCode || a.AreaCode,
-            label: a.areaName || a.AreaName,
+            id: String(a.areaCode || a.AreaCode || "").trim(),
+            label: String(a.areaName || a.AreaName || "").trim(),
           }));
-          setAreas([{ id: "", label: "Select Area" }, ...mapped]);
+          const unique = mapped.filter((item, index, self) =>
+            item.id && self.findIndex((t) => t.id === item.id) === index
+          );
+          setAreas([{ id: "", label: "Select Area" }, ...unique]);
+          
+          if (level < 60 && lockedAreaCode) {
+            setArea(lockedAreaCode.trim());
+          }
         } else {
           setAreas([{ id: "", label: "Select Area" }]);
         }
@@ -213,13 +282,13 @@ const PaymentInquiry: React.FC = () => {
         const list = result.data?.counters || result.data?.Counters;
         if (Array.isArray(list)) {
           const mapped = list.map((c: any) => ({
-            id: c.counterNo || c.CounterNo,
-            label: c.counterName || c.CounterName,
+            id: String(c.counterNo || c.CounterNo || "").trim(),
+            label: String(c.counterName || c.CounterName || "").trim(),
           }));
-          /* Original text:
-          setCounters([{ id: "", label: "Select Counter" }, ...mapped]);
-          */
-          setCounters([{ id: "", label: "All Counters" }, ...mapped]);
+          const unique = mapped.filter((item, index, self) =>
+            item.id && self.findIndex((t) => t.id === item.id) === index
+          );
+          setCounters([{ id: "", label: "All Counters" }, ...unique]);
         } else {
           /* Original text:
           setCounters([{ id: "", label: "Select Counter" }]);
@@ -236,7 +305,7 @@ const PaymentInquiry: React.FC = () => {
     };
 
     fetchAreasAndCounters();
-  }, [province]);
+  }, [province, level, lockedAreaCode]);
 
   // Dynamic data for Bill Type and Pay Mode (loaded from API)
   const [billTypes, setBillTypes] = useState<{ id: string; label: string }[]>([
@@ -1281,7 +1350,12 @@ useEffect(() => {
               <select
                 value={province}
                 onChange={(e) => setProvince(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                disabled={level < 70}
+                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
+                  level < 70
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : "border-gray-300"
+                }`}
               >
                 {provinces.map((prov) => (
                   <option key={prov.id} value={prov.id}>
@@ -1297,7 +1371,12 @@ useEffect(() => {
               <select
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                disabled={level < 60}
+                className={`w-full px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent ${
+                  level < 60
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : "border-gray-300"
+                }`}
               >
                 {areas.map((a) => (
                   <option key={a.id} value={a.id}>
