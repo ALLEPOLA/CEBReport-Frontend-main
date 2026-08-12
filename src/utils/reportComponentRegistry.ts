@@ -192,6 +192,7 @@ import SolarDashboardPage from "../mainTopics/Dashboard/SolarDashboardPage";
 import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboardPage";
 import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPage";
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
+import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -447,6 +448,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"collections & payments dashboard": CollectionsDashboardPage,
 	"executive dashboard": ExecutiveDashboardPage,
 	"inventory dashboard": InventoryDashboardPage,
+	"area general manager dashboard": AreaEngineerDashboardPage,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
