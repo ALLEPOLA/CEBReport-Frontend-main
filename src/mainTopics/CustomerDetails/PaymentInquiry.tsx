@@ -125,7 +125,7 @@ const PaymentInquiry: React.FC = () => {
   const [latestUpdateLoading, setLatestUpdateLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"individual" | "pos" | null>(null);
   const [posPage, setPosPage] = useState(1);
-  const [authorizedAreaName, setAuthorizedAreaName] = useState("");
+  const [allOrdinaryAreas, setAllOrdinaryAreas] = useState<any[]>([]);
 
   // Print refs
   const paymentPrintRef = useRef<HTMLDivElement>(null);
@@ -187,35 +187,37 @@ const PaymentInquiry: React.FC = () => {
     fetchProvinces();
   }, [level, lockedRegionCode, lockedProvinceCode]);
 
-  // If Level < 60 (Area Manager), automatically resolve province code and area name from the area code
+  // Load ordinary areas to enforce geographical scoping checks for restricted users (level < 80)
   useEffect(() => {
-    if (level >= 60 || !lockedAreaCode) return;
+    if (level >= 80) return;
 
-    const resolveAreaProvince = async () => {
+    const fetchAllAreas = async () => {
       try {
-        const areaCode = lockedAreaCode.trim().toLowerCase();
         const response = await fetch("/misapi/api/ordinary/areas");
         if (!response.ok) throw new Error("Failed to fetch ordinary areas");
         const result = await response.json();
-        
         if (result?.data && Array.isArray(result.data)) {
-          const matchedArea = result.data.find(
-            (a: any) => String(a.AreaCode || a.areaCode || "").trim().toLowerCase() === areaCode
-          );
-          if (matchedArea) {
-            const resolvedProvCode = String(matchedArea.ProvCode || matchedArea.provCode || "").trim();
-            const resolvedAreaName = String(matchedArea.AreaName || matchedArea.areaName || "").trim();
-            setProvince(resolvedProvCode);
-            setArea(lockedAreaCode.trim());
-            setAuthorizedAreaName(resolvedAreaName);
+          setAllOrdinaryAreas(result.data);
+
+          // For Area Manager (Level < 60), automatically resolve and pre-select province selection
+          if (level < 60 && lockedAreaCode) {
+            const areaCode = lockedAreaCode.trim().toLowerCase();
+            const matchedArea = result.data.find(
+              (a: any) => String(a.AreaCode || a.areaCode || "").trim().toLowerCase() === areaCode
+            );
+            if (matchedArea) {
+              const resolvedProvCode = String(matchedArea.ProvCode || matchedArea.provCode || "").trim();
+              setProvince(resolvedProvCode);
+              setArea(lockedAreaCode.trim());
+            }
           }
         }
       } catch (err) {
-        console.error("Error resolving province for locked area:", err);
+        console.error("Error fetching areas for scope verification:", err);
       }
     };
 
-    resolveAreaProvince();
+    fetchAllAreas();
   }, [level, lockedAreaCode]);
 
   // Fetch areas and counters when province changes
@@ -432,12 +434,36 @@ useEffect(() => {
         throw new Error("No data returned from server");
       }
 
-      // Check level-based access control for Area users (Level < 60)
-      if (level < 60 && lockedAreaCode) {
+      // Check level-based access control (LBAC) for users below HQ (Level < 80)
+      if (level < 80) {
         const returnedAreaName = String(backendData.areaName || backendData.AreaName || "").trim().toLowerCase();
-        const authAreaName = (authorizedAreaName || user?.AreaName || "").trim().toLowerCase();
+        
+        // Find the area details from the ordinary areas list
+        const matchedArea = allOrdinaryAreas.find(
+          (a: any) => String(a.AreaName || a.areaName || "").trim().toLowerCase() === returnedAreaName
+        );
 
-        if (returnedAreaName !== authAreaName) {
+        if (!matchedArea) {
+          // If the area name is not found in ordinary areas list, fail secure by blocking access
+          throw new Error("This account is outside your access scope.");
+        }
+
+        const areaCode = String(matchedArea.AreaCode || matchedArea.areaCode || "").trim().toLowerCase();
+        const provCode = String(matchedArea.ProvCode || matchedArea.provCode || "").trim().toLowerCase();
+        const regionCode = String(matchedArea.Region || matchedArea.region || "").trim().toLowerCase();
+
+        let isAuthorized = false;
+        if (level < 60 && lockedAreaCode) {
+          isAuthorized = areaCode === lockedAreaCode.trim().toLowerCase();
+        } else if (level === 60 && lockedProvinceCode) {
+          isAuthorized = provCode === lockedProvinceCode.trim().toLowerCase();
+        } else if (level === 70 && lockedRegionCode) {
+          isAuthorized = regionCode === lockedRegionCode.trim().toLowerCase();
+        } else {
+          isAuthorized = true;
+        }
+
+        if (!isAuthorized) {
           throw new Error("This account is outside your access scope.");
         }
       }
