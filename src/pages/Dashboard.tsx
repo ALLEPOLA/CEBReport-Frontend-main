@@ -8,6 +8,7 @@ import DefaultDashboardPage from "../mainTopics/Dashboard/DefaultDashboardPage";
 import AnalyticsDashboardPage from "../mainTopics/Dashboard/AnalyticsDashboardPage";
 import FinancialDashboardPage from "../mainTopics/Dashboard/FinancialDashboardPage";
 import DgmDashboardPage from "../mainTopics/Dashboard/DgmDashboardPage";
+import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 import OperationsDashboardPage from "../mainTopics/Dashboard/OperationsDashboardPage";
 import SolarDashboardPage from "../mainTopics/Dashboard/SolarDashboardPage";
 import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboardPage";
@@ -18,6 +19,7 @@ const secondaryDashboardPages: Record<string, React.ComponentType> = {
   analytics: AnalyticsDashboardPage,
   financial: FinancialDashboardPage,
   dgm: DgmDashboardPage,
+  areaEngineer: AreaEngineerDashboardPage,
   operations: OperationsDashboardPage,
   solar: SolarDashboardPage,
   collections: CollectionsDashboardPage,
@@ -29,6 +31,7 @@ const getDashboardKey = (name: string): string => {
   const norm = name.toLowerCase();
   if (norm.includes("financial")) return "financial";
   if (norm.includes("dgm") || norm.includes("construction")) return "dgm";
+  if (norm.includes("area engineer")) return "areaEngineer";
   if (norm.includes("operations") || norm.includes("field")) return "operations";
   if (norm.includes("analytics")) return "analytics";
   if (norm.includes("solar")) return "solar";
