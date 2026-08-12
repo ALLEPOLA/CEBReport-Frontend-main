@@ -41,7 +41,7 @@ const LoginPage = () => {
           <LoginCard />
         </div>
         <p className="absolute bottom-4 right-4 text-xs text-gray-600 opacity-70">
-          Version 1.6
+          Version 1.7
         </p>
       </section>
     </main>
