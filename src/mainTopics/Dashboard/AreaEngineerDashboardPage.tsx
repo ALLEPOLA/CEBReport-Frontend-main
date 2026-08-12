@@ -141,7 +141,7 @@ const ConstructionTooltip = ({ active, payload, label }: any) => {
                   </div>
                   <div className="flex items-center gap-1 text-emerald-700 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Given: {connVal}</span>
+                    <span>Given / Job Closed: {connVal}</span>
                   </div>
                   <div className="flex items-center gap-1 text-red-600 font-bold">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
@@ -177,8 +177,8 @@ interface AreaEngineerMaterialMasterItem {
 }
 
 interface AreaEngineerMaterialMasterSummaryModel {
-  provinceId: string;
-  provinceName: string;
+  areaId: string;
+  areaName: string;
   totalProvinceQtyOnHand: number;
   totalProvinceStockValue: number;
   areaTotals: AreaQtyItem[];
@@ -216,7 +216,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
   // Active hover slice state for Material Master Donut chart
   const [activeMaterialPieIndex, setActiveMaterialPieIndex] = useState<number | null>(null);
 
-  // Province Selection States (Level No = 50 for Area Engineer)
+  // Area Selection States (Level No = 50 for Area Engineer)
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [companies, setCompanies] = useState<{ compId: string; compName: string }[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("WPN");
@@ -263,13 +263,13 @@ const AreaEngineerDashboardPage: React.FC = () => {
     );
   }, [companies, companySearchQuery]);
 
-  // Fetch authorized Province list for Area Engineer (Level No = 50)
+  // Fetch authorized Area list for Area Engineer (Level No = 50)
   useEffect(() => {
     const fetchCompanies = async () => {
       if (!epfNo) return;
       try {
         const res = await fetch(`/misapi/api/incomeexpenditure/Usercompanies/${epfNo}/50`);
-        if (!res.ok) throw new Error("Failed to fetch Area Engineer provinces");
+        if (!res.ok) throw new Error("Failed to fetch Area Engineer areas");
         const parsed = await res.json();
         let rawData: any[] = [];
         if (Array.isArray(parsed)) {
@@ -291,14 +291,9 @@ const AreaEngineerDashboardPage: React.FC = () => {
           setCompanies(final);
           const hasWPN = final.some(c => c.compId.toUpperCase() === "WPN");
           setSelectedCompanyId(hasWPN ? "WPN" : final[0].compId);
-        } else {
-          setCompanies([{ compId: "WPN", compName: "Western Province North" }]);
-          setSelectedCompanyId("WPN");
-        }
+        } 
       } catch (err) {
-        console.error("Failed to load Area Engineer authorized provinces:", err);
-        setCompanies([{ compId: "WPN", compName: "Western Province North" }]);
-        setSelectedCompanyId("WPN");
+        console.error("Failed to load Area Engineer authorized areas:", err);
       }
     };
     fetchCompanies();
@@ -582,10 +577,10 @@ const AreaEngineerDashboardPage: React.FC = () => {
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[color:var(--ceb-maroon,#813405)]/80" />
-                  Province: {companies.find(c => c.compId === selectedCompanyId)?.compName || selectedCompanyId}
+                  Area: {companies.find(c => c.compId === selectedCompanyId)?.compName || selectedCompanyId}
                 </span>
 
-                {/* Global Area Engineer Province Selector (Level No = 50) */}
+                {/* Global Area Engineer Area Selector (Level No = 50) */}
                 {companies.length > 0 && (
                   <div className="relative" ref={companyDropdownRef}>
                     <button
@@ -609,7 +604,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
-                            placeholder="Search Province..."
+                            placeholder="Search Area..."
                             value={companySearchQuery}
                             onChange={(e) => setCompanySearchQuery(e.target.value)}
                             className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--ceb-maroon,#813405)]/20 text-slate-800 placeholder-slate-400 font-medium"
@@ -641,7 +636,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                             })
                           ) : (
                             <div className="text-[11px] text-slate-400 text-center py-3 font-medium">
-                              No matching provinces found
+                              No matching areas found
                             </div>
                           )}
                         </div>
@@ -1011,7 +1006,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                     <div>
                       <h2 className="text-lg font-black text-slate-900 tracking-tight">Area Job Progress Monitoring</h2>
                       <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                        Applications submitted vs Connections given by Area / Department ({selectedCompanyId} - {selectedYear})
+                        Applications submitted vs Connections given / Job closed by Area ({selectedCompanyId} - {selectedYear})
                       </p>
                     </div>
                   </div>
@@ -1053,7 +1048,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                       >
                         <option value="name">Sort: Dept Code</option>
                         <option value="apps-desc">Sort: Applications (High-Low)</option>
-                        <option value="conns-desc">Sort: Connections Given (High-Low)</option>
+                        <option value="conns-desc">Sort: Connections Given / Job Closed (High-Low)</option>
                         <option value="pending-desc">Sort: Pending (High-Low)</option>
                       </select>
                       <ChevronDown className="absolute right-2.5 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
@@ -1125,7 +1120,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                                 <div className="relative group/conns cursor-pointer">
                                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors duration-200">
                                     <span className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
-                                    <span className="text-[11px] font-bold text-slate-700">Connections Given</span>
+                                    <span className="text-[11px] font-bold text-slate-700">Connections Given / Job Closed</span>
                                   </div>
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 pointer-events-none group-hover/conns:opacity-100 group-hover/conns:pointer-events-auto transition-all duration-300 z-50">
                                     <div className="bg-white border border-slate-200 shadow-xl rounded-xl p-3 min-w-[200px]">
@@ -1175,7 +1170,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                       </ResponsiveContainer>
                     ) : (
                       <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium">
-                        No construction application data available for the selected year and province
+                        No construction application data available for the selected year and Area
                       </div>
                     )}
                   </div>
@@ -1189,7 +1184,7 @@ const AreaEngineerDashboardPage: React.FC = () => {
                           <tr>
                             <th className="px-4 py-3">Area / Dept ID</th>
                             <th className="px-4 py-3 text-center">Applied</th>
-                            <th className="px-4 py-3 text-center">Connections Given</th>
+                            <th className="px-4 py-3 text-center">Connections Given / Job Closed</th>
                             <th className="px-4 py-3 text-center">Pending</th>
                             <th className="px-4 py-3 text-right">Completion Rate</th>
                           </tr>
