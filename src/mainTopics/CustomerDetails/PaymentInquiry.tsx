@@ -93,7 +93,7 @@ const formatDateDMY = (dateStr: string) => {
 
 const PaymentInquiry: React.FC = () => {
   const { level, locked } = useReportScope();
-  useUser();
+  const { user } = useUser();
   const lockedRegionCode = locked["Region"]?.code;
   const lockedProvinceCode = locked["Province"]?.code;
   const lockedAreaCode = locked["Area"]?.code;
@@ -125,6 +125,7 @@ const PaymentInquiry: React.FC = () => {
   const [latestUpdateLoading, setLatestUpdateLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"individual" | "pos" | null>(null);
   const [posPage, setPosPage] = useState(1);
+  const [authorizedAreaName, setAuthorizedAreaName] = useState("");
 
   // Print refs
   const paymentPrintRef = useRef<HTMLDivElement>(null);
@@ -186,7 +187,7 @@ const PaymentInquiry: React.FC = () => {
     fetchProvinces();
   }, [level, lockedRegionCode, lockedProvinceCode]);
 
-  // If Level < 60 (Area Manager), automatically resolve province code from the area code
+  // If Level < 60 (Area Manager), automatically resolve province code and area name from the area code
   useEffect(() => {
     if (level >= 60 || !lockedAreaCode) return;
 
@@ -203,8 +204,10 @@ const PaymentInquiry: React.FC = () => {
           );
           if (matchedArea) {
             const resolvedProvCode = String(matchedArea.ProvCode || matchedArea.provCode || "").trim();
+            const resolvedAreaName = String(matchedArea.AreaName || matchedArea.areaName || "").trim();
             setProvince(resolvedProvCode);
             setArea(lockedAreaCode.trim());
+            setAuthorizedAreaName(resolvedAreaName);
           }
         }
       } catch (err) {
@@ -427,6 +430,16 @@ useEffect(() => {
 
       if (!backendData) {
         throw new Error("No data returned from server");
+      }
+
+      // Check level-based access control for Area users (Level < 60)
+      if (level < 60 && lockedAreaCode) {
+        const returnedAreaName = String(backendData.areaName || backendData.AreaName || "").trim().toLowerCase();
+        const authAreaName = (authorizedAreaName || user?.AreaName || "").trim().toLowerCase();
+
+        if (returnedAreaName !== authAreaName) {
+          throw new Error("This account is outside your access scope.");
+        }
       }
 
       const paymentRecords =
