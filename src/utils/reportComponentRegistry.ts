@@ -197,6 +197,7 @@ import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPa
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
+import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
 
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
@@ -204,6 +205,7 @@ import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx"
 
 // Construction 
 import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
+import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -452,6 +454,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+	"cost center wise job register": JobRegisterCCReport,
 
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
@@ -459,6 +462,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	// Construction Reports
 	"bulk connection details": BulkConnectionDetailsReport,
+	"construction all data": ConstructionAllReport,
 };
 
 /**
