@@ -107,7 +107,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 
 	/* ── Report state ── */
 	const [reportData, setReportData] = useState<PivItem[]>([]);
-	const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+	const [, setReportSummary] = useState<ReportSummary | null>(null);
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
 

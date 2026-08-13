@@ -31,6 +31,8 @@ import ReportCatalog from "../pages/ReportCatalog";
 import SMCManagementInfo from "../pages/SMCManagementInfo";
 import FIFO from "../pages/FIFO";
 import Construction from "../pages/Construction";
+import Common from "../pages/Common";
+
 
 const ReportRoutes = () => (
 	<>
@@ -290,6 +292,15 @@ const ReportRoutes = () => (
 			element={
 				<Layout>
 					<Construction />
+				</Layout>
+			}
+		/>
+
+		<Route
+			path="/report/common"
+			element={
+				<Layout>
+					<Common />
 				</Layout>
 			}
 		/>

@@ -192,6 +192,7 @@ import SolarDashboardPage from "../mainTopics/Dashboard/SolarDashboardPage";
 import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboardPage";
 import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPage";
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
+import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -206,6 +207,11 @@ import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx"
 // Construction 
 import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
 import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport.tsx";
+import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport.tsx";
+
+//Common Reports
+import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
+import AreaWiseCashBookInquiryReport from "../mainTopics/Common/AreaWiseCashBookInquiryReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -449,6 +455,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"collections & payments dashboard": CollectionsDashboardPage,
 	"executive dashboard": ExecutiveDashboardPage,
 	"inventory dashboard": InventoryDashboardPage,
+	"area general manager dashboard": AreaEngineerDashboardPage,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
@@ -463,6 +470,11 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	// Construction Reports
 	"bulk connection details": BulkConnectionDetailsReport,
 	"construction all data": ConstructionAllReport,
+	"construction completed": ConstructionCompletedReport,
+
+	//Common Reports
+	"inventory document inquiry": InventoryDocInquiryReport,
+	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 };
 
 /**

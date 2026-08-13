@@ -5,7 +5,6 @@ import "./index.css";
 
 import LoginPage from "./pages/LoginPage";
 import Layout from "./Layout";
-import HomePage from "./pages/HomePage.tsx";
 import UserDetails from "./pages/UserDetails";
 import MaterialDetails from "./mainTopics/inventory/MaterialDetails";
 import ReportRoutes from "./routes/ReportRoutes";
