@@ -97,12 +97,7 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
 
     // ── Level-based access scope (Province & Area users only) ──────────────
     const { user } = useUser();
-    const { level, allowedCategories, locked } = useReportScope();
-
-    // This report is restricted to Province-level (60-69) and Area-level (<60)
-    // users only. Region (70-79) and Entire CEB (80+) users are not permitted
-    // to view it at all.
-    const isAuthorizedForThisReport = level < 70;
+    const { allowedCategories, locked } = useReportScope();
 
     const [provinces, setProvinces] = useState<Province[]>([]);
     const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
@@ -207,10 +202,6 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
                     url += `?regionCode=${locked["Region"].code}`;
                 } else if (locked["Province"]?.code) {
                     url += `?provCode=${locked["Province"].code}`;
-                } else if (locked["Area"]?.code && user.ProvinceCode) {
-                    // Area-level user: scope the areas lookup to their own
-                    // province (fetched from the logged-in user's profile).
-                    url += `?provCode=${user.ProvinceCode}`;
                 }
                 const data = await fetchJSON(url);
                 setAreas(data.data ?? []);
@@ -893,23 +884,6 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
     };
 
     // ── Render ───────────────────────────────────────────────────────────────
-
-    // ── Access gate: Region / Entire CEB users cannot view this report ──────
-    if (!isAuthorizedForThisReport) {
-        return (
-            <div className="p-6 bg-white rounded-lg shadow-md">
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="text-5xl mb-4">🔒</div>
-                    <h2 className={`text-lg font-bold mb-2 ${maroon}`}>Access Restricted</h2>
-                    <p className="text-sm text-gray-600 max-w-md">
-                        This report is available only to Province-level and Area-level users.
-                        Your current access level does not permit viewing this report.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="p-6 bg-white rounded-lg shadow-md">
 
