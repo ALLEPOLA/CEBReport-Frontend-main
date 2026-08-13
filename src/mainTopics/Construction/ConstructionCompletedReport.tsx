@@ -1,4 +1,4 @@
-// IssueReceiptSummaryReport.tsx
+// ConstructionCompletedReport.tsx
 import React, {useEffect, useState} from "react";
 import {Download, Printer, X, RotateCcw, Eye, Search} from "lucide-react";
 import {toast} from "react-toastify";
@@ -9,31 +9,34 @@ interface Department {
 	DeptName: string;
 }
 
-interface IssueReceiptItem {
-	Category: string | null;
-	DocNo: string | null;
-	TrxDt: string | null;
-	TrxVal: number | null;
-	TranStatus: string | null;
+interface ConstructionItem {
+	District: string | null;
+	ServiceDepoName: string | null;
+	Electorate: string | null;
+	Descr: string | null;
+	StdCost: number | null;
+	CPercentage: number | null;
+	Wp: number | null;
+	ProjectNo: string | null;
+	FileNo: string | null;
+	Remarks: string | null;
+	CompDate: string | null;
 	CctName: string | null;
-}
-
-interface CategoryTotal {
-	category: string;
-	recordCount: number;
-	total: number;
 }
 
 interface ReportSummary {
 	totalRecords: number;
-	totalTrxVal: number;
-	categoryTotals: CategoryTotal[];
+	totalStdCost: number;
+	totalWp: number;
+	completedJobs: number;
+	inProgressJobs: number;
 }
 
 /* ────── Constants ────── */
 const MAX_RECORDS = 5000;
 const FETCH_TIMEOUT_MS = 120000;
 const PAGE_SIZE = 9;
+const ALL_OPTION = "ALL";
 
 /* ────── Formatting helpers ────── */
 const formatNumber = (num: number | string | null | undefined): string => {
@@ -45,6 +48,12 @@ const formatNumber = (num: number | string | null | undefined): string => {
 		maximumFractionDigits: 2,
 	});
 	return n < 0 ? `(${formatted})` : formatted;
+};
+
+const formatPercent = (num: number | string | null | undefined): string => {
+	const n = num === null || num === undefined ? NaN : Number(num);
+	if (isNaN(n)) return "";
+	return `${n.toFixed(2)}%`;
 };
 
 const formatDate = (dateStr: string | null): string => {
@@ -74,52 +83,14 @@ const parseApiResponse = (response: any): any[] => {
 	return [];
 };
 
-const today = new Date();
-const currentYear = today.getFullYear();
-const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
-const currentDay = String(today.getDate()).padStart(2, "0");
-const maxDate = `${currentYear}-${currentMonth}-${currentDay}`;
-
-const minYear = currentYear - 20;
-const minDate = `${minYear}-${currentMonth}-${currentDay}`;
-
-/* ────── Row grouped by category, with subtotal rows interleaved ────── */
-type DisplayRow =
-	| {type: "data"; item: IssueReceiptItem; rowNo: number}
-	| {type: "subtotal"; category: string; total: number; count: number};
-
-const buildDisplayRows = (data: IssueReceiptItem[]): DisplayRow[] => {
-	const rows: DisplayRow[] = [];
-	let currentCategory: string | null = null;
-	let runningTotal = 0;
-	let runningCount = 0;
-	let rowNo = 0;
-
-	data.forEach((item, idx) => {
-		const cat = item.Category || "Uncategorized";
-		if (currentCategory !== null && cat !== currentCategory) {
-			rows.push({type: "subtotal", category: currentCategory, total: runningTotal, count: runningCount});
-			runningTotal = 0;
-			runningCount = 0;
-		}
-		currentCategory = cat;
-		rowNo += 1;
-		runningTotal += item.TrxVal ?? 0;
-		runningCount += 1;
-		rows.push({type: "data", item, rowNo});
-
-		if (idx === data.length - 1) {
-			rows.push({type: "subtotal", category: currentCategory, total: runningTotal, count: runningCount});
-		}
-	});
-
-	return rows;
-};
-
 /* ────── MAIN COMPONENT ────── */
-const IssueReceiptSummaryReport: React.FC = () => {
+const ConstructionCompletedReport: React.FC = () => {
 	const {user} = useUser();
 	const epfNo = user?.Userno || "";
+	// NOTE: assumes a role id is exposed on the user context as `RoleId`.
+	// Confirm the real property name before relying on this in production —
+	// the district dropdown will just come back empty if this is wrong.
+	const roleId = (user as any)?.RoleId || "";
 
 	const maroon = "text-[#7A0000]";
 	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
@@ -135,13 +106,18 @@ const IssueReceiptSummaryReport: React.FC = () => {
 
 	const [selectedDept, setSelectedDept] = useState<Department | null>(null);
 
-	/* ── Other filter state ── */
-	const [fromDate, setFromDate] = useState("");
-	const [toDate, setToDate] = useState("");
+	/* ── Fund ID / District dropdown state ── */
+	const [fundIds, setFundIds] = useState<string[]>([]);
+	const [fundIdLoading, setFundIdLoading] = useState(true);
+	const [selectedFundId, setSelectedFundId] = useState(ALL_OPTION);
+
+	const [districts, setDistricts] = useState<string[]>([]);
+	const [districtLoading, setDistrictLoading] = useState(true);
+	const [selectedDistrict, setSelectedDistrict] = useState(ALL_OPTION);
 
 	/* ── Report state ── */
-	const [reportData, setReportData] = useState<IssueReceiptItem[]>([]);
-	const [, setReportSummary] = useState<ReportSummary | null>(null);
+	const [reportData, setReportData] = useState<ConstructionItem[]>([]);
+	const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
 
@@ -179,6 +155,55 @@ const IssueReceiptSummaryReport: React.FC = () => {
 		fetchDepartments();
 	}, [epfNo]);
 
+	/* ────── Fetch Fund IDs (once) ────── */
+	useEffect(() => {
+		const fetchFundIds = async () => {
+			setFundIdLoading(true);
+			try {
+				const res = await fetch(`/misapi/api/constructioncompleted/lookups/fundids`, {
+					credentials: "include",
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const json = await res.json();
+				const raw = parseApiResponse(json);
+				const ids: string[] = raw.map((f: any) => String(f).trim()).filter(Boolean);
+				setFundIds(ids);
+			} catch (e: any) {
+				toast.error("Failed to load fund IDs.");
+			} finally {
+				setFundIdLoading(false);
+			}
+		};
+		fetchFundIds();
+	}, []);
+
+	/* ────── Fetch Districts (needs roleId) ────── */
+	useEffect(() => {
+		const fetchDistricts = async () => {
+			if (!roleId) {
+				setDistrictLoading(false);
+				return;
+			}
+			setDistrictLoading(true);
+			try {
+				const res = await fetch(
+					`/misapi/api/constructioncompleted/lookups/districts/${encodeURIComponent(roleId)}`,
+					{credentials: "include"}
+				);
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const json = await res.json();
+				const raw = parseApiResponse(json);
+				const list: string[] = raw.map((d: any) => String(d).trim()).filter(Boolean);
+				setDistricts(list);
+			} catch (e: any) {
+				toast.error("Failed to load districts.");
+			} finally {
+				setDistrictLoading(false);
+			}
+		};
+		fetchDistricts();
+	}, [roleId]);
+
 	/* ────── Filter Departments ────── */
 	useEffect(() => {
 		const f = departments.filter(
@@ -198,18 +223,6 @@ const IssueReceiptSummaryReport: React.FC = () => {
 			toast.error("Please select a cost center.");
 			return false;
 		}
-		if (!fromDate) {
-			toast.error("Please select 'From Date'");
-			return false;
-		}
-		if (!toDate) {
-			toast.error("Please select 'To Date'");
-			return false;
-		}
-		if (new Date(toDate) < new Date(fromDate)) {
-			toast.error("'To Date' cannot be earlier than 'From Date'");
-			return false;
-		}
 		return true;
 	};
 
@@ -227,7 +240,9 @@ const IssueReceiptSummaryReport: React.FC = () => {
 
 		try {
 			const costCtrParam = encodeURIComponent(selectedDept!.DeptId);
-			const url = `/misapi/api/issuereceiptsummary/report/${fromDate}/${toDate}/${costCtrParam}`;
+			const fundIdParam = encodeURIComponent(selectedFundId);
+			const districtParam = encodeURIComponent(selectedDistrict);
+			const url = `/misapi/api/constructioncompleted/report/${fundIdParam}/${districtParam}/${costCtrParam}`;
 
 			const res = await fetch(url, {credentials: "include", signal: controller.signal});
 			clearTimeout(timeoutId);
@@ -240,19 +255,18 @@ const IssueReceiptSummaryReport: React.FC = () => {
 			const json = await res.json();
 			if (!json.success) throw new Error(json.message || "Failed to load data");
 
-			const items: IssueReceiptItem[] = json.data || [];
+			const items: ConstructionItem[] = json.data || [];
 			if (items.length > MAX_RECORDS)
 				throw new Error(`Too many records (${items.length}). Please refine your search.`);
 
-			if (items.length === 0) {
-				toast.warn("No records found for the selected criteria.");
-				setShowReport(false);
-				return;
-			}
-
 			setReportData(items);
 			setReportSummary(json.summary || null);
-			toast.success(`${items.length} records loaded successfully.`);
+
+			if (items.length === 0) {
+				toast.warn("No completed jobs found for the selected criteria.");
+			} else {
+				toast.success(`${items.length} records loaded successfully.`);
+			}
 		} catch (e: any) {
 			if (e.name === "AbortError") {
 				toast.error("Request timed out.");
@@ -277,8 +291,8 @@ const IssueReceiptSummaryReport: React.FC = () => {
 
 	const clearAll = () => {
 		setSelectedDept(null);
-		setFromDate("");
-		setToDate("");
+		setSelectedFundId(ALL_OPTION);
+		setSelectedDistrict(ALL_OPTION);
 		setSearchId("");
 		setSearchName("");
 		setShowReport(false);
@@ -294,57 +308,71 @@ const IssueReceiptSummaryReport: React.FC = () => {
 		setReportLoading(false);
 	};
 
-	/* ────── Sorted per SQL: ORDER BY 2,3 (doc_no, trx_dt), grouped by category ────── */
+	/* ────── Sorted per SQL: ORDER BY district, servicedeponame, electorate, project_no ────── */
 	const sortedData = [...reportData].sort(
 		(a, b) =>
-			(a.Category || "").localeCompare(b.Category || "") ||
-			(a.DocNo || "").localeCompare(b.DocNo || "") ||
-			(a.TrxDt || "").localeCompare(b.TrxDt || "")
+			(a.District || "").localeCompare(b.District || "") ||
+			(a.ServiceDepoName || "").localeCompare(b.ServiceDepoName || "") ||
+			(a.Electorate || "").localeCompare(b.Electorate || "") ||
+			(a.ProjectNo || "").localeCompare(b.ProjectNo || "")
 	);
-
-	const displayRows = buildDisplayRows(sortedData);
 
 	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
 	const costCtrDisplay = selectedDept?.DeptId || "";
-	const grandTotal = reportData.reduce((sum, r) => sum + (r.TrxVal ?? 0), 0);
+	const totalStdCost = reportSummary?.totalStdCost ?? sortedData.reduce((s, r) => s + (r.StdCost ?? 0), 0);
+	const totalWp = reportSummary?.totalWp ?? sortedData.reduce((s, r) => s + (r.Wp ?? 0), 0);
+	const completedJobs = reportSummary?.completedJobs ?? sortedData.length;
+	const inProgressJobs = reportSummary?.inProgressJobs ?? 0;
 
 	/* ────── CSV download ────── */
 	const downloadCSV = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Issue, Issue Cancellation, Receipt - From ${fromDate} To ${toDate}`,
+			`Construction Completed - ${selectedFundId === ALL_OPTION ? "All Funds" : selectedFundId}`,
 			`Cost Center: ${costCtrDisplay}/${cctName}`,
+			`District: ${selectedDistrict === ALL_OPTION ? "All" : selectedDistrict}`,
 			"",
 		];
 
-		const headers = ["Category", "Document No", "Date", "Total", "Status"];
+		const headers = [
+			"Item",
+			"Scheme Name",
+			"Work Est. Cost (LKR)",
+			"Progress %",
+			"Work Progress",
+			"Job No",
+			"File No",
+			"Remarks",
+			"Completed Date",
+		];
 		const rows: string[] = [headers.join(",")];
 
-		displayRows.forEach((row) => {
-			if (row.type === "data") {
-				rows.push(
-					[
-						csvEscape(row.item.Category),
-						csvEscape(row.item.DocNo),
-						csvEscape(formatDate(row.item.TrxDt)),
-						csvEscape(formatNumber(row.item.TrxVal)),
-						csvEscape(row.item.TranStatus),
-					].join(",")
-				);
-			} else {
-				rows.push(
-					["", "", `${row.category} Total (${row.count})`, csvEscape(formatNumber(row.total)), ""].join(",")
-				);
-			}
+		sortedData.forEach((it, i) => {
+			rows.push(
+				[
+					csvEscape(i + 1),
+					csvEscape(it.Descr),
+					csvEscape(formatNumber(it.StdCost)),
+					csvEscape(formatPercent(it.CPercentage)),
+					csvEscape(formatNumber(it.Wp)),
+					csvEscape(it.ProjectNo),
+					csvEscape(it.FileNo),
+					csvEscape(it.Remarks),
+					csvEscape(formatDate(it.CompDate)),
+				].join(",")
+			);
 		});
 
 		rows.push(
 			"",
-			`,,Grand Total,${csvEscape(formatNumber(grandTotal))},`,
+			`,,Total,${csvEscape(formatNumber(totalStdCost))},,${csvEscape(formatNumber(totalWp))},,,`,
 			"",
-			"Prepared by:,,,,",
-			"checked by:,,,,"
+			`In progress jobs:,${inProgressJobs}`,
+			`Completed jobs:,${completedJobs}`,
+			"",
+			"Prepared by:,,,,,,,,",
+			"checked by:,,,,,,,,"
 		);
 
 		const csv = [...titleRows, ...rows].join("\n");
@@ -352,7 +380,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `IssueReceiptSummary_${costCtrDisplay}_${fromDate}_${toDate}.csv`;
+		a.download = `ConstructionCompleted_${costCtrDisplay}_${selectedFundId}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -362,36 +390,31 @@ const IssueReceiptSummaryReport: React.FC = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
-		displayRows.forEach((row, i) => {
-			if (row.type === "data") {
-				rows += `
+		sortedData.forEach((it, i) => {
+			rows += `
           <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-left text-xs">${
-					row.item.Category || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
-					row.item.DocNo || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
-					row.item.TrxDt
+            <td class="px-2 py-2 border-l border-r border-gray-300 text-center text-xs">${i + 1}</td>
+            <td class="px-2 py-2 border-r border-gray-300 text-left text-xs">${it.Descr || ""}</td>
+            <td class="px-2 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+					it.StdCost
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					row.item.TrxVal
+            <td class="px-2 py-2 border-r border-gray-300 text-center text-xs">${formatPercent(
+					it.CPercentage
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
-					row.item.TranStatus || ""
+            <td class="px-2 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
+					it.Wp
+				)}</td>
+            <td class="px-2 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.ProjectNo || ""
 				}</td>
+            <td class="px-2 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.FileNo || ""
+				}</td>
+            <td class="px-2 py-2 border-r border-gray-300 text-left text-xs">${it.Remarks || ""}</td>
+            <td class="px-2 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
+					it.CompDate
+				)}</td>
           </tr>`;
-			} else {
-				rows += `
-          <tr style="background:#f3e8e8; font-weight:bold;">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-xs" colspan="3">${row.category} Total (${row.count} records)</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					row.total
-				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-xs"></td>
-          </tr>`;
-			}
 		});
 
 		const html = `
@@ -405,10 +428,12 @@ const IssueReceiptSummaryReport: React.FC = () => {
       .title { margin: 10px 8px 6px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
       .info { margin:4px 8px; font-size:9.5px; }
       .info div { margin-bottom:3px; }
-      table { border-collapse:collapse; width:100%; font-size:9px; margin-top:10px; }
-      th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
+      table { border-collapse:collapse; width:100%; font-size:8px; margin-top:10px; }
+      th, td { border:1px solid #d1d5db; padding:5px 6px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
       .font-mono { font-family:monospace; }
+      .footer-lines { margin: 10px 8px; font-size:9.5px; }
+      .footer-lines div { margin-bottom:4px; }
       .sig-row { display:flex; justify-content:space-between; margin-top:30px; padding:0 15px; font-size:9px; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
@@ -421,32 +446,44 @@ const IssueReceiptSummaryReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Issue, Issue Cancellation, Receipt - From ${fromDate} To ${toDate}</div>
+  <div class="title">Construction Completed - ${selectedFundId === ALL_OPTION ? "All Funds" : selectedFundId}</div>
   <div class="info">
     <div><strong>Cost Center:</strong> ${costCtrDisplay}/${cctName}</div>
+    <div><strong>District:</strong> ${selectedDistrict === ALL_OPTION ? "All" : selectedDistrict}</div>
   </div>
-  <table style="width:100%; border-collapse:collapse; font-size:9px; border:1px solid #d1d5db;">
+  <table style="width:100%; border-collapse:collapse; font-size:8px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:15%;">Category</th>
-        <th style="padding:6px 8px; width:20%;">Document No</th>
-        <th style="padding:6px 8px; width:15%;">Date</th>
-        <th style="padding:6px 8px; width:20%; text-align:right;">Total</th>
-        <th style="padding:6px 8px; width:30%;">Status</th>
+        <th style="padding:5px 6px; width:4%;">Item</th>
+        <th style="padding:5px 6px; width:20%;">Scheme Name</th>
+        <th style="padding:5px 6px; width:11%; text-align:right;">Work Est. Cost (LKR)</th>
+        <th style="padding:5px 6px; width:8%;">Progress %</th>
+        <th style="padding:5px 6px; width:11%; text-align:right;">Work Progress</th>
+        <th style="padding:5px 6px; width:10%;">Job No</th>
+        <th style="padding:5px 6px; width:10%;">File No</th>
+        <th style="padding:5px 6px; width:16%;">Remarks</th>
+        <th style="padding:5px 6px; width:10%;">Completed Date</th>
       </tr>
     </thead>
     <tbody>${rows}
       <tr style="background:#7A0000; color:white; font-weight:bold;">
-        <td class="px-3 py-2" colspan="3">Grand Total</td>
-        <td class="px-3 py-2 text-right font-mono">${formatNumber(grandTotal)}</td>
-        <td class="px-3 py-2"></td>
+        <td class="px-2 py-2" colspan="2">Total</td>
+        <td class="px-2 py-2 text-right font-mono">${formatNumber(totalStdCost)}</td>
+        <td class="px-2 py-2"></td>
+        <td class="px-2 py-2 text-right font-mono">${formatNumber(totalWp)}</td>
+        <td class="px-2 py-2" colspan="4"></td>
       </tr>
     </tbody>
   </table>
 
+  <div class="footer-lines">
+    <div><strong>In progress jobs:</strong> ${inProgressJobs}</div>
+    <div><strong>Completed jobs:</strong> ${completedJobs}</div>
+  </div>
+
   <div class="sig-row">
     <div>Prepared by: ____________________</div>
-    <div>checked by: ____________________</div>
+    <div>Checked by: ____________________</div>
   </div>
 </body>
 </html>`;
@@ -468,43 +505,48 @@ const IssueReceiptSummaryReport: React.FC = () => {
 	return (
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
-				<h2 className={`text-xl font-bold ${maroon}`}>Issue and Receipt Summary</h2>
+				<h2 className={`text-xl font-bold ${maroon}`}>Construction Completed</h2>
 			</div>
 
 			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-4">
-					<div className="flex items-center gap-2">
-						<label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
-							From Date:
-						</label>
-						<input
-							type="date"
-							value={fromDate}
-							onChange={(e) => setFromDate(e.target.value)}
-							min={minDate}
-							max={maxDate}
-							className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
-						/>
+				<div className="flex flex-col md:flex-row flex-wrap gap-4 items-end mb-4">
+					<div className="flex flex-col">
+						<label className={`text-xs font-bold ${maroon} mb-1`}>Fund ID</label>
+						<select
+							value={selectedFundId}
+							onChange={(e) => setSelectedFundId(e.target.value)}
+							disabled={fundIdLoading}
+							className="pl-3 pr-3 py-1.5 w-full md:w-40 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+						>
+							<option value={ALL_OPTION}>All Funds</option>
+							{fundIds.map((f) => (
+								<option key={f} value={f}>
+									{f}
+								</option>
+							))}
+						</select>
 					</div>
-					<div className="flex items-center gap-2">
-						<label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
-							To Date:
-						</label>
-						<input
-							type="date"
-							value={toDate}
-							onChange={(e) => setToDate(e.target.value)}
-							min={minDate}
-							max={maxDate}
-							className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
-						/>
-					</div>
-				</div>
 
-				<div className="flex flex-col md:flex-row flex-wrap gap-4 items-end">
+					<div className="flex flex-col">
+						<label className={`text-xs font-bold ${maroon} mb-1`}>District</label>
+						<select
+							value={selectedDistrict}
+							onChange={(e) => setSelectedDistrict(e.target.value)}
+							disabled={districtLoading}
+							className="pl-3 pr-3 py-1.5 w-full md:w-48 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+						>
+							<option value={ALL_OPTION}>All Districts</option>
+							{districts.map((d) => (
+								<option key={d} value={d}>
+									{d}
+								</option>
+							))}
+						</select>
+					</div>
+
 					<button
 						onClick={fetchReport}
-						disabled={!selectedDept || !fromDate || !toDate}
+						disabled={!selectedDept}
 						className={`px-3 py-1.5 ${maroonGrad} text-white rounded-md text-sm font-medium hover:brightness-110 transition shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1`}
 					>
 						<Eye className="w-3 h-3" /> View
@@ -569,7 +611,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 			{!deptLoading && !deptError && filtered.length > 0 && (
 				<>
 					<p className="text-xs text-gray-500 mb-2">
-						Select a cost center below, then fill in the date range above and click View.
+						Select a cost center below, choose a Fund ID / District above if needed, then click View.
 					</p>
 					<div className="overflow-x-auto rounded-lg border border-gray-200">
 						<div className="max-h-[50vh] overflow-y-auto">
@@ -634,7 +676,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 							<div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
 								<div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#7A0000]"></div>
 								<p className="text-xl font-bold text-[#7A0000]">Loading Report...</p>
-								<p className="text-sm text-gray-600">Fetching issue and receipt data from server</p>
+								<p className="text-sm text-gray-600">Fetching construction data from server</p>
 							</div>
 						)}
 						{!reportLoading && reportData.length > 0 && (
@@ -661,89 +703,104 @@ const IssueReceiptSummaryReport: React.FC = () => {
 								</div>
 
 								<h2 className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}>
-									Issue, Issue Cancellation, Receipt - From {fromDate} To {toDate}
+									Construction Completed - {selectedFundId === ALL_OPTION ? "All Funds" : selectedFundId}
 								</h2>
+								<div className="text-sm mb-2 ml-5 mr-12">
+									<span className="font-bold">Cost center:</span> {costCtrDisplay}/{cctName}
+								</div>
 								<div className="text-sm mb-3 ml-5 mr-12">
-									<span className="font-bold">Cost Center:</span> {costCtrDisplay}/{cctName}
+									<span className="font-bold">District:</span>{" "}
+									{selectedDistrict === ALL_OPTION ? "All" : selectedDistrict}
 								</div>
 
-								<div className="ml-5 mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
-									<div className="min-w-[900px]">
+								<div className="ml-5 mt-1 mb-3 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
+									<div className="min-w-[1100px]">
 										<table className="w-full text-xs border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "15%"}}>
-														Category
+													<th className="px-2 py-2 border border-gray-300" style={{width: "4%"}}>
+														Item
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "20%"}}>
-														Document No
+													<th className="px-2 py-2 border border-gray-300" style={{width: "20%"}}>
+														Scheme Name
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "15%"}}>
-														Date
+													<th className="px-2 py-2 border border-gray-300 text-right" style={{width: "11%"}}>
+														Work Est. Cost (LK Rs.)
 													</th>
-													<th className="px-3 py-2 border border-gray-300 text-right" style={{width: "20%"}}>
-														Total
+													<th className="px-2 py-2 border border-gray-300" style={{width: "8%"}}>
+														Progress %
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "30%"}}>
-														Status
+													<th className="px-2 py-2 border border-gray-300 text-right" style={{width: "11%"}}>
+														Work Progress
+													</th>
+													<th className="px-2 py-2 border border-gray-300" style={{width: "10%"}}>
+														Job No
+													</th>
+													<th className="px-2 py-2 border border-gray-300" style={{width: "10%"}}>
+														File No
+													</th>
+													<th className="px-2 py-2 border border-gray-300" style={{width: "16%"}}>
+														Remarks
+													</th>
+													<th className="px-2 py-2 border border-gray-300" style={{width: "10%"}}>
+														Completed Date
 													</th>
 												</tr>
 											</thead>
 											<tbody>
-												{displayRows.map((row, i) =>
-													row.type === "data" ? (
-														<tr key={i} className={row.rowNo % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-															<td className="px-3 py-2 border-l border-r border-gray-300">
-																{row.item.Category || ""}
-															</td>
-															<td className="px-3 py-2 font-mono border-r border-gray-300">
-																{row.item.DocNo || ""}
-															</td>
-															<td className="px-3 py-2 text-center border-r border-gray-300">
-																{formatDate(row.item.TrxDt)}
-															</td>
-															<td className="px-3 py-2 text-right font-mono border-r border-gray-300">
-																{formatNumber(row.item.TrxVal)}
-															</td>
-															<td className="px-3 py-2 border-r border-gray-300">
-																{row.item.TranStatus || ""}
-															</td>
-														</tr>
-													) : (
-														<tr key={i} className="bg-[#f3e8e8] font-bold">
-															<td
-																className="px-3 py-2 border-l border-r border-gray-300"
-																colSpan={3}
-															>
-																{row.category} Total ({row.count} records)
-															</td>
-															<td className="px-3 py-2 text-right font-mono border-r border-gray-300">
-																{formatNumber(row.total)}
-															</td>
-															<td className="px-3 py-2 border-r border-gray-300"></td>
-														</tr>
-													)
-												)}
+												{sortedData.map((it, i) => (
+													<tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+														<td className="px-2 py-2 text-center border-l border-r border-gray-300">
+															{i + 1}
+														</td>
+														<td className="px-2 py-2 border-r border-gray-300">{it.Descr || ""}</td>
+														<td className="px-2 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.StdCost)}
+														</td>
+														<td className="px-2 py-2 text-center border-r border-gray-300">
+															{formatPercent(it.CPercentage)}
+														</td>
+														<td className="px-2 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.Wp)}
+														</td>
+														<td className="px-2 py-2 font-mono border-r border-gray-300">
+															{it.ProjectNo || ""}
+														</td>
+														<td className="px-2 py-2 font-mono border-r border-gray-300">
+															{it.FileNo || ""}
+														</td>
+														<td className="px-2 py-2 border-r border-gray-300">{it.Remarks || ""}</td>
+														<td className="px-2 py-2 text-center border-r border-gray-300">
+															{formatDate(it.CompDate)}
+														</td>
+													</tr>
+												))}
 												<tr className={`${maroonGrad} text-white font-bold`}>
-													<td className="px-3 py-2" colSpan={3}>
-														Grand Total
+													<td className="px-2 py-2" colSpan={2}>
+														Total
 													</td>
-													<td className="px-3 py-2 text-right font-mono">
-														{formatNumber(grandTotal)}
-													</td>
-													<td className="px-3 py-2"></td>
+													<td className="px-2 py-2 text-right font-mono">{formatNumber(totalStdCost)}</td>
+													<td className="px-2 py-2"></td>
+													<td className="px-2 py-2 text-right font-mono">{formatNumber(totalWp)}</td>
+													<td className="px-2 py-2" colSpan={4}></td>
 												</tr>
 											</tbody>
 										</table>
-										<p className="text-xs text-gray-500 mt-2 text-right px-2">
-											Total records: {reportData.length.toLocaleString()}
-										</p>
+									</div>
+								</div>
+
+								<div className="ml-5 mr-12 mb-3 text-sm">
+									<div>
+										<span className="font-bold">In progress jobs:</span> {inProgressJobs}
+									</div>
+									<div>
+										<span className="font-bold">Completed jobs:</span> {completedJobs}
 									</div>
 								</div>
 
 								<div className="flex justify-between mt-8 ml-5 mr-12 mb-4 text-sm">
 									<div>Prepared by: ____________________</div>
-									<div>checked by: ____________________</div>
+									<div>Checked by: ____________________</div>
 								</div>
 							</div>
 						)}
@@ -754,4 +811,4 @@ const IssueReceiptSummaryReport: React.FC = () => {
 	);
 };
 
-export default IssueReceiptSummaryReport;
+export default ConstructionCompletedReport;

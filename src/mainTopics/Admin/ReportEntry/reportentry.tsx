@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState, ChangeEvent } from "react";
 import { toast } from "react-toastify";
-import { CheckSquare, RefreshCw, Search, Square, Upload, Image as ImageIcon } from "lucide-react";
+import { CheckSquare, RefreshCw, Search, Square} from "lucide-react";
 import { resolveImagePath } from "../../../components/catalog/SamplePreview";
 
 type CategoryRecord = {

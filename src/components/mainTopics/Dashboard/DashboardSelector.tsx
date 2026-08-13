@@ -15,6 +15,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   default: Home,
   financial: DollarSign,
   dgm: Users,
+  areaengineer: Users,
   operations: Briefcase,
   analytics: BarChart3,
   solar: Sun,
@@ -26,6 +27,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 const getDashboardKey = (name: string): string => {
   const norm = name.toLowerCase();
   if (norm.includes("financial")) return "financial";
+  if (norm.includes("areaengineer") || norm.includes("area engineer") || norm.includes("agm") || norm.includes("area")) return "areaengineer";
   if (norm.includes("dgm") || norm.includes("construction")) return "dgm";
   if (norm.includes("operations") || norm.includes("field")) return "operations";
   if (norm.includes("analytics")) return "analytics";
