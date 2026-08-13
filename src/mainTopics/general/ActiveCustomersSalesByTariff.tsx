@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, JSX } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,16 @@ interface BulkRow {
     Count: number;
     KwhSales: number;
     ErrorMessage: string;
+}
+
+interface Province {
+    ProvinceCode: string;
+    ProvinceName: string;
+}
+
+interface Area {
+    AreaCode: string;
+    AreaName: string;
 }
 
 // Pivoted row used by the table renderer
@@ -80,8 +92,29 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
     const [custType, setCustType] = useState<string>("");   // "Ordinary" | "Bulk"
     const [fromCycle, setFromCycle] = useState<string>("");
     const [toCycle, setToCycle] = useState<string>("");
-    const [reportType, setReportType] = useState<string>("");   // "area" | "province" | "region" | "entireceb"
+    const [reportType, setReportType] = useState<string>("");   // "area" | "province"
     const [loading, setLoading] = useState(false);
+
+    // ── Level-based access scope (Province & Area users only) ──────────────
+    const { user } = useUser();
+    const { level, allowedCategories, locked } = useReportScope();
+
+    // This report is restricted to Province-level (60-69) and Area-level (<60)
+    // users only. Region (70-79) and Entire CEB (80+) users are not permitted
+    // to view it at all.
+    const isAuthorizedForThisReport = level < 70;
+
+    const [provinces, setProvinces] = useState<Province[]>([]);
+    const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
+    const [provinceError, setProvinceError] = useState<string | null>(null);
+    const [selectedProvince, setSelectedProvince] = useState<string>("");
+
+    const [areas, setAreas] = useState<Area[]>([]);
+    const [isLoadingAreas, setIsLoadingAreas] = useState(false);
+    const [areaError, setAreaError] = useState<string | null>(null);
+    const [selectedArea, setSelectedArea] = useState<string>("");
+
+    const [snapScopeLabel, setSnapScopeLabel] = useState<string>("");
 
     // ── Cycle options ───────────────────────────────────────────────────────
     const [cycleOptions, setCycleOptions] = useState<BillCycleOption[]>([]);
@@ -136,6 +169,75 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
         };
         fetchCycles();
     }, [custType]);
+
+    // ── Fetch provinces (used when Report Type = Province) ─────────────────
+    useEffect(() => {
+        if (reportType !== "province") return;
+
+        const fetchProvinces = async () => {
+            setIsLoadingProvinces(true);
+            setProvinceError(null);
+            try {
+                let url = "/misapi/api/bulk/province";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                }
+                const data = await fetchJSON(url);
+                setProvinces(data.data ?? []);
+            } catch (e) {
+                setProvinceError(e instanceof Error ? e.message : "Failed to load provinces");
+            } finally {
+                setIsLoadingProvinces(false);
+            }
+        };
+        fetchProvinces();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reportType, user.Level, user.RegionCode]);
+
+    // ── Fetch areas (used when Report Type = Area) ──────────────────────────
+    useEffect(() => {
+        if (reportType !== "area") return;
+
+        const fetchAreas = async () => {
+            setIsLoadingAreas(true);
+            setAreaError(null);
+            try {
+                let url = "/misapi/api/bulk/areas";
+                if (locked["Region"]?.code) {
+                    url += `?regionCode=${locked["Region"].code}`;
+                } else if (locked["Province"]?.code) {
+                    url += `?provCode=${locked["Province"].code}`;
+                } else if (locked["Area"]?.code && user.ProvinceCode) {
+                    // Area-level user: scope the areas lookup to their own
+                    // province (fetched from the logged-in user's profile).
+                    url += `?provCode=${user.ProvinceCode}`;
+                }
+                const data = await fetchJSON(url);
+                setAreas(data.data ?? []);
+            } catch (e) {
+                setAreaError(e instanceof Error ? e.message : "Failed to load areas");
+            } finally {
+                setIsLoadingAreas(false);
+            }
+        };
+        fetchAreas();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reportType, user.Level, user.RegionCode, user.ProvinceCode]);
+
+    // ── Lock / reset Province & Area selection whenever Report Type changes ─
+    useEffect(() => {
+        if (reportType === "province") {
+            setSelectedProvince(locked["Province"]?.code ?? "");
+            setSelectedArea("");
+        } else if (reportType === "area") {
+            setSelectedArea(locked["Area"]?.code ?? "");
+            setSelectedProvince(locked["Province"]?.code ?? "");
+        } else {
+            setSelectedProvince("");
+            setSelectedArea("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reportType, locked["Province"]?.code, locked["Area"]?.code]);
 
     // ── Generic fetch helper ────────────────────────────────────────────────
     const fetchJSON = async (url: string) => {
@@ -277,7 +379,35 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
                 ...r,
                 total: finalTariffs.reduce((sum, col) => sum + (r.tariffs[col] ?? 0), 0),
             }));
-            setPivotedData(adjusted);
+
+            // ── Scope the results to the logged-in Province/Area user ──────
+            // The underlying API returns data for every location, so we filter
+            // client-side to whatever this user is allowed to see.
+            let scoped = adjusted;
+            let scopeLabel = "";
+
+            if (rtParam === "province") {
+                const provName =
+                    locked["Province"]?.name ||
+                    provinces.find(p => p.ProvinceCode === selectedProvince)?.ProvinceName ||
+                    "";
+                if (provName) {
+                    scoped = adjusted.filter(r => r.province.toLowerCase() === provName.toLowerCase());
+                }
+                scopeLabel = provName ? `Province: ${provName}` : "";
+            } else if (rtParam === "area") {
+                const areaName =
+                    locked["Area"]?.name ||
+                    areas.find(a => a.AreaCode === selectedArea)?.AreaName ||
+                    "";
+                if (areaName) {
+                    scoped = adjusted.filter(r => r.area.toLowerCase() === areaName.toLowerCase());
+                }
+                scopeLabel = areaName ? `Area: ${areaName}` : "";
+            }
+
+            setPivotedData(scoped);
+            setSnapScopeLabel(scopeLabel);
             // Snapshot form values for report header
             setSnapCategory(category);
             setSnapCustType(custType);
@@ -294,11 +424,18 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
     };
 
     // ── Validation ──────────────────────────────────────────────────────────
-    const canSubmit = () =>
-        category && custType && fromCycle && toCycle && reportType;
+    const canSubmit = () => {
+        if (!(category && custType && fromCycle && toCycle && reportType)) return false;
+        if (reportType === "province") return !!selectedProvince;
+        if (reportType === "area") return !!selectedArea;
+        return true;
+    };
 
     const isToCycleDisabled = () => !custType || !fromCycle;
     const isReportTypeDisabled = () => !custType || !fromCycle || !toCycle;
+
+    const isProvinceDisabled = () => !!locked["Province"] || isLoadingProvinces || provinceError !== null;
+    const isAreaDisabled = () => !!locked["Area"] || isLoadingAreas || areaError !== null;
 
     // ── Report title helpers ─────────────────────────────────────────────────
     const reportTitle = () => {
@@ -756,6 +893,23 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
     };
 
     // ── Render ───────────────────────────────────────────────────────────────
+
+    // ── Access gate: Region / Entire CEB users cannot view this report ──────
+    if (!isAuthorizedForThisReport) {
+        return (
+            <div className="p-6 bg-white rounded-lg shadow-md">
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="text-5xl mb-4">🔒</div>
+                    <h2 className={`text-lg font-bold mb-2 ${maroon}`}>Access Restricted</h2>
+                    <p className="text-sm text-gray-600 max-w-md">
+                        This report is available only to Province-level and Area-level users.
+                        Your current access level does not permit viewing this report.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 bg-white rounded-lg shadow-md">
 
@@ -894,12 +1048,102 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
                                     disabled={isReportTypeDisabled()}
                                 >
                                     <option value="">Select Report Type</option>
-                                    <option value="area">Area</option>
-                                    <option value="province">Province</option>
-                                    <option value="region">Region</option>
-                                    <option value="entireceb">Entire CEB</option>
+                                    {allowedCategories.includes("Area") && (
+                                        <option value="area">Area</option>
+                                    )}
+                                    {allowedCategories.includes("Province") && (
+                                        <option value="province">Province</option>
+                                    )}
                                 </select>
                             </div>
+
+                            {/* 6. Province (only when Report Type = Province) */}
+                            {reportType === "province" && (
+                                <div className="flex flex-col">
+                                    <label className={`text-xs font-medium mb-1 ${isProvinceDisabled() && !locked["Province"] ? "text-gray-400" : maroon}`}>
+                                        Select Province:
+                                    </label>
+                                    {locked["Province"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Province"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Province"].code}>
+                                                {locked["Province"].name
+                                                    ? `${locked["Province"].code} - ${locked["Province"].name}`
+                                                    : locked["Province"].code}
+                                            </option>
+                                        </select>
+                                    ) : isLoadingProvinces ? (
+                                        <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                                            Loading provinces...
+                                        </div>
+                                    ) : provinceError ? (
+                                        <div className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-red-50 text-red-600">
+                                            {provinceError}
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={selectedProvince}
+                                            onChange={e => setSelectedProvince(e.target.value)}
+                                            className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                                            required
+                                        >
+                                            <option value="">Select Province</option>
+                                            {provinces.map(p => (
+                                                <option key={p.ProvinceCode} value={p.ProvinceCode}>
+                                                    {p.ProvinceCode} - {p.ProvinceName}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 6. Area (only when Report Type = Area) */}
+                            {reportType === "area" && (
+                                <div className="flex flex-col">
+                                    <label className={`text-xs font-medium mb-1 ${isAreaDisabled() && !locked["Area"] ? "text-gray-400" : maroon}`}>
+                                        Select Area:
+                                    </label>
+                                    {locked["Area"] ? (
+                                        <select
+                                            disabled
+                                            value={locked["Area"].code}
+                                            className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                        >
+                                            <option value={locked["Area"].code}>
+                                                {locked["Area"].name
+                                                    ? `${locked["Area"].code} - ${locked["Area"].name}`
+                                                    : locked["Area"].code}
+                                            </option>
+                                        </select>
+                                    ) : isLoadingAreas ? (
+                                        <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                                            Loading areas...
+                                        </div>
+                                    ) : areaError ? (
+                                        <div className="w-full px-2 py-1.5 text-xs border border-red-300 rounded-md bg-red-50 text-red-600">
+                                            {areaError}
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={selectedArea}
+                                            onChange={e => setSelectedArea(e.target.value)}
+                                            className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent"
+                                            required
+                                        >
+                                            <option value="">Select Area</option>
+                                            {areas.map(a => (
+                                                <option key={a.AreaCode} value={a.AreaCode}>
+                                                    {a.AreaCode} - {a.AreaName}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Submit */}
@@ -932,7 +1176,9 @@ const ActiveCustomersSalesByTariff: React.FC = () => {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
                         <div>
                             <h2 className={`text-xl font-bold ${maroon}`}>{reportTitle()}</h2>
-                            <p className="text-sm text-gray-600 mt-1">{cycleRangeDisplay()}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                                {cycleRangeDisplay()}{snapScopeLabel ? ` | ${snapScopeLabel}` : ""}
+                            </p>
                         </div>
                         <div className="flex space-x-2 mt-2 md:mt-0">
                             <button
