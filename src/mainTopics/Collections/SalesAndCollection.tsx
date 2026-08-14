@@ -261,7 +261,8 @@ const SalesAndCollection: React.FC = () => {
   // Area-level users are locked to a single area (no need to hit the list at
   // all). Everyone else gets the list scoped to whichever ancestor (Region,
   // else Province) they're locked to, so they can only ever pick an area
-  // that belongs to them.
+  // that belongs to them. This is the same endpoint used for areas in
+  // Securitydepositcontractdemandbulk.tsx — known to work in this app.
   useEffect(() => {
     if (locked["Area"]) return;
     const fetchAreas = async () => {
@@ -332,10 +333,17 @@ const SalesAndCollection: React.FC = () => {
         return;
       }
 
+      // One-time diagnostic: log the exact keys the API actually returned,
+      // so a future field-name mismatch (like Heavy vs Bulk) is easy to spot.
+      // (No process.env check here — this project has no Node type defs;
+      // it's just a console.debug, so it's harmless to leave in.)
       console.debug("[SalesAndCollection] raw report row keys:", Object.keys(arr[0]), arr[0]);
 
       const rows: SalesRow[] = arr.map((item: any) => {
         const ordinaryNet = parseNumber(item.OrdinarySupplyNet ?? item.ordinarySupplyNet ?? item.OrdinarySupply ?? item.ordinarySupply);
+        // "Heavy" (net side) and "Bulk" (collections side) refer to the same
+        // customer category in this API — some responses use one term, some
+        // the other — so both are tried here.
         const heavyNet = parseNumber(
           item.HeavySupplyNet ??
             item.heavySupplyNet ??
@@ -536,7 +544,7 @@ const SalesAndCollection: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // ── Print PDF ─────────────────────────────────────────────────────────────
+  // ── Print PDF (prints the rendered on-screen table for exact visual parity) ─
   const printPDF = () => {
     if (!printRef.current) return;
     const w = window.open("", "_blank");
@@ -723,6 +731,8 @@ const SalesAndCollection: React.FC = () => {
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Province:</label>
                 {locked["Province"] ? (
+                  // Province-level user: locked to their own province — every
+                  // other province is simply not offered as an option.
                   <select disabled value={locked["Province"].code} className={disabledSelectCls}>
                     <option value={locked["Province"].code}>
                       {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
@@ -748,6 +758,7 @@ const SalesAndCollection: React.FC = () => {
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Region:</label>
                 {locked["Region"] ? (
+                  // Region-level user: locked to their own region.
                   <select disabled value={locked["Region"].code} className={disabledSelectCls}>
                     <option value={locked["Region"].code}>
                       {locked["Region"].name ? `${locked["Region"].code} - ${locked["Region"].name}` : locked["Region"].code}
@@ -773,6 +784,7 @@ const SalesAndCollection: React.FC = () => {
               <div className="flex flex-col">
                 <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Area:</label>
                 {locked["Area"] ? (
+                  // Area-level user: locked to their own area only.
                   <select disabled value={locked["Area"].code} className={disabledSelectCls}>
                     <option value={locked["Area"].code}>
                       {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
@@ -801,7 +813,9 @@ const SalesAndCollection: React.FC = () => {
             )}
           </div>
 
-          {/* Read-only ancestor context */}
+          {/* Read-only ancestor context (e.g. "Region" while picking a
+              Province, or "Province"/"Region" while picking an Area) shown
+              when a broader lock still applies above the level being picked. */}
           {getScopeContext(reportType) && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div className="flex flex-col">
@@ -834,96 +848,10 @@ const SalesAndCollection: React.FC = () => {
                 </span>
               ) : (
                 "Generate Report"
->>>>>>> e544d271e76f0f0edf67235ca575d421d2544670
               )}
             </button>
           </div>
 
-<<<<<<< HEAD
-            {/* Report Type */}
-            <div className="flex flex-col">
-              <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
-              <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={selectCls}>
-                <option value="Province">Province</option>
-                <option value="Region">Region</option>
-                <option value="EntireCEB">Entire CEB</option>
-              </select>
-            </div>
-
-            {/* Province / Region dropdown (conditional) */}
-            {reportType !== "EntireCEB" && (
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>
-                  Select {reportType === "Province" ? "Province" : "Region"}:
-                </label>
-
-                {reportType === "Province" &&
-                  (isLoadingGeo ? (
-                    <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading provinces...</div>
-                  ) : (
-                    <select value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} className={selectCls}>
-                      <option value="">Select Province</option>
-                      {provinces.map((p) => (
-                        <option key={p.ProvinceCode} value={p.ProvinceCode}>
-                          {p.ProvinceName}
-                        </option>
-                      ))}
-                    </select>
-                  ))}
-
-                {reportType === "Region" &&
-                  (isLoadingGeo ? (
-                    <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading regions...</div>
-                  ) : (
-                    <select value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={selectCls}>
-                      <option value="">Select Region</option>
-                      {regions.map((r) => (
-                        <option key={r.RegionCode} value={r.RegionCode}>
-                          {r.RegionName || r.RegionCode}
-                        </option>
-                      ))}
-                    </select>
-                  ))}
-              </div>
-            )}
-
-            {reportType === "EntireCEB" && (
-              <div className="flex flex-col">
-                <label className="text-xs font-medium mb-1 text-gray-400">Select Area:</label>
-                <div className={disabledSelectCls}>All areas island-wide</div>
-              </div>
-            )}
-          </div>
-
-          {geoError && (
-            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{geoError}</div>
-          )}
-
-          {/* Submit */}
-          <div className="w-full mt-6 flex justify-end">
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
-                ${maroonGrad} text-white
-                ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Loading...
-                </span>
-              ) : (
-                "Generate Report"
-              )}
-            </button>
-          </div>
-
-=======
->>>>>>> e544d271e76f0f0edf67235ca575d421d2544670
           {reportError && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
           )}

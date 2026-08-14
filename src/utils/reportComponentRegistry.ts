@@ -197,25 +197,25 @@ import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPa
 import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
 //SMC - Management Information
-import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
-import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
-import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
+import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
 import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
 
 //FIFO reports
-import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
-import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx";
+import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
+import QuantityMatFIFOReport from "../mainTopics/fifo/QuantityMatFIFOReport";
 
 // Construction 
-import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
-import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport.tsx";
-import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport.tsx";
+import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport";
+import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport";
+import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport";
 
 //Common Reports
-import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
-import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
-import CostCenterWiseGLDocumentReport from "../mainTopics/Common/CostcenterwiseGlDocumentReport.tsx";
-import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
+import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport";
+import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport";
+import CostCenterWiseGLDocumentReport from "../mainTopics/Common/CostcenterwiseGlDocumentReport";
+import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport ";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -511,4 +511,3 @@ export const getReportComponentLoose = (normalizedReportName: string): Component
 
 	return null;
 };
-

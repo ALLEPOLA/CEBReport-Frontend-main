@@ -141,11 +141,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 
 	/* ── Report state ── */
 	const [reportData, setReportData] = useState<IssueReceiptItem[]>([]);
-<<<<<<< HEAD
-	const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
-=======
 	const [, setReportSummary] = useState<ReportSummary | null>(null);
->>>>>>> e544d271e76f0f0edf67235ca575d421d2544670
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
 

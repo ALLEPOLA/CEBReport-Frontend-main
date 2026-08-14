@@ -8,6 +8,11 @@ interface CostCenter {
 	CostCenterName: string;
 }
 
+interface DocProfile {
+	doc_pf: string;
+	doc_desc?: string;
+}
+
 interface VoucherItem {
 	DocPf: string | null;
 	TrfType: string | null;
@@ -164,6 +169,9 @@ const CostCenterTransferVouchers: React.FC = () => {
 
 	const [fromCostCenter, setFromCostCenter] = useState<string>("");
 	const [toCostCenter, setToCostCenter] = useState<string>("");
+	const [docProfiles, setDocProfiles] = useState<DocProfile[]>([]);
+	const [loadingDocProfiles, setLoadingDocProfiles] = useState<boolean>(false);
+	const [selectedDocPf, setSelectedDocPf] = useState<string>("");
 	const [year, setYear] = useState<string>("");
 	const [startMonth, setStartMonth] = useState<string>("");
 	const [endMonth, setEndMonth] = useState<string>("");
@@ -213,6 +221,29 @@ const CostCenterTransferVouchers: React.FC = () => {
 		fetchCostCenters();
 	}, [epfNo]);
 
+	useEffect(() => {
+		const fetchDocProfiles = async () => {
+			if (!fromCostCenter) {
+				setDocProfiles([]);
+				setSelectedDocPf("");
+				return;
+			}
+			setLoadingDocProfiles(true);
+			try {
+				const res = await fetch(`/misapi/api/ledgercard/costcenter-transfer-vouchers/doc-profiles?costctr=${encodeURIComponent(fromCostCenter)}`);
+				if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+				const parsed = await res.json();
+				setDocProfiles(parsed || []);
+			} catch (err: any) {
+				console.error("Error loading doc profiles:", err);
+			} finally {
+				setLoadingDocProfiles(false);
+			}
+		};
+
+		fetchDocProfiles();
+	}, [fromCostCenter]);
+
 	const handleViewClick = async () => {
 		if (!fromCostCenter.trim()) {
 			toast.error("Please select Cost Center.");
@@ -249,7 +280,7 @@ const CostCenterTransferVouchers: React.FC = () => {
 				fromCostCenter.trim()
 			)}&repyear=${year}&startmonth=${startMonth}&endmonth=${endMonth}&subac=${encodeURIComponent(
 				toCostCenter.trim()
-			)}`;
+			)}${selectedDocPf ? `&docpf=${encodeURIComponent(selectedDocPf.trim())}` : ""}`;
 
 			const response = await fetch(url, {
 				method: "GET",
@@ -290,6 +321,7 @@ const CostCenterTransferVouchers: React.FC = () => {
 	const clearFilters = () => {
 		setFromCostCenter("");
 		setToCostCenter("");
+		setSelectedDocPf("");
 		setYear("");
 		setStartMonth("");
 		setEndMonth("");
@@ -511,7 +543,7 @@ const CostCenterTransferVouchers: React.FC = () => {
 				Cost Center Transfer Vouchers
 			</h2>
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
 				<SearchableSelect
 					label="Cost Center"
 					value={fromCostCenter}
@@ -529,6 +561,27 @@ const CostCenterTransferVouchers: React.FC = () => {
 					placeholder="Select Destination"
 					loading={loadingCostCenters}
 				/>
+
+				<div>
+					<label className={`block text-xs md:text-sm font-bold ${maroon} mb-1`}>
+						Doc. Profile
+					</label>
+					<select
+						value={selectedDocPf}
+						onChange={(e) => setSelectedDocPf(e.target.value)}
+						className="w-full pl-3 pr-2 py-1.5 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] text-xs md:text-sm bg-white"
+						disabled={loadingDocProfiles || !fromCostCenter}
+					>
+						<option value="">
+							{loadingDocProfiles ? "Loading..." : "All Profiles"}
+						</option>
+						{docProfiles.map((dp, idx) => (
+							<option key={idx} value={dp.doc_pf}>
+								{dp.doc_pf} {dp.doc_desc ? `- ${dp.doc_desc}` : ""}
+							</option>
+						))}
+					</select>
+				</div>
 
 				<div>
 					<label className={`block text-xs md:text-sm font-bold ${maroon} mb-1`}>

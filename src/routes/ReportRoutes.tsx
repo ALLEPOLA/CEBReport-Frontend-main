@@ -33,6 +33,7 @@ import FIFO from "../pages/FIFO";
 import Construction from "../pages/Construction";
 import Common from "../pages/Common";
 
+
 const ReportRoutes = () => (
 	<>
 		<Route
@@ -317,4 +318,3 @@ const ReportRoutes = () => (
 );
 
 export default ReportRoutes;
-

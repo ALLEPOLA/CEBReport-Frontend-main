@@ -30,26 +30,15 @@ export default defineConfig(({ mode }) => {
 					target: env.VITE_SERVER_API,
 					changeOrigin: true,
 					secure: false,
+					//rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
 
-				"/misapi/api/branchpendingdocinquiry/report": {
-					target: env.VITE_LOCAL_API,
-					changeOrigin: true,
-					secure: false,
-					rewrite: (path) => path.replace(/^\/misapi/, ""),
-				},
-
-				"/misapi/api/costcenterwisegldocument/report": {
-					target: env.VITE_LOCAL_API,
-					changeOrigin: true,
-					secure: false,
-					rewrite: (path) => path.replace(/^\/misapi/, ""),
-				},
 
 				"/misapi": {
-					target: env.VITE_SERVER_API,
+					target: env.VITE_LOCAL_API,
 					changeOrigin: true,
 					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
 
 				"/api": {
@@ -72,4 +61,3 @@ export default defineConfig(({ mode }) => {
 		},
 	};
 });
-

@@ -187,10 +187,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                       key={division.id}
                       type="button"
                       onClick={() => setDivision(division.id)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${isSelected
-                        ? "bg-white shadow-sm text-gray-900"
-                        : "text-gray-600 hover:bg-white/50"
-                        }`}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        isSelected
+                          ? "bg-white shadow-sm text-gray-900"
+                          : "text-gray-600 hover:bg-white/50"
+                      }`}
                     >
                       {division.label}
                     </button>
@@ -206,5 +207,3 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 };
 
 export default DashboardHeader;
-
-
