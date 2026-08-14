@@ -216,6 +216,7 @@ import ConstructionCompletedReport from "../mainTopics/Construction/Construction
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
 import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
 import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
+import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingReport.tsx";
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
@@ -486,6 +487,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inventory document inquiry": InventoryDocInquiryReport,
 	"branch province pending document inquiry": BranchPendingDocInquiryReport,
 	"material requisition with issue details": MaterialRequisitionWithIssueDetailsReport,
+	"cost center document inquiry pending": CCDocInquiryPendingReport,
 
 	//General Ledger Reports
 	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
