@@ -41,7 +41,7 @@ interface CCT1T2T3Summary {
 /* ────── Constants ────── */
 const PAGE_SIZE = 9;
 const FETCH_TIMEOUT_MS = 240000;
-const COMPANY_NAME = "Electricity Distribution Lanka (Pvt) Ltd";
+const COMPANY_NAME = "Electricity Distribution Lanka Private Limited";
 
 /* ────── Helpers ────── */
 const formatDate = (dateStr: string | null | undefined): string => {
