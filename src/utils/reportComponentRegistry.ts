@@ -212,6 +212,7 @@ import ConstructionCompletedReport from "../mainTopics/Construction/Construction
 
 //Common Reports
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
+import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -475,6 +476,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//Common Reports
 	"inventory document inquiry": InventoryDocInquiryReport,
+	"branch province pending document inquiry": BranchPendingDocInquiryReport,
 };
 
 /**
