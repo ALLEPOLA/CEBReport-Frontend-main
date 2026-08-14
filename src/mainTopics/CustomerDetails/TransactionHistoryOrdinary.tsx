@@ -2,15 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MdPermIdentity, MdDateRange } from "react-icons/md";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
 import { postJSON } from "../../helpers/LoginHelper";
+import { useReportScope } from "../../hooks/useReportScope";
+import { useUser } from "../../contexts/UserContext";
 
 type YrMnthDetail = {
   yrMonth: string;
 };
 
 const TransactionHistoryOrdinary: React.FC = () => {
+  const { level, locked } = useReportScope();
+  useUser();
+  const lockedRegionCode = locked["Region"]?.code;
+  const lockedProvinceCode = locked["Province"]?.code;
+  const lockedAreaCode = locked["Area"]?.code;
+
   const [accountNumber, setAccountNumber] = useState('');
   const [fromBillCycle, setFromBillCycle] = useState('');
   const [months, setMonths] = useState<YrMnthDetail[]>([]);
+  const [allOrdinaryAreas, setAllOrdinaryAreas] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +50,26 @@ const TransactionHistoryOrdinary: React.FC = () => {
     setMonths(generatedMonths);
   }, []);
 
+  // Fetch ordinary areas on mount to enforce geographical scoping check (level < 80)
+  useEffect(() => {
+    if (level >= 80) return;
+
+    const fetchAllAreas = async () => {
+      try {
+        const response = await fetch("/misapi/api/ordinary/areas");
+        if (!response.ok) throw new Error("Failed to fetch ordinary areas");
+        const result = await response.json();
+        if (result?.data && Array.isArray(result.data)) {
+          setAllOrdinaryAreas(result.data);
+        }
+      } catch (err) {
+        console.error("Error fetching areas for scope verification:", err);
+      }
+    };
+
+    fetchAllAreas();
+  }, [level]);
+
   const handleViewDetails = async () => {
     if (!accountNumber) {
       setError("Please enter an Account Number.");
@@ -66,6 +95,40 @@ const TransactionHistoryOrdinary: React.FC = () => {
       }
       if (result && result.common_exception && result.common_exception.Message) {
         throw new Error("API Database Error: " + result.common_exception.Message);
+      }
+
+      // Check level-based access control (LBAC) for users below HQ (Level < 80)
+      if (level < 80 && result?.customer_master_detail) {
+        const returnedAreaCode = String(result.customer_master_detail.area_code || "").trim().toLowerCase();
+        
+        // Find the area details from ordinary areas list
+        const matchedArea = allOrdinaryAreas.find(
+          (a: any) => String(a.AreaCode || a.areaCode || "").trim().toLowerCase() === returnedAreaCode
+        );
+
+        if (!matchedArea) {
+          // Fail secure if area code is not matched
+          throw new Error("This account is outside your access scope.");
+        }
+
+        const areaCode = String(matchedArea.AreaCode || matchedArea.areaCode || "").trim().toLowerCase();
+        const provCode = String(matchedArea.ProvCode || matchedArea.provCode || "").trim().toLowerCase();
+        const regionCode = String(matchedArea.Region || matchedArea.region || "").trim().toLowerCase();
+
+        let isAuthorized = false;
+        if (level < 60 && lockedAreaCode) {
+          isAuthorized = areaCode === lockedAreaCode.trim().toLowerCase();
+        } else if (level === 60 && lockedProvinceCode) {
+          isAuthorized = provCode === lockedProvinceCode.trim().toLowerCase();
+        } else if (level === 70 && lockedRegionCode) {
+          isAuthorized = regionCode === lockedRegionCode.trim().toLowerCase();
+        } else {
+          isAuthorized = true;
+        }
+
+        if (!isAuthorized) {
+          throw new Error("This account is outside your access scope.");
+        }
       }
 
       setData(result);

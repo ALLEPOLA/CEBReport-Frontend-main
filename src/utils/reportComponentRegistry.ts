@@ -201,6 +201,8 @@ import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgres
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
 import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
 import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
+import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
+import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
 
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
@@ -212,10 +214,12 @@ import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllRep
 import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport";
 
 //Common Reports
-import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport";
-import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport";
-import CostCenterWiseGLDocumentReport from "../mainTopics/Common/CostcenterwiseGlDocumentReport";
-import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport ";
+import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
+import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
+import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
+
+//General Ledger Reports
+import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -468,6 +472,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
 	"cost center wise job register": JobRegisterCCReport,
+	"cost center wise new connection job register": JobRegCCNCReport,
+	"area wise smc all details": SMCAllApplicationReport,
 
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
@@ -481,8 +487,10 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	//Common Reports
 	"inventory document inquiry": InventoryDocInquiryReport,
 	"branch province pending document inquiry": BranchPendingDocInquiryReport,
-	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
 	"material requisition with issue details": MaterialRequisitionWithIssueDetailsReport,
+
+	//General Ledger Reports
+	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
 };
 
 /**

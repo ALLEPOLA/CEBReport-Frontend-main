@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
-import { useUser } from "../../contexts/UserContext";
-import { useReportScope } from "../../hooks/useReportScope";
-import type { Category } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -22,25 +19,7 @@ interface RegionOption {
   RegionName: string;
 }
 
-interface AreaOption {
-  AreaCode: string;
-  AreaName: string;
-}
-
-// All four scopes are available; which ones a given user can actually pick
-// is decided at runtime by useReportScope() (see allowedForThisReport below).
-type ReportType = "Province" | "Region" | "Area" | "EntireCEB";
-
-// useReportScope's Category uses "Entire CEB" (with a space); this report's
-// internal state/query param uses "EntireCEB" — map between the two.
-const categoryToReportType: Record<Category, ReportType> = {
-  Area: "Area",
-  Province: "Province",
-  Region: "Region",
-  "Entire CEB": "EntireCEB",
-};
-// Preferred display order in the category dropdown.
-const REPORT_TYPE_ORDER: ReportType[] = ["Province", "Region", "Area", "EntireCEB"];
+type ReportType = "Province" | "Region" | "EntireCEB";
 
 interface SalesRow {
   regionCode: string;
@@ -103,60 +82,23 @@ const SalesAndCollection: React.FC = () => {
   const disabledSelectCls =
     "w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
 
-  // ── Level-based scope ──────────────────────────────────────────────────────
-  const { user } = useUser();
-  const { allowedCategories, locked } = useReportScope();
-
-  // Every level (Area, Province, Region, Entire CEB) can access this report;
-  // useReportScope decides which categories/values each level is allowed to
-  // pick, and the locked values below pin the user to their own scope.
-  const allowedForThisReport: ReportType[] = REPORT_TYPE_ORDER.filter((rt) =>
-    allowedCategories.some((c) => categoryToReportType[c] === rt)
-  );
-
-  // Default to the user's own (most specific) locked scope; Entire-CEB-level
-  // users have no lock at all, so they default to a province-wide view.
-  const defaultReportType: ReportType = locked["Area"]
-    ? "Area"
-    : locked["Province"]
-    ? "Province"
-    : locked["Region"]
-    ? "Region"
-    : "Province";
-
-  // Read-only ancestor context shown next to the Province/Area pickers when
-  // a broader lock still applies above the level currently being selected.
-  const getScopeContext = (rt: ReportType): { label: string; code: string; name: string } | undefined => {
-    if (rt === "Province" && locked["Region"]) {
-      return { label: "Region", code: locked["Region"].code, name: locked["Region"].name };
-    }
-    if (rt === "Area") {
-      if (locked["Province"]) return { label: "Province", code: locked["Province"].code, name: locked["Province"].name };
-      if (locked["Region"]) return { label: "Region", code: locked["Region"].code, name: locked["Region"].name };
-      if (locked["Area"]) return { label: "Province", code: user.ProvinceCode || "", name: user.ProvinceName || "" };
-    }
-    return undefined;
-  };
-
   // ── Form state ─────────────────────────────────────────────────────────────
   const [billCycle, setBillCycle] = useState<string>("");
-  const [reportType, setReportType] = useState<ReportType>(defaultReportType);
+  const [reportType, setReportType] = useState<ReportType>("Province");
   const [provinceCode, setProvinceCode] = useState<string>("");
   const [regionCode, setRegionCode] = useState<string>("");
-  const [areaCode, setAreaCode] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   // ── Dropdown data ──────────────────────────────────────────────────────────
   const [billCycleOptions, setBillCycleOptions] = useState<BillCycleOption[]>([]);
   const [provinces, setProvinces] = useState<ProvinceOption[]>([]);
   const [regions, setRegions] = useState<RegionOption[]>([]);
-  const [areas, setAreas] = useState<AreaOption[]>([]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
   const [isLoadingCycles, setIsLoadingCycles] = useState(false);
   const [isLoadingGeo, setIsLoadingGeo] = useState(false);
-  const [isLoadingAreas, setIsLoadingAreas] = useState(false);
   const [cycleError, setCycleError] = useState<string | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
 
   // ── Report state ───────────────────────────────────────────────────────────
@@ -218,19 +160,14 @@ const SalesAndCollection: React.FC = () => {
   }, []);
 
   // ── 2. Fetch regions + provinces on mount ───────────────────────────────────
-  // Region-level users are locked to their own region (see JSX below); their
-  // province list is scoped to that region so they can't wander into another.
   useEffect(() => {
     const fetchGeo = async () => {
       setIsLoadingGeo(true);
+      setGeoError(null);
       try {
-        let provinceUrl = "/misapi/api/ordinary/province";
-        if (locked["Region"]?.code) {
-          provinceUrl += `?regionCode=${locked["Region"].code}`;
-        }
         const [regRes, provRes] = await Promise.all([
           fetchWithErrorHandling(`/misapi/api/ordinary/region`),
-          fetchWithErrorHandling(provinceUrl),
+          fetchWithErrorHandling(`/misapi/api/ordinary/province`),
         ]);
 
         const regArr = regRes?.data ?? regRes ?? [];
@@ -249,61 +186,25 @@ const SalesAndCollection: React.FC = () => {
           })).filter((p: ProvinceOption) => p.ProvinceCode)
         );
       } catch (err: any) {
-        console.error("[SalesAndCollection] Failed to load province/region lists:", err);
+        setGeoError(err.message || "Failed to load province/region lists.");
       } finally {
         setIsLoadingGeo(false);
       }
     };
     fetchGeo();
-  }, [locked["Region"]?.code]);
+  }, []);
 
-  // ── 3. Fetch areas on mount ───────────────────────────────────────────────────
-  // Area-level users are locked to a single area (no need to hit the list at
-  // all). Everyone else gets the list scoped to whichever ancestor (Region,
-  // else Province) they're locked to, so they can only ever pick an area
-  // that belongs to them. This is the same endpoint used for areas in
-  // Securitydepositcontractdemandbulk.tsx — known to work in this app.
+  // ── Reset sub-filters when reportType changes ────────────────────────────────
   useEffect(() => {
-    if (locked["Area"]) return;
-    const fetchAreas = async () => {
-      setIsLoadingAreas(true);
-      try {
-        let url = "/misapi/api/bulk/areas";
-        if (locked["Region"]?.code) {
-          url += `?regionCode=${locked["Region"].code}`;
-        } else if (locked["Province"]?.code) {
-          url += `?provCode=${locked["Province"].code}`;
-        }
-        const areaRes = await fetchWithErrorHandling(url);
-        const areaArr = areaRes?.data ?? areaRes ?? [];
-        setAreas(
-          (Array.isArray(areaArr) ? areaArr : []).map((a: any) => ({
-            AreaCode: a.AreaCode ?? a.areaCode ?? "",
-            AreaName: a.AreaName ?? a.areaName ?? "",
-          })).filter((a: AreaOption) => a.AreaCode)
-        );
-      } catch (err: any) {
-        console.error("[SalesAndCollection] Failed to load area list:", err);
-      } finally {
-        setIsLoadingAreas(false);
-      }
-    };
-    fetchAreas();
-  }, [locked["Province"]?.code, locked["Region"]?.code, locked["Area"]?.code]);
-
-  // ── Reset / re-lock sub-filters when reportType or scope changes ────────────
-  useEffect(() => {
-    setProvinceCode(reportType === "Province" ? locked["Province"]?.code ?? "" : "");
-    setRegionCode(reportType === "Region" ? locked["Region"]?.code ?? "" : "");
-    setAreaCode(reportType === "Area" ? locked["Area"]?.code ?? "" : "");
-  }, [reportType, locked["Province"]?.code, locked["Region"]?.code, locked["Area"]?.code]);
+    setProvinceCode("");
+    setRegionCode("");
+  }, [reportType]);
 
   // ── Submit guard ───────────────────────────────────────────────────────────
   const canSubmit =
     !!billCycle &&
     !loading &&
-    (reportType === "EntireCEB" ||
-      (reportType === "Province" ? !!provinceCode : reportType === "Region" ? !!regionCode : !!areaCode));
+    (reportType === "EntireCEB" || (reportType === "Province" ? !!provinceCode : !!regionCode));
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -317,7 +218,6 @@ const SalesAndCollection: React.FC = () => {
       params.set("reportType", reportType);
       if (reportType === "Province") params.set("provinceCode", provinceCode);
       if (reportType === "Region") params.set("regionCode", regionCode);
-      if (reportType === "Area") params.set("areaCode", areaCode);
 
       const response = await fetchWithErrorHandling(`/misapi/api/sales-collection/report?${params.toString()}`);
 
@@ -387,13 +287,10 @@ const SalesAndCollection: React.FC = () => {
 
       if (reportType === "Province") {
         const prov = provinces.find((p) => p.ProvinceCode === provinceCode);
-        setSelectedSubLabel(prov?.ProvinceName ?? locked["Province"]?.name ?? provinceCode);
+        setSelectedSubLabel(prov?.ProvinceName ?? provinceCode);
       } else if (reportType === "Region") {
         const reg = regions.find((r) => r.RegionCode === regionCode);
-        setSelectedSubLabel(reg ? `${reg.RegionCode} - ${reg.RegionName}` : locked["Region"]?.name ? `${regionCode} - ${locked["Region"].name}` : regionCode);
-      } else if (reportType === "Area") {
-        const ar = areas.find((a) => a.AreaCode === areaCode);
-        setSelectedSubLabel(ar ? `${ar.AreaCode} - ${ar.AreaName}` : locked["Area"]?.name ? `${areaCode} - ${locked["Area"].name}` : areaCode);
+        setSelectedSubLabel(reg ? `${reg.RegionCode} - ${reg.RegionName}` : regionCode);
       } else {
         setSelectedSubLabel("Entire CEB");
       }
@@ -709,99 +606,50 @@ const SalesAndCollection: React.FC = () => {
               )}
             </div>
 
-            {/* Report Type — only categories this user's level is allowed to see */}
+            {/* Report Type */}
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
-              <select
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value as ReportType)}
-                disabled={allowedForThisReport.length <= 1}
-                className={allowedForThisReport.length <= 1 ? disabledSelectCls : selectCls}
-              >
-                {allowedForThisReport.map((rt) => (
-                  <option key={rt} value={rt}>
-                    {rt === "EntireCEB" ? "Entire CEB" : rt}
-                  </option>
-                ))}
+              <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={selectCls}>
+                <option value="Province">Province</option>
+                <option value="Region">Region</option>
+                <option value="EntireCEB">Entire CEB</option>
               </select>
             </div>
 
-            {/* Province dropdown */}
-            {reportType === "Province" && (
+            {/* Province / Region dropdown (conditional) */}
+            {reportType !== "EntireCEB" && (
               <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Province:</label>
-                {locked["Province"] ? (
-                  // Province-level user: locked to their own province — every
-                  // other province is simply not offered as an option.
-                  <select disabled value={locked["Province"].code} className={disabledSelectCls}>
-                    <option value={locked["Province"].code}>
-                      {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
-                    </option>
-                  </select>
-                ) : isLoadingGeo ? (
-                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading provinces...</div>
-                ) : (
-                  <select value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} className={selectCls}>
-                    <option value="">Select Province</option>
-                    {provinces.map((p) => (
-                      <option key={p.ProvinceCode} value={p.ProvinceCode}>
-                        {p.ProvinceName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
+                <label className={`text-xs font-medium mb-1 ${maroon}`}>
+                  Select {reportType === "Province" ? "Province" : "Region"}:
+                </label>
 
-            {/* Region dropdown */}
-            {reportType === "Region" && (
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Region:</label>
-                {locked["Region"] ? (
-                  // Region-level user: locked to their own region.
-                  <select disabled value={locked["Region"].code} className={disabledSelectCls}>
-                    <option value={locked["Region"].code}>
-                      {locked["Region"].name ? `${locked["Region"].code} - ${locked["Region"].name}` : locked["Region"].code}
-                    </option>
-                  </select>
-                ) : isLoadingGeo ? (
-                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading regions...</div>
-                ) : (
-                  <select value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={selectCls}>
-                    <option value="">Select Region</option>
-                    {regions.map((r) => (
-                      <option key={r.RegionCode} value={r.RegionCode}>
-                        {r.RegionName || r.RegionCode}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
+                {reportType === "Province" &&
+                  (isLoadingGeo ? (
+                    <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading provinces...</div>
+                  ) : (
+                    <select value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} className={selectCls}>
+                      <option value="">Select Province</option>
+                      {provinces.map((p) => (
+                        <option key={p.ProvinceCode} value={p.ProvinceCode}>
+                          {p.ProvinceName}
+                        </option>
+                      ))}
+                    </select>
+                  ))}
 
-            {/* Area dropdown */}
-            {reportType === "Area" && (
-              <div className="flex flex-col">
-                <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Area:</label>
-                {locked["Area"] ? (
-                  // Area-level user: locked to their own area only.
-                  <select disabled value={locked["Area"].code} className={disabledSelectCls}>
-                    <option value={locked["Area"].code}>
-                      {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
-                    </option>
-                  </select>
-                ) : isLoadingAreas ? (
-                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading areas...</div>
-                ) : (
-                  <select value={areaCode} onChange={(e) => setAreaCode(e.target.value)} className={selectCls}>
-                    <option value="">Select Area</option>
-                    {areas.map((a) => (
-                      <option key={a.AreaCode} value={a.AreaCode}>
-                        {a.AreaCode} - {a.AreaName}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                {reportType === "Region" &&
+                  (isLoadingGeo ? (
+                    <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading regions...</div>
+                  ) : (
+                    <select value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={selectCls}>
+                      <option value="">Select Region</option>
+                      {regions.map((r) => (
+                        <option key={r.RegionCode} value={r.RegionCode}>
+                          {r.RegionName || r.RegionCode}
+                        </option>
+                      ))}
+                    </select>
+                  ))}
               </div>
             )}
 
@@ -813,20 +661,8 @@ const SalesAndCollection: React.FC = () => {
             )}
           </div>
 
-          {/* Read-only ancestor context (e.g. "Region" while picking a
-              Province, or "Province"/"Region" while picking an Area) shown
-              when a broader lock still applies above the level being picked. */}
-          {getScopeContext(reportType) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="flex flex-col">
-                <label className="text-xs font-medium mb-1 text-gray-400">{getScopeContext(reportType)!.label}:</label>
-                <div className={disabledSelectCls}>
-                  {getScopeContext(reportType)!.name
-                    ? `${getScopeContext(reportType)!.code} - ${getScopeContext(reportType)!.name}`
-                    : getScopeContext(reportType)!.code}
-                </div>
-              </div>
-            </div>
+          {geoError && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{geoError}</div>
           )}
 
           {/* Submit */}
