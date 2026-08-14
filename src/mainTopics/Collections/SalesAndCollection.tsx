@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
+import type { Category } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -19,7 +22,25 @@ interface RegionOption {
   RegionName: string;
 }
 
-type ReportType = "Province" | "Region" | "EntireCEB";
+interface AreaOption {
+  AreaCode: string;
+  AreaName: string;
+}
+
+// All four scopes are available; which ones a given user can actually pick
+// is decided at runtime by useReportScope() (see allowedForThisReport below).
+type ReportType = "Province" | "Region" | "Area" | "EntireCEB";
+
+// useReportScope's Category uses "Entire CEB" (with a space); this report's
+// internal state/query param uses "EntireCEB" — map between the two.
+const categoryToReportType: Record<Category, ReportType> = {
+  Area: "Area",
+  Province: "Province",
+  Region: "Region",
+  "Entire CEB": "EntireCEB",
+};
+// Preferred display order in the category dropdown.
+const REPORT_TYPE_ORDER: ReportType[] = ["Province", "Region", "Area", "EntireCEB"];
 
 interface SalesRow {
   regionCode: string;
@@ -82,23 +103,60 @@ const SalesAndCollection: React.FC = () => {
   const disabledSelectCls =
     "w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
 
+  // ── Level-based scope ──────────────────────────────────────────────────────
+  const { user } = useUser();
+  const { allowedCategories, locked } = useReportScope();
+
+  // Every level (Area, Province, Region, Entire CEB) can access this report;
+  // useReportScope decides which categories/values each level is allowed to
+  // pick, and the locked values below pin the user to their own scope.
+  const allowedForThisReport: ReportType[] = REPORT_TYPE_ORDER.filter((rt) =>
+    allowedCategories.some((c) => categoryToReportType[c] === rt)
+  );
+
+  // Default to the user's own (most specific) locked scope; Entire-CEB-level
+  // users have no lock at all, so they default to a province-wide view.
+  const defaultReportType: ReportType = locked["Area"]
+    ? "Area"
+    : locked["Province"]
+    ? "Province"
+    : locked["Region"]
+    ? "Region"
+    : "Province";
+
+  // Read-only ancestor context shown next to the Province/Area pickers when
+  // a broader lock still applies above the level currently being selected.
+  const getScopeContext = (rt: ReportType): { label: string; code: string; name: string } | undefined => {
+    if (rt === "Province" && locked["Region"]) {
+      return { label: "Region", code: locked["Region"].code, name: locked["Region"].name };
+    }
+    if (rt === "Area") {
+      if (locked["Province"]) return { label: "Province", code: locked["Province"].code, name: locked["Province"].name };
+      if (locked["Region"]) return { label: "Region", code: locked["Region"].code, name: locked["Region"].name };
+      if (locked["Area"]) return { label: "Province", code: user.ProvinceCode || "", name: user.ProvinceName || "" };
+    }
+    return undefined;
+  };
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [billCycle, setBillCycle] = useState<string>("");
-  const [reportType, setReportType] = useState<ReportType>("Province");
+  const [reportType, setReportType] = useState<ReportType>(defaultReportType);
   const [provinceCode, setProvinceCode] = useState<string>("");
   const [regionCode, setRegionCode] = useState<string>("");
+  const [areaCode, setAreaCode] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   // ── Dropdown data ──────────────────────────────────────────────────────────
   const [billCycleOptions, setBillCycleOptions] = useState<BillCycleOption[]>([]);
   const [provinces, setProvinces] = useState<ProvinceOption[]>([]);
   const [regions, setRegions] = useState<RegionOption[]>([]);
+  const [areas, setAreas] = useState<AreaOption[]>([]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
   const [isLoadingCycles, setIsLoadingCycles] = useState(false);
   const [isLoadingGeo, setIsLoadingGeo] = useState(false);
+  const [isLoadingAreas, setIsLoadingAreas] = useState(false);
   const [cycleError, setCycleError] = useState<string | null>(null);
-  const [geoError, setGeoError] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
 
   // ── Report state ───────────────────────────────────────────────────────────
@@ -160,14 +218,19 @@ const SalesAndCollection: React.FC = () => {
   }, []);
 
   // ── 2. Fetch regions + provinces on mount ───────────────────────────────────
+  // Region-level users are locked to their own region (see JSX below); their
+  // province list is scoped to that region so they can't wander into another.
   useEffect(() => {
     const fetchGeo = async () => {
       setIsLoadingGeo(true);
-      setGeoError(null);
       try {
+        let provinceUrl = "/misapi/api/ordinary/province";
+        if (locked["Region"]?.code) {
+          provinceUrl += `?regionCode=${locked["Region"].code}`;
+        }
         const [regRes, provRes] = await Promise.all([
           fetchWithErrorHandling(`/misapi/api/ordinary/region`),
-          fetchWithErrorHandling(`/misapi/api/ordinary/province`),
+          fetchWithErrorHandling(provinceUrl),
         ]);
 
         const regArr = regRes?.data ?? regRes ?? [];
@@ -186,25 +249,60 @@ const SalesAndCollection: React.FC = () => {
           })).filter((p: ProvinceOption) => p.ProvinceCode)
         );
       } catch (err: any) {
-        setGeoError(err.message || "Failed to load province/region lists.");
+        console.error("[SalesAndCollection] Failed to load province/region lists:", err);
       } finally {
         setIsLoadingGeo(false);
       }
     };
     fetchGeo();
-  }, []);
+  }, [locked["Region"]?.code]);
 
-  // ── Reset sub-filters when reportType changes ────────────────────────────────
+  // ── 3. Fetch areas on mount ───────────────────────────────────────────────────
+  // Area-level users are locked to a single area (no need to hit the list at
+  // all). Everyone else gets the list scoped to whichever ancestor (Region,
+  // else Province) they're locked to, so they can only ever pick an area
+  // that belongs to them.
   useEffect(() => {
-    setProvinceCode("");
-    setRegionCode("");
-  }, [reportType]);
+    if (locked["Area"]) return;
+    const fetchAreas = async () => {
+      setIsLoadingAreas(true);
+      try {
+        let url = "/misapi/api/bulk/areas";
+        if (locked["Region"]?.code) {
+          url += `?regionCode=${locked["Region"].code}`;
+        } else if (locked["Province"]?.code) {
+          url += `?provCode=${locked["Province"].code}`;
+        }
+        const areaRes = await fetchWithErrorHandling(url);
+        const areaArr = areaRes?.data ?? areaRes ?? [];
+        setAreas(
+          (Array.isArray(areaArr) ? areaArr : []).map((a: any) => ({
+            AreaCode: a.AreaCode ?? a.areaCode ?? "",
+            AreaName: a.AreaName ?? a.areaName ?? "",
+          })).filter((a: AreaOption) => a.AreaCode)
+        );
+      } catch (err: any) {
+        console.error("[SalesAndCollection] Failed to load area list:", err);
+      } finally {
+        setIsLoadingAreas(false);
+      }
+    };
+    fetchAreas();
+  }, [locked["Province"]?.code, locked["Region"]?.code, locked["Area"]?.code]);
+
+  // ── Reset / re-lock sub-filters when reportType or scope changes ────────────
+  useEffect(() => {
+    setProvinceCode(reportType === "Province" ? locked["Province"]?.code ?? "" : "");
+    setRegionCode(reportType === "Region" ? locked["Region"]?.code ?? "" : "");
+    setAreaCode(reportType === "Area" ? locked["Area"]?.code ?? "" : "");
+  }, [reportType, locked["Province"]?.code, locked["Region"]?.code, locked["Area"]?.code]);
 
   // ── Submit guard ───────────────────────────────────────────────────────────
   const canSubmit =
     !!billCycle &&
     !loading &&
-    (reportType === "EntireCEB" || (reportType === "Province" ? !!provinceCode : !!regionCode));
+    (reportType === "EntireCEB" ||
+      (reportType === "Province" ? !!provinceCode : reportType === "Region" ? !!regionCode : !!areaCode));
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -218,6 +316,7 @@ const SalesAndCollection: React.FC = () => {
       params.set("reportType", reportType);
       if (reportType === "Province") params.set("provinceCode", provinceCode);
       if (reportType === "Region") params.set("regionCode", regionCode);
+      if (reportType === "Area") params.set("areaCode", areaCode);
 
       const response = await fetchWithErrorHandling(`/misapi/api/sales-collection/report?${params.toString()}`);
 
@@ -233,17 +332,10 @@ const SalesAndCollection: React.FC = () => {
         return;
       }
 
-      // One-time diagnostic: log the exact keys the API actually returned,
-      // so a future field-name mismatch (like Heavy vs Bulk) is easy to spot.
-      // (No process.env check here — this project has no Node type defs;
-      // it's just a console.debug, so it's harmless to leave in.)
       console.debug("[SalesAndCollection] raw report row keys:", Object.keys(arr[0]), arr[0]);
 
       const rows: SalesRow[] = arr.map((item: any) => {
         const ordinaryNet = parseNumber(item.OrdinarySupplyNet ?? item.ordinarySupplyNet ?? item.OrdinarySupply ?? item.ordinarySupply);
-        // "Heavy" (net side) and "Bulk" (collections side) refer to the same
-        // customer category in this API — some responses use one term, some
-        // the other — so both are tried here.
         const heavyNet = parseNumber(
           item.HeavySupplyNet ??
             item.heavySupplyNet ??
@@ -287,10 +379,13 @@ const SalesAndCollection: React.FC = () => {
 
       if (reportType === "Province") {
         const prov = provinces.find((p) => p.ProvinceCode === provinceCode);
-        setSelectedSubLabel(prov?.ProvinceName ?? provinceCode);
+        setSelectedSubLabel(prov?.ProvinceName ?? locked["Province"]?.name ?? provinceCode);
       } else if (reportType === "Region") {
         const reg = regions.find((r) => r.RegionCode === regionCode);
-        setSelectedSubLabel(reg ? `${reg.RegionCode} - ${reg.RegionName}` : regionCode);
+        setSelectedSubLabel(reg ? `${reg.RegionCode} - ${reg.RegionName}` : locked["Region"]?.name ? `${regionCode} - ${locked["Region"].name}` : regionCode);
+      } else if (reportType === "Area") {
+        const ar = areas.find((a) => a.AreaCode === areaCode);
+        setSelectedSubLabel(ar ? `${ar.AreaCode} - ${ar.AreaName}` : locked["Area"]?.name ? `${areaCode} - ${locked["Area"].name}` : areaCode);
       } else {
         setSelectedSubLabel("Entire CEB");
       }
@@ -441,7 +536,7 @@ const SalesAndCollection: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // ── Print PDF (prints the rendered on-screen table for exact visual parity) ─
+  // ── Print PDF ─────────────────────────────────────────────────────────────
   const printPDF = () => {
     if (!printRef.current) return;
     const w = window.open("", "_blank");
@@ -606,6 +701,145 @@ const SalesAndCollection: React.FC = () => {
               )}
             </div>
 
+            {/* Report Type — only categories this user's level is allowed to see */}
+            <div className="flex flex-col">
+              <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
+              <select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value as ReportType)}
+                disabled={allowedForThisReport.length <= 1}
+                className={allowedForThisReport.length <= 1 ? disabledSelectCls : selectCls}
+              >
+                {allowedForThisReport.map((rt) => (
+                  <option key={rt} value={rt}>
+                    {rt === "EntireCEB" ? "Entire CEB" : rt}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Province dropdown */}
+            {reportType === "Province" && (
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Province:</label>
+                {locked["Province"] ? (
+                  <select disabled value={locked["Province"].code} className={disabledSelectCls}>
+                    <option value={locked["Province"].code}>
+                      {locked["Province"].name ? `${locked["Province"].code} - ${locked["Province"].name}` : locked["Province"].code}
+                    </option>
+                  </select>
+                ) : isLoadingGeo ? (
+                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading provinces...</div>
+                ) : (
+                  <select value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} className={selectCls}>
+                    <option value="">Select Province</option>
+                    {provinces.map((p) => (
+                      <option key={p.ProvinceCode} value={p.ProvinceCode}>
+                        {p.ProvinceName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Region dropdown */}
+            {reportType === "Region" && (
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Region:</label>
+                {locked["Region"] ? (
+                  <select disabled value={locked["Region"].code} className={disabledSelectCls}>
+                    <option value={locked["Region"].code}>
+                      {locked["Region"].name ? `${locked["Region"].code} - ${locked["Region"].name}` : locked["Region"].code}
+                    </option>
+                  </select>
+                ) : isLoadingGeo ? (
+                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading regions...</div>
+                ) : (
+                  <select value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={selectCls}>
+                    <option value="">Select Region</option>
+                    {regions.map((r) => (
+                      <option key={r.RegionCode} value={r.RegionCode}>
+                        {r.RegionName || r.RegionCode}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Area dropdown */}
+            {reportType === "Area" && (
+              <div className="flex flex-col">
+                <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Area:</label>
+                {locked["Area"] ? (
+                  <select disabled value={locked["Area"].code} className={disabledSelectCls}>
+                    <option value={locked["Area"].code}>
+                      {locked["Area"].name ? `${locked["Area"].code} - ${locked["Area"].name}` : locked["Area"].code}
+                    </option>
+                  </select>
+                ) : isLoadingAreas ? (
+                  <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading areas...</div>
+                ) : (
+                  <select value={areaCode} onChange={(e) => setAreaCode(e.target.value)} className={selectCls}>
+                    <option value="">Select Area</option>
+                    {areas.map((a) => (
+                      <option key={a.AreaCode} value={a.AreaCode}>
+                        {a.AreaCode} - {a.AreaName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {reportType === "EntireCEB" && (
+              <div className="flex flex-col">
+                <label className="text-xs font-medium mb-1 text-gray-400">Select Area:</label>
+                <div className={disabledSelectCls}>All areas island-wide</div>
+              </div>
+            )}
+          </div>
+
+          {/* Read-only ancestor context */}
+          {getScopeContext(reportType) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="flex flex-col">
+                <label className="text-xs font-medium mb-1 text-gray-400">{getScopeContext(reportType)!.label}:</label>
+                <div className={disabledSelectCls}>
+                  {getScopeContext(reportType)!.name
+                    ? `${getScopeContext(reportType)!.code} - ${getScopeContext(reportType)!.name}`
+                    : getScopeContext(reportType)!.code}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit */}
+          <div className="w-full mt-6 flex justify-end">
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className={`px-6 py-2 rounded-md font-medium transition-opacity duration-300 shadow
+                ${maroonGrad} text-white
+                ${!canSubmit ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading...
+                </span>
+              ) : (
+                "Generate Report"
+>>>>>>> e544d271e76f0f0edf67235ca575d421d2544670
+              )}
+            </button>
+          </div>
+
+<<<<<<< HEAD
             {/* Report Type */}
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
@@ -688,6 +922,8 @@ const SalesAndCollection: React.FC = () => {
             </button>
           </div>
 
+=======
+>>>>>>> e544d271e76f0f0edf67235ca575d421d2544670
           {reportError && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">{reportError}</div>
           )}

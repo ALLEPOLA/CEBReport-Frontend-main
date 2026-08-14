@@ -1,4 +1,4 @@
-// IssueReceiptSummaryReport.tsx
+// MaterialRequisitionWithIssueDetailsReport.tsx
 import React, {useEffect, useState} from "react";
 import {Download, Printer, X, RotateCcw, Eye, Search} from "lucide-react";
 import {toast} from "react-toastify";
@@ -9,25 +9,25 @@ interface Department {
 	DeptName: string;
 }
 
-interface IssueReceiptItem {
+interface RequisitionItem {
 	Category: string | null;
 	DocNo: string | null;
 	TrxDt: string | null;
-	TrxVal: number | null;
+	MatCd: string | null;
+	ReqUnits: number | null;
+	IssueDocNo: string | null;
+	ReqSource: string | null;
+	Ref1: string | null;
+	AprUid1: string | null;
+	AprUid2: string | null;
+	AprDt1: string | null;
+	AprDt2: string | null;
+	PostDt: string | null;
+	IssuedReturnQty: number | null;
 	TranStatus: string | null;
+	EstQty: number | null;
+	ComQty: number | null;
 	CctName: string | null;
-}
-
-interface CategoryTotal {
-	category: string;
-	recordCount: number;
-	total: number;
-}
-
-interface ReportSummary {
-	totalRecords: number;
-	totalTrxVal: number;
-	categoryTotals: CategoryTotal[];
 }
 
 /* ────── Constants ────── */
@@ -38,7 +38,7 @@ const PAGE_SIZE = 9;
 /* ────── Formatting helpers ────── */
 const formatNumber = (num: number | string | null | undefined): string => {
 	const n = num === null || num === undefined ? NaN : Number(num);
-	if (isNaN(n)) return "0.00";
+	if (isNaN(n)) return "";
 	const abs = Math.abs(n);
 	const formatted = abs.toLocaleString("en-US", {
 		minimumFractionDigits: 2,
@@ -83,41 +83,8 @@ const maxDate = `${currentYear}-${currentMonth}-${currentDay}`;
 const minYear = currentYear - 20;
 const minDate = `${minYear}-${currentMonth}-${currentDay}`;
 
-/* ────── Row grouped by category, with subtotal rows interleaved ────── */
-type DisplayRow =
-	| {type: "data"; item: IssueReceiptItem; rowNo: number}
-	| {type: "subtotal"; category: string; total: number; count: number};
-
-const buildDisplayRows = (data: IssueReceiptItem[]): DisplayRow[] => {
-	const rows: DisplayRow[] = [];
-	let currentCategory: string | null = null;
-	let runningTotal = 0;
-	let runningCount = 0;
-	let rowNo = 0;
-
-	data.forEach((item, idx) => {
-		const cat = item.Category || "Uncategorized";
-		if (currentCategory !== null && cat !== currentCategory) {
-			rows.push({type: "subtotal", category: currentCategory, total: runningTotal, count: runningCount});
-			runningTotal = 0;
-			runningCount = 0;
-		}
-		currentCategory = cat;
-		rowNo += 1;
-		runningTotal += item.TrxVal ?? 0;
-		runningCount += 1;
-		rows.push({type: "data", item, rowNo});
-
-		if (idx === data.length - 1) {
-			rows.push({type: "subtotal", category: currentCategory, total: runningTotal, count: runningCount});
-		}
-	});
-
-	return rows;
-};
-
 /* ────── MAIN COMPONENT ────── */
-const IssueReceiptSummaryReport: React.FC = () => {
+const MaterialRequisitionWithIssueDetailsReport: React.FC = () => {
 	const {user} = useUser();
 	const epfNo = user?.Userno || "";
 
@@ -136,16 +103,12 @@ const IssueReceiptSummaryReport: React.FC = () => {
 	const [selectedDept, setSelectedDept] = useState<Department | null>(null);
 
 	/* ── Other filter state ── */
+	const [materialCode, setMaterialCode] = useState("");
 	const [fromDate, setFromDate] = useState("");
 	const [toDate, setToDate] = useState("");
 
 	/* ── Report state ── */
-	const [reportData, setReportData] = useState<IssueReceiptItem[]>([]);
-<<<<<<< HEAD
-	const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
-=======
-	const [, setReportSummary] = useState<ReportSummary | null>(null);
->>>>>>> e544d271e76f0f0edf67235ca575d421d2544670
+	const [reportData, setReportData] = useState<RequisitionItem[]>([]);
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
 
@@ -226,12 +189,12 @@ const IssueReceiptSummaryReport: React.FC = () => {
 
 		setReportLoading(true);
 		setReportData([]);
-		setReportSummary(null);
 		setShowReport(true);
 
 		try {
 			const costCtrParam = encodeURIComponent(selectedDept!.DeptId);
-			const url = `/misapi/api/issuereceiptsummary/report/${fromDate}/${toDate}/${costCtrParam}`;
+			const matCodeParam = encodeURIComponent(materialCode.trim() || "ALL");
+			const url = `/misapi/api/materialrequisitionwithissuedetails/report/${fromDate}/${toDate}/${costCtrParam}/${matCodeParam}`;
 
 			const res = await fetch(url, {credentials: "include", signal: controller.signal});
 			clearTimeout(timeoutId);
@@ -244,7 +207,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 			const json = await res.json();
 			if (!json.success) throw new Error(json.message || "Failed to load data");
 
-			const items: IssueReceiptItem[] = json.data || [];
+			const items: RequisitionItem[] = json.data || [];
 			if (items.length > MAX_RECORDS)
 				throw new Error(`Too many records (${items.length}). Please refine your search.`);
 
@@ -255,7 +218,6 @@ const IssueReceiptSummaryReport: React.FC = () => {
 			}
 
 			setReportData(items);
-			setReportSummary(json.summary || null);
 			toast.success(`${items.length} records loaded successfully.`);
 		} catch (e: any) {
 			if (e.name === "AbortError") {
@@ -267,7 +229,6 @@ const IssueReceiptSummaryReport: React.FC = () => {
 				toast.error(msg);
 			}
 			setReportData([]);
-			setReportSummary(null);
 			setShowReport(false);
 		} finally {
 			setReportLoading(false);
@@ -281,82 +242,95 @@ const IssueReceiptSummaryReport: React.FC = () => {
 
 	const clearAll = () => {
 		setSelectedDept(null);
+		setMaterialCode("");
 		setFromDate("");
 		setToDate("");
 		setSearchId("");
 		setSearchName("");
 		setShowReport(false);
 		setReportData([]);
-		setReportSummary(null);
 		toast.info("Filters cleared.");
 	};
 
 	const closeReport = () => {
 		setShowReport(false);
 		setReportData([]);
-		setReportSummary(null);
 		setReportLoading(false);
 	};
 
-	/* ────── Sorted per SQL: ORDER BY 2,3 (doc_no, trx_dt), grouped by category ────── */
+	/* ────── Sorted per SQL: ORDER BY 1,4,7,2 (category, mat_cd, req_source, doc_no) ────── */
 	const sortedData = [...reportData].sort(
 		(a, b) =>
 			(a.Category || "").localeCompare(b.Category || "") ||
-			(a.DocNo || "").localeCompare(b.DocNo || "") ||
-			(a.TrxDt || "").localeCompare(b.TrxDt || "")
+			(a.MatCd || "").localeCompare(b.MatCd || "") ||
+			(a.ReqSource || "").localeCompare(b.ReqSource || "") ||
+			(a.DocNo || "").localeCompare(b.DocNo || "")
 	);
 
-	const displayRows = buildDisplayRows(sortedData);
-
-	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
 	const costCtrDisplay = selectedDept?.DeptId || "";
-	const grandTotal = reportData.reduce((sum, r) => sum + (r.TrxVal ?? 0), 0);
+	const deptName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
 
 	/* ────── CSV download ────── */
 	const downloadCSV = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Issue, Issue Cancellation, Receipt - From ${fromDate} To ${toDate}`,
-			`Cost Center: ${costCtrDisplay}/${cctName}`,
+			`Material requisition Details with issue Details From ${fromDate} To ${toDate}`,
+			`Cost Center: ${costCtrDisplay}/${deptName}`,
 			"",
 		];
 
-		const headers = ["Category", "Document No", "Date", "Total", "Status"];
+		const headers = [
+			"Type",
+			"Req/Issue Doc_no",
+			"Requisition/Trx",
+			"Project No",
+			"Project no/ contractor",
+			"Material code",
+			"Est Qty",
+			"Commited Qty",
+			"Req_Qty",
+			"Issue Posted",
+			"Issued Doc No",
+			"Issued/ Returned Qty",
+			"Status",
+			"Approved User ID 1",
+			"Approved Date 1",
+			"Approved User Id 2",
+			"Approved Date 2",
+		];
 		const rows: string[] = [headers.join(",")];
 
-		displayRows.forEach((row) => {
-			if (row.type === "data") {
-				rows.push(
-					[
-						csvEscape(row.item.Category),
-						csvEscape(row.item.DocNo),
-						csvEscape(formatDate(row.item.TrxDt)),
-						csvEscape(formatNumber(row.item.TrxVal)),
-						csvEscape(row.item.TranStatus),
-					].join(",")
-				);
-			} else {
-				rows.push(
-					["", "", `${row.category} Total (${row.count})`, csvEscape(formatNumber(row.total)), ""].join(",")
-				);
-			}
+		sortedData.forEach((it) => {
+			rows.push(
+				[
+					csvEscape(it.Category),
+					csvEscape(it.DocNo),
+					csvEscape(formatDate(it.TrxDt)),
+					csvEscape(it.ReqSource),
+					csvEscape(it.Ref1),
+					csvEscape(it.MatCd),
+					csvEscape(formatNumber(it.EstQty)),
+					csvEscape(formatNumber(it.ComQty)),
+					csvEscape(formatNumber(it.ReqUnits)),
+					csvEscape(formatDate(it.PostDt)),
+					csvEscape(it.IssueDocNo),
+					csvEscape(formatNumber(it.IssuedReturnQty)),
+					csvEscape(it.TranStatus),
+					csvEscape(it.AprUid1),
+					csvEscape(formatDate(it.AprDt1)),
+					csvEscape(it.AprUid2),
+					csvEscape(formatDate(it.AprDt2)),
+				].join(",")
+			);
 		});
-
-		rows.push(
-			"",
-			`,,Grand Total,${csvEscape(formatNumber(grandTotal))},`,
-			"",
-			"Prepared by:,,,,",
-			"checked by:,,,,"
-		);
 
 		const csv = [...titleRows, ...rows].join("\n");
 		const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `IssueReceiptSummary_${costCtrDisplay}_${fromDate}_${toDate}.csv`;
+		a.download = `MaterialRequisitionWithIssueDetails_${costCtrDisplay}_${fromDate}_${toDate}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -366,36 +340,37 @@ const IssueReceiptSummaryReport: React.FC = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
-		displayRows.forEach((row, i) => {
-			if (row.type === "data") {
-				rows += `
+		sortedData.forEach((it, i) => {
+			rows += `
           <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-left text-xs">${
-					row.item.Category || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
-					row.item.DocNo || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
-					row.item.TrxDt
+            <td class="px-1 py-2 border-l border-r border-gray-300 text-left text-[7px]">${it.Category || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px] font-mono">${it.DocNo || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-center text-[7px]">${formatDate(it.TrxDt)}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px]">${it.ReqSource || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px]">${it.Ref1 || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px] font-mono">${it.MatCd || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-right text-[7px] font-mono">${formatNumber(
+					it.EstQty
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					row.item.TrxVal
+            <td class="px-1 py-2 border-r border-gray-300 text-right text-[7px] font-mono">${formatNumber(
+					it.ComQty
 				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
-					row.item.TranStatus || ""
+            <td class="px-1 py-2 border-r border-gray-300 text-right text-[7px] font-mono">${formatNumber(
+					it.ReqUnits
+				)}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-center text-[7px]">${formatDate(it.PostDt)}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px] font-mono">${
+					it.IssueDocNo || ""
 				}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-right text-[7px] font-mono">${formatNumber(
+					it.IssuedReturnQty
+				)}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px]">${it.TranStatus || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px]">${it.AprUid1 || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-center text-[7px]">${formatDate(it.AprDt1)}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-left text-[7px]">${it.AprUid2 || ""}</td>
+            <td class="px-1 py-2 border-r border-gray-300 text-center text-[7px]">${formatDate(it.AprDt2)}</td>
           </tr>`;
-			} else {
-				rows += `
-          <tr style="background:#f3e8e8; font-weight:bold;">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-xs" colspan="3">${row.category} Total (${row.count} records)</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					row.total
-				)}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-xs"></td>
-          </tr>`;
-			}
 		});
 
 		const html = `
@@ -404,16 +379,15 @@ const IssueReceiptSummaryReport: React.FC = () => {
 <head>
   <style>
     @media print {
-      @page { margin: 8mm 5mm 10mm 5mm; }
+      @page { margin: 8mm 5mm 10mm 5mm; size: A3 landscape; }
       body { margin:0; font-family:Arial,Helvetica,sans-serif; }
       .title { margin: 10px 8px 6px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
       .info { margin:4px 8px; font-size:9.5px; }
       .info div { margin-bottom:3px; }
-      table { border-collapse:collapse; width:100%; font-size:9px; margin-top:10px; }
-      th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
+      table { border-collapse:collapse; width:100%; font-size:7px; margin-top:10px; }
+      th, td { border:1px solid #d1d5db; padding:4px 3px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
       .font-mono { font-family:monospace; }
-      .sig-row { display:flex; justify-content:space-between; margin-top:30px; padding:0 15px; font-size:9px; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
 				"en-US",
@@ -425,33 +399,34 @@ const IssueReceiptSummaryReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Issue, Issue Cancellation, Receipt - From ${fromDate} To ${toDate}</div>
+  <div class="title">Material requisition Details with issue Details From ${fromDate} To ${toDate}</div>
   <div class="info">
-    <div><strong>Cost Center:</strong> ${costCtrDisplay}/${cctName}</div>
+    <div><strong>Cost Center:</strong> ${costCtrDisplay}/${deptName}</div>
   </div>
-  <table style="width:100%; border-collapse:collapse; font-size:9px; border:1px solid #d1d5db;">
+  <table style="width:100%; border-collapse:collapse; font-size:7px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:15%;">Category</th>
-        <th style="padding:6px 8px; width:20%;">Document No</th>
-        <th style="padding:6px 8px; width:15%;">Date</th>
-        <th style="padding:6px 8px; width:20%; text-align:right;">Total</th>
-        <th style="padding:6px 8px; width:30%;">Status</th>
+        <th style="padding:4px 3px;">Type</th>
+        <th style="padding:4px 3px;">Req/Issue Doc_no</th>
+        <th style="padding:4px 3px;">Requisition/Trx</th>
+        <th style="padding:4px 3px;">Project No</th>
+        <th style="padding:4px 3px;">Project no/ contractor</th>
+        <th style="padding:4px 3px;">Material code</th>
+        <th style="padding:4px 3px; text-align:right;">Est Qty</th>
+        <th style="padding:4px 3px; text-align:right;">Commited Qty</th>
+        <th style="padding:4px 3px; text-align:right;">Req_Qty</th>
+        <th style="padding:4px 3px;">Issue Posted</th>
+        <th style="padding:4px 3px;">Issued Doc No</th>
+        <th style="padding:4px 3px; text-align:right;">Issued/ Returned Qty</th>
+        <th style="padding:4px 3px;">Status</th>
+        <th style="padding:4px 3px;">Approved User ID 1</th>
+        <th style="padding:4px 3px;">Approved Date 1</th>
+        <th style="padding:4px 3px;">Approved User Id 2</th>
+        <th style="padding:4px 3px;">Approved Date 2</th>
       </tr>
     </thead>
-    <tbody>${rows}
-      <tr style="background:#7A0000; color:white; font-weight:bold;">
-        <td class="px-3 py-2" colspan="3">Grand Total</td>
-        <td class="px-3 py-2 text-right font-mono">${formatNumber(grandTotal)}</td>
-        <td class="px-3 py-2"></td>
-      </tr>
-    </tbody>
+    <tbody>${rows}</tbody>
   </table>
-
-  <div class="sig-row">
-    <div>Prepared by: ____________________</div>
-    <div>checked by: ____________________</div>
-  </div>
 </body>
 </html>`;
 
@@ -472,7 +447,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 	return (
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
-				<h2 className={`text-xl font-bold ${maroon}`}>Issue and Receipt Summary</h2>
+				<h2 className={`text-xl font-bold ${maroon}`}>Material Requisition with Issue Details</h2>
 			</div>
 
 			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
@@ -506,6 +481,17 @@ const IssueReceiptSummaryReport: React.FC = () => {
 				</div>
 
 				<div className="flex flex-col md:flex-row flex-wrap gap-4 items-end">
+					<div className="flex flex-col">
+						<label className={`text-xs font-bold ${maroon} mb-1`}>Material Code (optional)</label>
+						<input
+							type="text"
+							value={materialCode}
+							onChange={(e) => setMaterialCode(e.target.value)}
+							placeholder="Leave blank for all"
+							className="pl-3 pr-3 py-1.5 w-full md:w-48 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+						/>
+					</div>
+
 					<button
 						onClick={fetchReport}
 						disabled={!selectedDept || !fromDate || !toDate}
@@ -573,7 +559,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 			{!deptLoading && !deptError && filtered.length > 0 && (
 				<>
 					<p className="text-xs text-gray-500 mb-2">
-						Select a cost center below, then fill in the date range above and click View.
+						Select a cost center below, optionally add a Material Code, then click View.
 					</p>
 					<div className="overflow-x-auto rounded-lg border border-gray-200">
 						<div className="max-h-[50vh] overflow-y-auto">
@@ -638,7 +624,7 @@ const IssueReceiptSummaryReport: React.FC = () => {
 							<div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
 								<div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#7A0000]"></div>
 								<p className="text-xl font-bold text-[#7A0000]">Loading Report...</p>
-								<p className="text-sm text-gray-600">Fetching issue and receipt data from server</p>
+								<p className="text-sm text-gray-600">Fetching requisition data from server</p>
 							</div>
 						)}
 						{!reportLoading && reportData.length > 0 && (
@@ -665,89 +651,92 @@ const IssueReceiptSummaryReport: React.FC = () => {
 								</div>
 
 								<h2 className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}>
-									Issue, Issue Cancellation, Receipt - From {fromDate} To {toDate}
+									Material requisition Details with issue Details From {fromDate} To {toDate}
 								</h2>
 								<div className="text-sm mb-3 ml-5 mr-12">
-									<span className="font-bold">Cost Center:</span> {costCtrDisplay}/{cctName}
+									<span className="font-bold">Cost Center:</span> {costCtrDisplay}/{deptName}
 								</div>
 
 								<div className="ml-5 mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
-									<div className="min-w-[900px]">
-										<table className="w-full text-xs border-collapse">
+									<div className="min-w-[1800px]">
+										<table className="w-full text-[11px] border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "15%"}}>
-														Category
+													<th className="px-2 py-2 border border-gray-300">Type</th>
+													<th className="px-2 py-2 border border-gray-300">Req/Issue Doc_no</th>
+													<th className="px-2 py-2 border border-gray-300">Requisition/Trx</th>
+													<th className="px-2 py-2 border border-gray-300">Project No</th>
+													<th className="px-2 py-2 border border-gray-300">Project no/ contractor</th>
+													<th className="px-2 py-2 border border-gray-300">Material code</th>
+													<th className="px-2 py-2 border border-gray-300 text-right">Est Qty</th>
+													<th className="px-2 py-2 border border-gray-300 text-right">Commited Qty</th>
+													<th className="px-2 py-2 border border-gray-300 text-right">Req_Qty</th>
+													<th className="px-2 py-2 border border-gray-300">Issue Posted</th>
+													<th className="px-2 py-2 border border-gray-300">Issued Doc No</th>
+													<th className="px-2 py-2 border border-gray-300 text-right">
+														Issued/ Returned Qty
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "20%"}}>
-														Document No
-													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "15%"}}>
-														Date
-													</th>
-													<th className="px-3 py-2 border border-gray-300 text-right" style={{width: "20%"}}>
-														Total
-													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "30%"}}>
-														Status
-													</th>
+													<th className="px-2 py-2 border border-gray-300">Status</th>
+													<th className="px-2 py-2 border border-gray-300">Approved User ID 1</th>
+													<th className="px-2 py-2 border border-gray-300">Approved Date 1</th>
+													<th className="px-2 py-2 border border-gray-300">Approved User Id 2</th>
+													<th className="px-2 py-2 border border-gray-300">Approved Date 2</th>
 												</tr>
 											</thead>
 											<tbody>
-												{displayRows.map((row, i) =>
-													row.type === "data" ? (
-														<tr key={i} className={row.rowNo % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-															<td className="px-3 py-2 border-l border-r border-gray-300">
-																{row.item.Category || ""}
-															</td>
-															<td className="px-3 py-2 font-mono border-r border-gray-300">
-																{row.item.DocNo || ""}
-															</td>
-															<td className="px-3 py-2 text-center border-r border-gray-300">
-																{formatDate(row.item.TrxDt)}
-															</td>
-															<td className="px-3 py-2 text-right font-mono border-r border-gray-300">
-																{formatNumber(row.item.TrxVal)}
-															</td>
-															<td className="px-3 py-2 border-r border-gray-300">
-																{row.item.TranStatus || ""}
-															</td>
-														</tr>
-													) : (
-														<tr key={i} className="bg-[#f3e8e8] font-bold">
-															<td
-																className="px-3 py-2 border-l border-r border-gray-300"
-																colSpan={3}
-															>
-																{row.category} Total ({row.count} records)
-															</td>
-															<td className="px-3 py-2 text-right font-mono border-r border-gray-300">
-																{formatNumber(row.total)}
-															</td>
-															<td className="px-3 py-2 border-r border-gray-300"></td>
-														</tr>
-													)
-												)}
-												<tr className={`${maroonGrad} text-white font-bold`}>
-													<td className="px-3 py-2" colSpan={3}>
-														Grand Total
-													</td>
-													<td className="px-3 py-2 text-right font-mono">
-														{formatNumber(grandTotal)}
-													</td>
-													<td className="px-3 py-2"></td>
-												</tr>
+												{sortedData.map((it, i) => (
+													<tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+														<td className="px-2 py-2 border-l border-r border-gray-300">
+															{it.Category || ""}
+														</td>
+														<td className="px-2 py-2 font-mono border-r border-gray-300">
+															{it.DocNo || ""}
+														</td>
+														<td className="px-2 py-2 text-center border-r border-gray-300">
+															{formatDate(it.TrxDt)}
+														</td>
+														<td className="px-2 py-2 border-r border-gray-300">{it.ReqSource || ""}</td>
+														<td className="px-2 py-2 border-r border-gray-300">{it.Ref1 || ""}</td>
+														<td className="px-2 py-2 font-mono border-r border-gray-300">
+															{it.MatCd || ""}
+														</td>
+														<td className="px-2 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.EstQty)}
+														</td>
+														<td className="px-2 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.ComQty)}
+														</td>
+														<td className="px-2 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.ReqUnits)}
+														</td>
+														<td className="px-2 py-2 text-center border-r border-gray-300">
+															{formatDate(it.PostDt)}
+														</td>
+														<td className="px-2 py-2 font-mono border-r border-gray-300">
+															{it.IssueDocNo || ""}
+														</td>
+														<td className="px-2 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.IssuedReturnQty)}
+														</td>
+														<td className="px-2 py-2 border-r border-gray-300">
+															{it.TranStatus || ""}
+														</td>
+														<td className="px-2 py-2 border-r border-gray-300">{it.AprUid1 || ""}</td>
+														<td className="px-2 py-2 text-center border-r border-gray-300">
+															{formatDate(it.AprDt1)}
+														</td>
+														<td className="px-2 py-2 border-r border-gray-300">{it.AprUid2 || ""}</td>
+														<td className="px-2 py-2 text-center border-r border-gray-300">
+															{formatDate(it.AprDt2)}
+														</td>
+													</tr>
+												))}
 											</tbody>
 										</table>
 										<p className="text-xs text-gray-500 mt-2 text-right px-2">
 											Total records: {reportData.length.toLocaleString()}
 										</p>
 									</div>
-								</div>
-
-								<div className="flex justify-between mt-8 ml-5 mr-12 mb-4 text-sm">
-									<div>Prepared by: ____________________</div>
-									<div>checked by: ____________________</div>
 								</div>
 							</div>
 						)}
@@ -758,4 +747,4 @@ const IssueReceiptSummaryReport: React.FC = () => {
 	);
 };
 
-export default IssueReceiptSummaryReport;
+export default MaterialRequisitionWithIssueDetailsReport;

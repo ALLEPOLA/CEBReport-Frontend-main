@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 interface FinalizedAccountsRecord {
   AccountNumber: string;
@@ -51,6 +53,38 @@ const FinalizedAccounts: React.FC = () => {
   const maroon     = 'text-[#7A0000]';
   const maroonGrad = 'bg-gradient-to-r from-[#7A0000] to-[#A52A2A]';
 
+  const { user } = useUser();
+  const { level, locked } = useReportScope();
+
+  // ── Level-based access control ─────────────────────────────────────────────
+  // All levels can view this report. Province-level (60–69) and Area-level
+  // (<60) users get their Province/Area fields locked to their own scope;
+  // Region-level (70–79) and Entire CEB-level (80+) users get free selection.
+  const isProvinceUser = level >= 60 && level < 70;
+  const isAreaUser      = level < 60;
+
+  const lockedAreaCode = isAreaUser ? (locked["Area"]?.code || user.AreaCode || "") : "";
+  const lockedAreaName = isAreaUser ? (locked["Area"]?.name || user.AreaName || "") : "";
+
+  // Area-level user logins don't always carry ProvinceCode/ProvinceName on the
+  // user object (only AreaCode/AreaName), so we resolve the parent province by
+  // matching the user's AreaCode against each province's area list.
+  const [resolvedProvince, setResolvedProvince] = useState<ProvinceOption | null>(null);
+
+  // Province/Area that should be locked (pre-selected & disabled) in the form.
+  // Province users: their own province is locked, area stays free to choose.
+  // Area users: both their province and their single area are locked.
+  const lockedProvinceCode = isProvinceUser
+    ? (locked["Province"]?.code || "")
+    : isAreaUser
+      ? (user.ProvinceCode || resolvedProvince?.ProvCode || "")
+      : "";
+  const lockedProvinceName = isProvinceUser
+    ? (locked["Province"]?.name || "")
+    : isAreaUser
+      ? (user.ProvinceName || resolvedProvince?.ProvName || "")
+      : "";
+
   const [province,        setProvince]        = useState('');
   const [area,            setArea]            = useState('');
   const [month,           setMonth]           = useState('*** - All Months');
@@ -96,6 +130,47 @@ const FinalizedAccounts: React.FC = () => {
     fetchInitial();
   }, []);
 
+  // ── Resolve the province for an Area user when it isn't on the user object ──
+  useEffect(() => {
+    if (!isAreaUser || !lockedAreaCode || user.ProvinceCode || resolvedProvince || provinces.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    const resolveProvince = async () => {
+      try {
+        const matches = await Promise.all(
+          provinces.map(async (p) => {
+            try {
+              const res = await fetch(
+                `/misapi/api/FinalizedAccounts/dropdowns?provCode=${encodeURIComponent(p.ProvCode)}`,
+                { headers: { Accept: 'application/json' } }
+              );
+              if (!res.ok) return null;
+              const data = await res.json();
+              const areaList: AreaOption[] = data.Areas || [];
+              return areaList.some(a => a.AreaCode === lockedAreaCode) ? p : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        const match = matches.find(Boolean) as ProvinceOption | undefined;
+        if (!cancelled && match) setResolvedProvince(match);
+      } catch (err) {
+        console.error('Failed to resolve province for area user:', err);
+      }
+    };
+    resolveProvince();
+    return () => { cancelled = true; };
+  }, [isAreaUser, lockedAreaCode, user.ProvinceCode, resolvedProvince, provinces]);
+
+  // ── Pre-select the locked province for Province/Area users ──────────────────
+  useEffect(() => {
+    if (lockedProvinceCode) {
+      setProvince(lockedProvinceCode);
+    }
+  }, [lockedProvinceCode]);
+
   useEffect(() => {
     if (!province) { setAreas([]); setArea(''); return; }
     const fetchAreas = async () => {
@@ -108,7 +183,8 @@ const FinalizedAccounts: React.FC = () => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setAreas(data.Areas || []);
-        setArea('');
+        // Area users keep their locked area selected; everyone else resets to "All Areas".
+        setArea(isAreaUser ? lockedAreaCode : '');
       } catch (err: any) {
         console.error('Failed to load areas:', err.message);
       } finally {
@@ -116,7 +192,14 @@ const FinalizedAccounts: React.FC = () => {
       }
     };
     fetchAreas();
-  }, [province]);
+  }, [province, isAreaUser, lockedAreaCode]);
+
+  // ── Keep the locked area selected for Area users even after re-renders ──────
+  useEffect(() => {
+    if (isAreaUser && lockedAreaCode) {
+      setArea(lockedAreaCode);
+    }
+  }, [isAreaUser, lockedAreaCode, areas]);
 
   const fetchReport = useCallback(async () => {
     if (!province) { setReportError('Please select a province.'); return; }
@@ -124,8 +207,8 @@ const FinalizedAccounts: React.FC = () => {
     const provObj = provinces.find(p => p.ProvCode === province);
     const areaObj = areas.find(a => a.AreaCode === area);
 
-    setSnapProvName(provObj?.ProvName ?? province);
-    setSnapAreaName(areaObj?.AreaName ?? (area || 'All Areas'));
+    setSnapProvName(provObj?.ProvName ?? lockedProvinceName ?? province);
+    setSnapAreaName(areaObj?.AreaName ?? lockedAreaName ?? (area || 'All Areas'));
 
     // Format the bill cycle with its month, e.g. "452-Apr", instead of the raw cycle number
     const cycleNum = Number(month);
@@ -187,7 +270,7 @@ const FinalizedAccounts: React.FC = () => {
       setLoadingReport(false);
     }
   }, [province, area, month, balanceChecked, balanceOperator, balanceValue,
-      daysChecked, daysOperator, daysValue, provinces, areas]);
+      daysChecked, daysOperator, daysValue, provinces, areas, lockedProvinceName, lockedAreaName]);
 
   const handleBackToForm = () => {
     setHasSearched(false);
@@ -305,6 +388,7 @@ const FinalizedAccounts: React.FC = () => {
   };
 
   const selectCls = 'w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent outline-none';
+  const lockedCls = 'w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed';
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm">
@@ -318,7 +402,13 @@ const FinalizedAccounts: React.FC = () => {
             {/* Province */}
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${maroon}`}>Province:</label>
-              {loadingDropdowns ? (
+              {lockedProvinceCode ? (
+                <select disabled value={lockedProvinceCode} className={lockedCls}>
+                  <option value={lockedProvinceCode}>
+                    {lockedProvinceCode}{lockedProvinceName ? ` – ${lockedProvinceName}` : ''}
+                  </option>
+                </select>
+              ) : loadingDropdowns ? (
                 <div className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-gray-50 text-gray-500">Loading...</div>
               ) : (
                 <select value={province} onChange={e => { setProvince(e.target.value); setReportError(null); }} className={selectCls}>
@@ -333,7 +423,13 @@ const FinalizedAccounts: React.FC = () => {
             {/* Area */}
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${!province ? 'text-gray-400' : maroon}`}>Area:</label>
-              {!province ? (
+              {isAreaUser ? (
+                <select disabled value={lockedAreaCode} className={lockedCls}>
+                  <option value={lockedAreaCode}>
+                    {lockedAreaCode}{lockedAreaName ? ` – ${lockedAreaName}` : ''}
+                  </option>
+                </select>
+              ) : !province ? (
                 <div className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed">
                   Select a province first
                 </div>

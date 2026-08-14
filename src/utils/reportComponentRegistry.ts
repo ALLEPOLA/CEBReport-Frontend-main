@@ -67,6 +67,7 @@ import ChequeSummaryReport from "../mainTopics/CashBook/ChequeSummaryReport";
 import RegionPeriodStatusReport from "../mainTopics/CashBook/Regionperiodstatusreport";
 import ProvinceWisePeriodStatus from "../mainTopics/CashBook/ProvincePeriodStatusReport";
 import CurrentAcctBalCC from "../mainTopics/CashBook/CurrentAcctBalCC";
+import AreaWiseCashBookInquiryReport from "../mainTopics/CashBook/AreaWiseCashBookInquiryReport.tsx";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -193,18 +194,28 @@ import SolarDashboardPage from "../mainTopics/Dashboard/SolarDashboardPage";
 import CollectionsDashboardPage from "../mainTopics/Dashboard/CollectionsDashboardPage";
 import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPage";
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
+import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
 //SMC - Management Information
-import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport";
-import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
-import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
+import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
+import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
 
 //FIFO reports
-import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
-import QuantityMatFIFOReport from "../mainTopics/fifo/QuantityMatFIFOReport";
+import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
+import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx";
 
 // Construction 
-import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport";
+import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
+import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport.tsx";
+import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport.tsx";
+
+//Common Reports
+import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
+import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
+import CostCenterWiseGLDocumentReport from "../mainTopics/Common/CostcenterwiseGlDocumentReport.tsx";
+import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -313,6 +324,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"region wise period status": RegionPeriodStatusReport,
 	"province wise period status" : ProvinceWisePeriodStatus,
     "cost center wise current account balance" : CurrentAcctBalCC,
+	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
@@ -449,11 +461,13 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"collections & payments dashboard": CollectionsDashboardPage,
 	"executive dashboard": ExecutiveDashboardPage,
 	"inventory dashboard": InventoryDashboardPage,
+	"area general manager dashboard": AreaEngineerDashboardPage,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+	"cost center wise job register": JobRegisterCCReport,
 
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
@@ -461,6 +475,14 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	// Construction Reports
 	"bulk connection details": BulkConnectionDetailsReport,
+	"construction all data": ConstructionAllReport,
+	"construction completed": ConstructionCompletedReport,
+
+	//Common Reports
+	"inventory document inquiry": InventoryDocInquiryReport,
+	"branch province pending document inquiry": BranchPendingDocInquiryReport,
+	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
+	"material requisition with issue details": MaterialRequisitionWithIssueDetailsReport,
 };
 
 /**
@@ -489,3 +511,4 @@ export const getReportComponentLoose = (normalizedReportName: string): Component
 
 	return null;
 };
+

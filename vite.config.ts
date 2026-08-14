@@ -25,55 +25,31 @@ export default defineConfig(({ mode }) => {
 					changeOrigin: true,
 					secure: false,
 				},
-				/*
-								"/misapi/api/phv-obsolete-idle-fifo": {
-									target: env.VITE_LOCAL_API,
-									changeOrigin: true,
-									secure: false,
-									rewrite: (path) => path.replace(/^\/misapi/, ""),
-								},
-								"/misapi/api/phv-damage-fifo": {
-									target: env.VITE_LOCAL_API,
-									changeOrigin: true,
-									secure: false,
-									rewrite: (path) => path.replace(/^\/misapi/, ""),
-								},
-				
-								"/misapi/api/areatrialbalance": {
-									target: env.VITE_LOCAL_API,
-									changeOrigin: true,
-									secure: false,
-									rewrite: (path) => path.replace(/^\/misapi/, ""),
-								},
-				
-								"/misapi/api/solarjobs/ccapplication": {
-									target: env.VITE_LOCAL_API,
-									changeOrigin: true,
-									secure: false,
-									rewrite: (path) => path.replace(/^\/misapi/, ""),
-								},
-				
-								"/misapi/api/solarjobs/pending-jobs": {
-									target: env.VITE_LOCAL_API,
-									changeOrigin: true,
-									secure: false,
-									rewrite: (path) => path.replace(/^\/misapi/, ""),
-								},
-			*/
 
 				"/misapi/api/reportcatalog/all": {
 					target: env.VITE_SERVER_API,
 					changeOrigin: true,
 					secure: false,
-					//rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
 
-
-				"/misapi": {
+				"/misapi/api/branchpendingdocinquiry/report": {
 					target: env.VITE_LOCAL_API,
 					changeOrigin: true,
 					secure: false,
 					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
+				"/misapi/api/costcenterwisegldocument/report": {
+					target: env.VITE_LOCAL_API,
+					changeOrigin: true,
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
+				"/misapi": {
+					target: env.VITE_SERVER_API,
+					changeOrigin: true,
+					secure: false,
 				},
 
 				"/api": {
@@ -96,3 +72,4 @@ export default defineConfig(({ mode }) => {
 		},
 	};
 });
+
