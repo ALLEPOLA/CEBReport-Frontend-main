@@ -117,6 +117,7 @@ import LCWithoutSubAcc from "../mainTopics/LedgerCard/LCWithoutSubAcc";
 import LedgerCardSubAccountTotal from "../mainTopics/LedgerCard/LedgerCardSubAccountTotal";
 import DivisionalLedgerCard from "../mainTopics/LedgerCard/DivisionalLedgerCard";
 import CostCenterTransferVouchers from "../mainTopics/LedgerCard/CostCenterTransferVouchers";
+import Report71_8 from "../mainTopics/LedgerCard/Report71_8";
 
 // Physical Verification reports
 import PHVEntryForm from "../mainTopics/PhysicalVerification/PHVEntryForm";
@@ -378,6 +379,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"ledger card subaccounts total": LedgerCardSubAccountTotal,
 	"sub accounts transactions for account code within selected company": DivisionalLedgerCard,
 	"cost center transfer vouchers": CostCenterTransferVouchers,
+	"71/8 report": Report71_8,
+
 
 	// Physical Verification FIFO reports
 	"1. physical verification obsolete idle - av/7a (fifo)": PHVObsoleteIdleFIFO,
