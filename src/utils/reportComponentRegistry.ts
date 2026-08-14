@@ -67,6 +67,7 @@ import ChequeSummaryReport from "../mainTopics/CashBook/ChequeSummaryReport";
 import RegionPeriodStatusReport from "../mainTopics/CashBook/Regionperiodstatusreport";
 import ProvinceWisePeriodStatus from "../mainTopics/CashBook/ProvincePeriodStatusReport";
 import CurrentAcctBalCC from "../mainTopics/CashBook/CurrentAcctBalCC";
+import AreaWiseCashBookInquiryReport from "../mainTopics/CashBook/AreaWiseCashBookInquiryReport.tsx";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -211,7 +212,6 @@ import ConstructionCompletedReport from "../mainTopics/Construction/Construction
 
 //Common Reports
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
-import AreaWiseCashBookInquiryReport from "../mainTopics/Common/AreaWiseCashBookInquiryReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -320,6 +320,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"region wise period status": RegionPeriodStatusReport,
 	"province wise period status" : ProvinceWisePeriodStatus,
     "cost center wise current account balance" : CurrentAcctBalCC,
+	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
@@ -474,7 +475,6 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//Common Reports
 	"inventory document inquiry": InventoryDocInquiryReport,
-	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 };
 
 /**
