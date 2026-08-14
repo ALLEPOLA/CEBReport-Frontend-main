@@ -11,7 +11,7 @@ type YrMnthDetail = {
 
 const TransactionHistoryOrdinary: React.FC = () => {
   const { level, locked } = useReportScope();
-  const { user } = useUser();
+  useUser();
   const lockedRegionCode = locked["Region"]?.code;
   const lockedProvinceCode = locked["Province"]?.code;
   const lockedAreaCode = locked["Area"]?.code;
