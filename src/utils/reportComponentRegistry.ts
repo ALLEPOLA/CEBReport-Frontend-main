@@ -199,6 +199,8 @@ import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgres
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
 import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
+import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
+import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
 
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
@@ -462,6 +464,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
 	"cost center wise job register": JobRegisterCCReport,
+	"cost center wise new connection job register": JobRegCCNCReport,
+	"area wise smc all details": SMCAllApplicationReport,
 
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
