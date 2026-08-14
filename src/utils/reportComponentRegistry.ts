@@ -213,8 +213,10 @@ import ConstructionCompletedReport from "../mainTopics/Construction/Construction
 //Common Reports
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
 import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
-import CostCenterWiseGLDocumentReport from "../mainTopics/Common/CostcenterwiseGlDocumentReport.tsx";
 import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
+
+//General Ledger Reports
+import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -479,8 +481,10 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	//Common Reports
 	"inventory document inquiry": InventoryDocInquiryReport,
 	"branch province pending document inquiry": BranchPendingDocInquiryReport,
-	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
 	"material requisition with issue details": MaterialRequisitionWithIssueDetailsReport,
+
+	//General Ledger Reports
+	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
 };
 
 /**
