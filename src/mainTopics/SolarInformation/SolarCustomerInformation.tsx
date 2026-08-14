@@ -1,5 +1,7 @@
 import React, { useState, useRef } from "react";
 import { FaFileDownload, FaPrint, FaTimes } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { isWithinUserScope } from "../../hooks/useReportScope";
 
 interface CustomerInfo {
     AreaCode: string;
@@ -57,6 +59,7 @@ const SolarCustomerInformation: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [customerData, setCustomerData] = useState<CustomerInformationResponse | null>(null);
     const [reportVisible, setReportVisible] = useState(false);
+    const { user } = useUser();
 
     const printRef = useRef<HTMLDivElement>(null);
 
@@ -149,6 +152,15 @@ const SolarCustomerInformation: React.FC = () => {
             }
 
             if (result.data) {
+                const info = result.data.CustomerInfo;
+
+                if (!isWithinUserScope(user, info?.AreaCode, info?.ProvinceCode, info?.Region)) {
+                    setError("This account is outside your access scope.");
+                    setCustomerData(null);
+                    setReportVisible(false);
+                    return;
+                }
+
                 setCustomerData(result.data);
                 setReportVisible(true);
             } else {

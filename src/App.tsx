@@ -1,11 +1,10 @@
-import {Routes, Route} from "react-router-dom";
+import {Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./index.css";
 
 import LoginPage from "./pages/LoginPage";
 import Layout from "./Layout";
-import HomePage from "./pages/HomePage.tsx";
 import UserDetails from "./pages/UserDetails";
 import MaterialDetails from "./mainTopics/inventory/MaterialDetails";
 import ReportRoutes from "./routes/ReportRoutes";
@@ -41,11 +40,7 @@ function App() {
 
 				<Route
 					path="/home"
-					element={
-						<Layout>
-							<HomePage />
-						</Layout>
-					}
+					element={<Navigate to="/report/report-catalog" replace />}
 				/>
 
 				<Route

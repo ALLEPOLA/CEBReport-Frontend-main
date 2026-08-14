@@ -37,8 +37,8 @@ const AccordionCard: React.FC<AccordionCardProps> = ({
 		</div>
 		{/* Card Content */}
 		<div
-			className={`overflow-hidden transition-[max-height] duration-1000 ease-in-out bg-[#f8f9fa] ${
-				expanded ? "max-h-[1000px]" : "max-h-0"
+			className={`transition-[max-height] duration-1000 ease-in-out bg-[#f8f9fa] ${
+				expanded ? "max-h-[1000px] overflow-visible" : "max-h-0 overflow-hidden"
 			}`}
 		>
 			{expanded && <div className="p-4">{children}</div>}
