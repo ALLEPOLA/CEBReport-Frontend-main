@@ -26,6 +26,14 @@ export default defineConfig(({ mode }) => {
 					secure: false,
 				},
 
+				"/misapi/api/reportcatalog/all": {
+					target: env.VITE_SERVER_API,
+					changeOrigin: true,
+					secure: false,
+					//rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
+
 				"/misapi": {
 					target: env.VITE_SERVER_API,
 					changeOrigin: true,

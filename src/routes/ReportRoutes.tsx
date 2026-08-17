@@ -33,6 +33,8 @@ import FIFO from "../pages/FIFO";
 import Construction from "../pages/Construction";
 import Common from "../pages/Common";
 import SMC from "../pages/SMC";
+import GeneralLedger from "../pages/GeneralLedger";
+
 
 const ReportRoutes = () => (
 	<>
@@ -310,6 +312,15 @@ const ReportRoutes = () => (
 			element={
 				<Layout>
 					<Common />
+				</Layout>
+			}
+		/>
+
+		<Route
+			path="/report/general-ledger"
+			element={
+				<Layout>
+					<GeneralLedger />
 				</Layout>
 			}
 		/>

@@ -5,6 +5,7 @@ interface DashboardHeaderProps {
   title: string;
   selectedDivision?: string;
   onDivisionChange?: (id: string) => void;
+  showDivisionBar?: boolean;
   selectedProvince?: string;
   onProvinceChange?: (code: string) => void;
   selectedArea?: string;
@@ -17,6 +18,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   title,
   selectedDivision: externalDivision,
   onDivisionChange,
+  showDivisionBar = true,
   selectedProvince,
   onProvinceChange,
   selectedArea,
@@ -62,7 +64,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     const d2 = ["5", "7", "A", "E"];
     const d3 = ["2", "6", "9", "C"];
     const d4 = ["4", "B", "F"];
-    
+
     if (d1.includes(code)) return "d1";
     if (d2.includes(code)) return "d2";
     if (d3.includes(code)) return "d3";
@@ -75,7 +77,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     const match = /^R(\d+)$/i.exec(regionCode.trim());
     if (!match) return provinces;
     const regionNum = match[1];
-    
+
     if (regionNum === "1") return provinces.filter(p => ["1", "3", "8", "D"].includes(p.code));
     if (regionNum === "2") return provinces.filter(p => ["5", "7", "A", "E"].includes(p.code));
     if (regionNum === "3") return provinces.filter(p => ["2", "6", "9", "C"].includes(p.code));
@@ -102,14 +104,27 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   })();
 
   const filteredDivisions = divisions.filter((division) => {
-    if (user?.Level === 80) return true;
-    if (user?.RegionCode) {
-      const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+    if (user?.Level === 80 || user?.Company?.toUpperCase().trim() === "DIST") return true;
+
+    let userDivision = "";
+    if (user?.Company) {
+      const match = /^DISCO(\d+)$/i.exec(user.Company.trim());
       if (match) {
-        const allowedId = `d${match[1]}`.toLowerCase();
-        return division.id === allowedId;
+        userDivision = `d${match[1]}`;
       }
     }
+
+    if (!userDivision && user?.RegionCode) {
+      const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+      if (match) {
+        userDivision = `d${match[1]}`;
+      }
+    }
+
+    if (userDivision) {
+      return division.id === userDivision.toLowerCase();
+    }
+
     if (user?.ProvinceCode) {
       const allowedId = getProvinceDivision(user.ProvinceCode);
       return division.id === allowedId;
@@ -162,7 +177,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </select>
             )}
 
-            {user?.Level !== 50 && (
+            {showDivisionBar && user?.Level !== 50 && (
               <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
                 {filteredDivisions.map((division) => {
                   const isSelected = selectedDivision === division.id;

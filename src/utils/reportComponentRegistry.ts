@@ -67,6 +67,10 @@ import ChequeSummaryReport from "../mainTopics/CashBook/ChequeSummaryReport";
 import RegionPeriodStatusReport from "../mainTopics/CashBook/Regionperiodstatusreport";
 import ProvinceWisePeriodStatus from "../mainTopics/CashBook/ProvincePeriodStatusReport";
 import CurrentAcctBalCC from "../mainTopics/CashBook/CurrentAcctBalCC";
+import AreaWiseCashBookInquiryReport from "../mainTopics/CashBook/AreaWiseCashBookInquiryReport.tsx";
+import CashbookInquiryDrCrReport from "../mainTopics/CashBook/CashBookInquiryDrCrReport.tsx";
+import ChequeCancellationDivisionReport from "../mainTopics/CashBook/ChequeCancellationDivisionReport.tsx";
+import ChequeDetailsInquiryReport from "../mainTopics/CashBook/ChequeDetailsInquiryReport.tsx";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -115,6 +119,8 @@ import LedgerCardReport from "../mainTopics/LedgerCard/LedgerCardReport";
 import LCWithoutSubAcc from "../mainTopics/LedgerCard/LCWithoutSubAcc";
 import LedgerCardSubAccountTotal from "../mainTopics/LedgerCard/LedgerCardSubAccountTotal";
 import DivisionalLedgerCard from "../mainTopics/LedgerCard/DivisionalLedgerCard";
+import CostCenterTransferVouchers from "../mainTopics/LedgerCard/CostCenterTransferVouchers";
+import Report71_8 from "../mainTopics/LedgerCard/Report71_8";
 
 // Physical Verification reports
 import PHVEntryForm from "../mainTopics/PhysicalVerification/PHVEntryForm";
@@ -203,21 +209,26 @@ import CompletedJobsCCReport from "../mainTopics/SMC/CompletedJobsCCReport.tsx";
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
-import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
+import PivIIPaidNotEnergizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnergizedReport.tsx";
 import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFinBillNotGeneratedReport.tsx";
 
 //FIFO reports
-import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
-import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx";
+import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
+import QuantityMatFIFOReport from "../mainTopics/fifo/QuantityMatFIFOReport";
 
 // Construction 
-import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
-import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport.tsx";
-import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport.tsx";
+import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport";
+import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport";
+import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport";
 
 //Common Reports
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
-import AreaWiseCashBookInquiryReport from "../mainTopics/Common/AreaWiseCashBookInquiryReport.tsx";
+import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
+import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
+import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingReport.tsx";
+
+//General Ledger Reports
+import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -326,6 +337,10 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"region wise period status": RegionPeriodStatusReport,
 	"province wise period status" : ProvinceWisePeriodStatus,
     "cost center wise current account balance" : CurrentAcctBalCC,
+	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
+	"cash book inquiry debit credit": CashbookInquiryDrCrReport,
+	"Cheque cancellation division": ChequeCancellationDivisionReport,
+	"cheque details inquiry cheque no range": ChequeDetailsInquiryReport,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
@@ -374,6 +389,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"ledger card without subaccounts": LCWithoutSubAcc,
 	"ledger card subaccounts total": LedgerCardSubAccountTotal,
 	"sub accounts transactions for account code within selected company": DivisionalLedgerCard,
+	"cost center transfer vouchers": CostCenterTransferVouchers,
+	"71/8 report": Report71_8,
+
 
 	// Physical Verification FIFO reports
 	"1. physical verification obsolete idle - av/7a (fifo)": PHVObsoleteIdleFIFO,
@@ -472,7 +490,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
-	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+	"piv ii paid not energized": PivIIPaidNotEnergizedReport,
 	"cost center wise job finished not paid contractor payment": JobFinBillNotGeneratedReport,
 	
 	//FIFO reports
@@ -486,7 +504,12 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//Common Reports
 	"inventory document inquiry": InventoryDocInquiryReport,
-	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
+	"branch province pending document inquiry": BranchPendingDocInquiryReport,
+	"material requisition with issue details": MaterialRequisitionWithIssueDetailsReport,
+	"cost center document inquiry pending": CCDocInquiryPendingReport,
+
+	//General Ledger Reports
+	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
 };
 
 /**
