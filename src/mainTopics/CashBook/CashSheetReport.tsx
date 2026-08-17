@@ -160,18 +160,23 @@ const CashSheetReportTable: React.FC<{
         URL.revokeObjectURL(url);
     };
 
-    /* ────── Print PDF ────── */
+    /* ────── Print PDF ──────
+       NOTE: the print window below only loads the inline <style> block defined in this
+       function — it does NOT have Tailwind CSS available. Any Tailwind utility class
+       (text-right, text-center, etc.) written directly into this HTML string is inert.
+       Alignment inside this template must always be set via inline style="..." instead,
+       which is why every td below carries an explicit text-align rather than a class. */
     const printPDF = () => {
         let rowsHTML = "";
         sortedData.forEach((it, i) => {
             rowsHTML += `
         <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-          <td class="px-3 py-2 border-l border-r border-gray-300 text-left text-xs">${it.ChqRun || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${it.ChqNo || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${it.PymtDocNo || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(it.ChqDt)}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-left text-xs break-words">${it.Payee || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-right text-xs">${formatAmount(it.ChqAmt)}</td>
+          <td class="px-3 py-2 border-l border-r border-gray-300 text-xs" style="text-align:left;">${it.ChqRun || ""}</td>
+          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:left;">${it.ChqNo || ""}</td>
+          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:left;">${it.PymtDocNo || ""}</td>
+          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:center;">${formatDate(it.ChqDt)}</td>
+          <td class="px-3 py-2 border-r border-gray-300 text-xs break-words" style="text-align:left;">${it.Payee || ""}</td>
+          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:right;">${formatAmount(it.ChqAmt)}</td>
         </tr>`;
         });
 
@@ -218,7 +223,7 @@ const CashSheetReportTable: React.FC<{
         <th style="padding:6px 8px; width:14%;">Payslips No</th>
         <th style="padding:6px 8px; width:12%;">Cheque Date</th>
         <th style="padding:6px 8px; width:30%;">Payee</th>
-        <th style="padding:6px 8px; width:12%;">Amount (LKR)</th>
+        <th style="padding:6px 8px; width:12%; text-align:right;">Amount (LKR)</th>
       </tr>
     </thead>
     <tbody>${rowsHTML}</tbody>
