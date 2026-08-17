@@ -117,6 +117,8 @@ import LedgerCardReport from "../mainTopics/LedgerCard/LedgerCardReport";
 import LCWithoutSubAcc from "../mainTopics/LedgerCard/LCWithoutSubAcc";
 import LedgerCardSubAccountTotal from "../mainTopics/LedgerCard/LedgerCardSubAccountTotal";
 import DivisionalLedgerCard from "../mainTopics/LedgerCard/DivisionalLedgerCard";
+import CostCenterTransferVouchers from "../mainTopics/LedgerCard/CostCenterTransferVouchers";
+import Report71_8 from "../mainTopics/LedgerCard/Report71_8";
 
 // Physical Verification reports
 import PHVEntryForm from "../mainTopics/PhysicalVerification/PHVEntryForm";
@@ -197,21 +199,23 @@ import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPa
 import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
 //SMC - Management Information
-import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
-import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 import PivIIPaidNotEnergizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnergizedReport.tsx";
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
+import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
 import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
 import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
 import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
+import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFinBillNotGeneratedReport.tsx";
 
 //FIFO reports
-import IssueReceiptSummaryReport from "../mainTopics/FIFO/IssueReceiptSummaryReport.tsx";
-import QuantityMatFIFOReport from "../mainTopics/FIFO/QuantityMatFIFOReport.tsx";
+import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
+import QuantityMatFIFOReport from "../mainTopics/fifo/QuantityMatFIFOReport";
 
 // Construction 
-import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport.tsx";
-import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport.tsx";
-import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport.tsx";
+import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport";
+import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport";
+import ConstructionCompletedReport from "../mainTopics/Construction/ConstructionCompletedReport";
 
 //Common Reports
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
@@ -379,6 +383,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"ledger card without subaccounts": LCWithoutSubAcc,
 	"ledger card subaccounts total": LedgerCardSubAccountTotal,
 	"sub accounts transactions for account code within selected company": DivisionalLedgerCard,
+	"cost center transfer vouchers": CostCenterTransferVouchers,
+	"71/8 report": Report71_8,
+
 
 	// Physical Verification FIFO reports
 	"1. physical verification obsolete idle - av/7a (fifo)": PHVObsoleteIdleFIFO,
@@ -475,7 +482,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise job register": JobRegisterCCReport,
 	"cost center wise new connection job register": JobRegCCNCReport,
 	"area wise smc all details": SMCAllApplicationReport,
-
+	"cost center wise job finished not paid contractor payment": JobFinBillNotGeneratedReport,
+	
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
 	"quantity on hand material wise fifo": QuantityMatFIFOReport,
