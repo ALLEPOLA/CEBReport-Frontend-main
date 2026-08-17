@@ -54,6 +54,7 @@ interface CompletedJobsCCSummary {
     fromDate: string;
     toDate: string;
     costCtr: string;
+    jobType: string;
     totalRecords: number;
 }
 
@@ -61,6 +62,13 @@ interface CompletedJobsCCSummary {
 const PAGE_SIZE = 9;
 const FETCH_TIMEOUT_MS = 240000;
 const COMPANY_NAME = "Electricity Distribution Lanka Private Limited";
+
+const JOB_TYPE_OPTIONS: { value: string; label: string }[] = [
+    { value: "", label: "All Types" },
+    { value: "NC", label: "NC - New Connection" },
+    { value: "CR", label: "CR - Change of Reading" },
+    { value: "TC", label: "TC - Temporary Connection" },
+];
 
 /* ────── Helpers ────── */
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -86,8 +94,9 @@ const CompletedJobsCCTable: React.FC<{
     toDate: string;
     costCenter: string;
     departmentName: string;
+    jobTypeLabel: string;
     onClose: () => void;
-}> = ({ data, summary, fromDate, toDate, costCenter, departmentName, onClose }) => {
+}> = ({ data, summary, fromDate, toDate, costCenter, departmentName, jobTypeLabel, onClose }) => {
     const maroon = "text-[#7A0000]";
     const fromLabel = formatDate(fromDate);
     const toLabel = formatDate(toDate);
@@ -96,49 +105,54 @@ const CompletedJobsCCTable: React.FC<{
     const sortedData = [...data]; // already ordered by backend (application_type desc, project_no asc)
     const totalRecords = summary?.totalRecords ?? sortedData.length;
 
-    const columns: { key: keyof CompletedJobsCCItem; label: string; isDate?: boolean }[] = [
-        { key: "ApplicationType", label: "App Type" },
-        { key: "ApplicationNo", label: "App No" },
-        { key: "ProjectNo", label: "Project No" },
-        { key: "FirstName", label: "First Name" },
-        { key: "LastName", label: "Last Name" },
-        { key: "ContractorName", label: "Contractor Name" },
-        { key: "Amount", label: "Amount" },
-        { key: "FinishedDate", label: "Finished Date", isDate: true },
-        { key: "PivNo", label: "PIV No" },
-        { key: "PivDate", label: "PIV Date", isDate: true },
-        { key: "PivAmount", label: "PIV Amount" },
-        { key: "PivNo3", label: "PIV No (P)" },
-        { key: "PivDate3", label: "PIV Date (P)", isDate: true },
-        { key: "PivAmount3", label: "PIV Amount (P)" },
-        { key: "PivReceiptNo", label: "PIV Receipt No" },
-        { key: "ConfirmedDate", label: "Confirmed Date", isDate: true },
-        { key: "SubmitDate", label: "Submit Date", isDate: true },
-        { key: "AccountNo", label: "Account No" },
-        { key: "AccCreatedDate", label: "Acc Created Date", isDate: true },
-        { key: "MeterNo1", label: "Meter No 1" },
-        { key: "InitReading1", label: "Init Reading 1" },
-        { key: "MeterNo2", label: "Meter No 2" },
-        { key: "InitReading2", label: "Init Reading 2" },
-        { key: "MeterNo3", label: "Meter No 3" },
-        { key: "InitReading3", label: "Init Reading 3" },
-        { key: "ConnectedDate", label: "Connected Date", isDate: true },
-        { key: "NeighboursAccNo", label: "Neighbours Acc No" },
-        { key: "Phase", label: "Phase" },
-        { key: "ConnectionType", label: "Connection Type" },
-        { key: "TariffCatCode", label: "Tariff Cat Code" },
-        { key: "TariffCode", label: "Tariff Code" },
-        { key: "WiringType", label: "Wiring Type" },
-        { key: "TotalLength", label: "Total Length" },
-        { key: "Sin", label: "SIN" },
-        { key: "ServiceStreetAddress", label: "Service Street Address" },
-        { key: "ServiceSuburb", label: "Service Suburb" },
-        { key: "ServiceCity", label: "Service City" },
+    interface ColumnDef {
+        key: string;
+        label: string;
+        isDate?: boolean;
+        align?: "right";
+        getValue: (it: CompletedJobsCCItem) => string;
+    }
+
+    const joinNonEmpty = (parts: (string | null | undefined)[], sep = ", "): string =>
+        parts.filter((p) => p && p.trim()).join(sep);
+
+    const columns: ColumnDef[] = [
+        { key: "ApplicationNo", label: "Application No", getValue: (it) => it.ApplicationNo ?? "" },
+        { key: "Name", label: "Name", getValue: (it) => joinNonEmpty([it.FirstName, it.LastName], " ") },
+        { key: "SubmitDate", label: "App Submitted Date", isDate: true, getValue: (it) => it.SubmitDate ?? "" },
+        {
+            key: "ServiceAddress",
+            label: "Applicant Service Address",
+            getValue: (it) => joinNonEmpty([it.ServiceStreetAddress, it.ServiceSuburb, it.ServiceCity]),
+        },
+        { key: "ApplicationType", label: "Application Type", getValue: (it) => it.ApplicationType ?? "" },
+        { key: "PivNo", label: "PIV No", getValue: (it) => it.PivNo ?? "" },
+        { key: "PivDate", label: "PIV Date", isDate: true, getValue: (it) => it.PivDate ?? "" },
+        { key: "PivAmount", label: "PIV Amount", align: "right", getValue: (it) => it.PivAmount ?? "" },
+        { key: "ConfirmedDate", label: "PIV Confirm Date", isDate: true, getValue: (it) => it.ConfirmedDate ?? "" },
+        { key: "WiringType", label: "Wiring Type", getValue: (it) => it.WiringType ?? "" },
+        { key: "TariffCode", label: "Tariff", getValue: (it) => it.TariffCode ?? "" },
+        { key: "TotalLength", label: "Total Length", getValue: (it) => it.TotalLength ?? "" },
+        { key: "Phase", label: "Phase", getValue: (it) => it.Phase ?? "" },
+        { key: "TariffCatCode", label: "Tariff Category", getValue: (it) => it.TariffCatCode ?? "" },
+        { key: "NeighboursAccNo", label: "Neighbours Account No", getValue: (it) => it.NeighboursAccNo ?? "" },
+        { key: "ProjectNo", label: "Project No", getValue: (it) => it.ProjectNo ?? "" },
+        { key: "ContractorName", label: "Contractor Name", getValue: (it) => it.ContractorName ?? "" },
+        { key: "Sin", label: "SIN No", getValue: (it) => it.Sin ?? "" },
+        { key: "ConnectedDate", label: "Connected Date", isDate: true, getValue: (it) => it.ConnectedDate ?? "" },
+        { key: "AccountNo", label: "Account No", getValue: (it) => it.AccountNo ?? "" },
+        { key: "AccCreatedDate", label: "Account Created Date", isDate: true, getValue: (it) => it.AccCreatedDate ?? "" },
+        { key: "MeterNo1", label: "Meter 1", getValue: (it) => it.MeterNo1 ?? "" },
+        { key: "InitReading1", label: "Reading 1", getValue: (it) => it.InitReading1 ?? "" },
+        { key: "MeterNo2", label: "Meter 2", getValue: (it) => it.MeterNo2 ?? "" },
+        { key: "InitReading2", label: "Reading 2", getValue: (it) => it.InitReading2 ?? "" },
+        { key: "MeterNo3", label: "Meter 3", getValue: (it) => it.MeterNo3 ?? "" },
+        { key: "InitReading3", label: "Reading 3", getValue: (it) => it.InitReading3 ?? "" },
     ];
 
-    const cellValue = (it: CompletedJobsCCItem, col: (typeof columns)[number]) => {
-        const raw = it[col.key];
-        return col.isDate ? formatDate(raw) : raw ?? "";
+    const cellValue = (it: CompletedJobsCCItem, col: ColumnDef) => {
+        const raw = col.getValue(it);
+        return col.isDate ? formatDate(raw) : raw;
     };
 
     /* ────── CSV Download ────── */
@@ -147,6 +161,7 @@ const CompletedJobsCCTable: React.FC<{
             reportTitle,
             COMPANY_NAME,
             `Cost Center: ${costCenter} / ${departmentName}`,
+            `Job Type: ${jobTypeLabel}`,
             `Total Records: ${totalRecords}`,
             "",
         ];
@@ -169,7 +184,7 @@ const CompletedJobsCCTable: React.FC<{
         let rowsHTML = "";
         sortedData.forEach((it, i) => {
             const cells = columns
-                .map((c) => `<td>${cellValue(it, c) || ""}</td>`)
+                .map((c) => `<td${c.align === "right" ? ' style="text-align:right;"' : ""}>${cellValue(it, c) || ""}</td>`)
                 .join("");
             rowsHTML += `
         <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
@@ -178,7 +193,9 @@ const CompletedJobsCCTable: React.FC<{
         </tr>`;
         });
 
-        const headCells = columns.map((c) => `<th>${c.label}</th>`).join("");
+        const headCells = columns
+            .map((c) => `<th${c.align === "right" ? ' style="text-align:right;"' : ""}>${c.label}</th>`)
+            .join("");
 
         const html = `
 <!DOCTYPE html>
@@ -205,7 +222,7 @@ const CompletedJobsCCTable: React.FC<{
 <body>
   <div class="title">${reportTitle}</div>
   <div class="company">${COMPANY_NAME}</div>
-  <div class="info"><strong>Cost Center:</strong> ${costCenter} / ${departmentName} &nbsp;&nbsp; <strong>Records:</strong> ${totalRecords}</div>
+  <div class="info"><strong>Cost Center:</strong> ${costCenter} / ${departmentName} &nbsp;&nbsp; <strong>Job Type:</strong> ${jobTypeLabel} &nbsp;&nbsp; <strong>Records:</strong> ${totalRecords}</div>
   <table>
     <thead>
       <tr>
@@ -262,6 +279,7 @@ const CompletedJobsCCTable: React.FC<{
                     </h3>
                     <div className="text-sm mb-4 px-2">
                         <span className="font-bold">Cost Center:</span> {costCenter} / {departmentName}
+                        <span className="ml-4 font-bold">Job Type:</span> {jobTypeLabel}
                         <span className="ml-4 text-gray-500">Records: {totalRecords}</span>
                     </div>
 
@@ -272,7 +290,12 @@ const CompletedJobsCCTable: React.FC<{
                                     <tr className="bg-[#7A0000] text-white sticky top-0">
                                         <th className="px-3 py-2 border border-gray-300 font-bold">Item</th>
                                         {columns.map((c) => (
-                                            <th key={c.key} className="px-3 py-2 border border-gray-300 font-bold whitespace-nowrap">
+                                            <th
+                                                key={c.key}
+                                                className={`px-3 py-2 border border-gray-300 font-bold whitespace-nowrap ${
+                                                    c.align === "right" ? "text-right" : ""
+                                                }`}
+                                            >
                                                 {c.label}
                                             </th>
                                         ))}
@@ -286,7 +309,7 @@ const CompletedJobsCCTable: React.FC<{
                                                 <td
                                                     key={c.key}
                                                     className={`px-3 py-2 border-r border-gray-300 font-mono ${
-                                                        c.isDate ? "text-center" : ""
+                                                        c.isDate ? "text-center" : c.align === "right" ? "text-right" : ""
                                                     }`}
                                                 >
                                                     {cellValue(it, c)}
@@ -322,6 +345,7 @@ const CompletedJobsCCReport: React.FC = () => {
 
     const [fromDate, setFromDate] = useState(firstOfMonthStr);
     const [toDate, setToDate] = useState(todayStr);
+    const [jobType, setJobType] = useState("");
 
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
     const [reportData, setReportData] = useState<CompletedJobsCCItem[]>([]);
@@ -400,7 +424,9 @@ const CompletedJobsCCReport: React.FC = () => {
         const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
         try {
-            const url = `/misapi/api/completedjobscc/report?fromDate=${fromDate}&toDate=${toDate}&costCtr=${dept.DeptId}`;
+            const url = `/misapi/api/completedjobscc/report?fromDate=${fromDate}&toDate=${toDate}&costCtr=${dept.DeptId}${
+                jobType ? `&jobType=${jobType}` : ""
+            }`;
             const res = await fetch(url, { signal: controller.signal });
             clearTimeout(timeout);
 
@@ -461,9 +487,9 @@ const CompletedJobsCCReport: React.FC = () => {
                 Cost Center Wise Completed Jobs
             </h2>
 
-            {/* ────── From / To date filters ────── */}
+            {/* ────── From / To date / Job Type filters ────── */}
             <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="flex items-center gap-2">
                         <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
                             From Date:
@@ -486,6 +512,23 @@ const CompletedJobsCCReport: React.FC = () => {
                             onChange={(e) => setToDate(e.target.value)}
                             className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
                         />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
+                            Job Type:
+                        </label>
+                        <select
+                            value={jobType}
+                            onChange={(e) => setJobType(e.target.value)}
+                            className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+                        >
+                            {JOB_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -621,6 +664,9 @@ const CompletedJobsCCReport: React.FC = () => {
                                 toDate={toDate}
                                 costCenter={selectedDept.DeptId}
                                 departmentName={selectedDept.DeptName}
+                                jobTypeLabel={
+                                    JOB_TYPE_OPTIONS.find((opt) => opt.value === jobType)?.label ?? "All Types"
+                                }
                                 onClose={closeReport}
                             />
                         )}
