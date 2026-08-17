@@ -198,6 +198,7 @@ import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashb
 import JobRegisterCCReport from "../mainTopics/SMC/JobRegisterCCReport.tsx";
 import JobRegCCNCReport from "../mainTopics/SMC/JobRegCCNCReport.tsx";
 import SMCAllApplicationReport from "../mainTopics/SMC/SMCAllApplicationReport.tsx";
+import CompletedJobsCCReport from "../mainTopics/SMC/CompletedJobsCCReport.tsx";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -466,6 +467,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise job register": JobRegisterCCReport,
 	"cost center wise new connection job register": JobRegCCNCReport,
 	"area wise smc all details": SMCAllApplicationReport,
+	"cost center wise completed jobs" : CompletedJobsCCReport,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
