@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "../../contexts/UserContext";
 import {
   AlertCircle,
   BarChart3,
@@ -72,9 +73,23 @@ const Reveal: React.FC<RevealProps> = ({ children, delay = 0, className = "" }) 
 };
 
 export default function FinancialDashboardPage() {
+  const { user } = useUser();
   const navigate = useNavigate();
   const activeDashboard = "financial";
-  const [selectedDivision, setSelectedDivision] = useState("all");
+
+  const [selectedDivision, setSelectedDivision] = useState(() => {
+    if (user?.Level !== 80 && user?.Company?.toUpperCase().trim() !== "DIST") {
+      if (user?.Company) {
+        const match = /^DISCO(\d+)$/i.exec(user.Company.trim());
+        if (match) return `d${match[1]}`.toLowerCase();
+      }
+      if (user?.RegionCode) {
+        const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+        if (match) return `d${match[1]}`.toLowerCase();
+      }
+    }
+    return "all";
+  });
   const [pivTotal, setPivTotal] = useState<{ date: string; amount: number }[]>([]);
   const [pivDivision, setPivDivision] = useState<{ date: string; company: string; amount: number }[]>([]);
   const [stockTotal, setStockTotal] = useState<number>(0);

@@ -240,12 +240,16 @@ const DgmDashboardPage: React.FC = () => {
           rawData = parsed.result;
         }
 
-        const final = rawData
-          .map((item: any) => ({
-            compId: (item.CompId ?? item.compId ?? item.COMP_ID ?? "").toString().trim(),
-            compName: (item.CompNm ?? item.CompName ?? item.compNm ?? item.compName ?? item.COMP_NM ?? "").toString().trim(),
-          }))
-          .filter((item) => item.compId !== "");
+        // Deduplicate companies by compId to prevent UI issues if user has multiple roles for the same province
+        const uniqueMap = new Map();
+        rawData.forEach((item: any) => {
+          const id = (item.CompId ?? item.compId ?? item.COMP_ID ?? "").toString().trim();
+          const name = (item.CompNm ?? item.CompName ?? item.compNm ?? item.compName ?? item.COMP_NM ?? "").toString().trim();
+          if (id && !uniqueMap.has(id)) {
+            uniqueMap.set(id, { compId: id, compName: name });
+          }
+        });
+        const final = Array.from(uniqueMap.values());
 
         if (final.length > 0) {
           setCompanies(final);
@@ -253,13 +257,13 @@ const DgmDashboardPage: React.FC = () => {
           const hasWPN = final.some(c => c.compId.toUpperCase() === "WPN");
           setSelectedCompanyId(hasWPN ? "WPN" : final[0].compId);
         } else {
-          setCompanies([{ compId: "WPN", compName: "WPN" }]);
-          setSelectedCompanyId("WPN");
+          setCompanies([]);
+          setSelectedCompanyId("");
         }
       } catch (err) {
         console.error("Failed to load authorized companies:", err);
-        setCompanies([{ compId: "WPN", compName: "WPN" }]);
-        setSelectedCompanyId("WPN");
+        setCompanies([]);
+        setSelectedCompanyId("");
       }
     };
     fetchCompanies();
@@ -267,6 +271,10 @@ const DgmDashboardPage: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedCompanyId) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -517,7 +525,7 @@ const DgmDashboardPage: React.FC = () => {
           onSelectDashboard={(dashboard) => navigate(`/dashboard/${dashboard}`)}
         />
         <div className="flex-1 min-w-0">
-          <DashboardHeader title="Construction Progress Dashboard" />
+          <DashboardHeader title="Construction Progress Dashboard" showDivisionBar={false} />
 
           {/* Action / Refresh Bar (Glassmorphic) */}
           <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20 shadow-sm">
@@ -616,7 +624,19 @@ const DgmDashboardPage: React.FC = () => {
               </div>
             )}
 
-            {/* Top Row Widgets */}
+            {companies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-sm border border-slate-200 mt-12 max-w-2xl mx-auto text-center">
+                <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">Unauthorized Access</h2>
+                <p className="text-slate-500 text-sm font-semibold mb-6">
+                  You do not have any assigned provinces authorized to view the Construction Progress Dashboard. Please contact your system administrator if you believe this is a mistake.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Top Row Widgets */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch mb-12">
 
               {/* Left Column: Stacked Stock Value & PIV Period Summary */}
@@ -653,6 +673,9 @@ const DgmDashboardPage: React.FC = () => {
                           </p>
                           <p className="text-xs text-slate-500 font-semibold mt-2">
                             Full Sum: LKR {stockValue?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
+                          </p>
+                          <p className="text-xs text-slate-500 font-semibold mt-8">
+                            Grade Code - NEW &nbsp; Status - active
                           </p>
                         </div>
                       )}
@@ -986,7 +1009,6 @@ const DgmDashboardPage: React.FC = () => {
                                     <tr>
                                       <th className="px-6 py-3 border-b border-slate-100 w-16 text-center">#</th>
                                       <th className="px-6 py-3 border-b border-slate-100">Application No</th>
-                                      <th className="px-6 py-3 border-b border-slate-100">Type</th>
                                       <th className="px-6 py-3 border-b border-slate-100">Description</th>
                                     </tr>
                                   </thead>
@@ -995,11 +1017,6 @@ const DgmDashboardPage: React.FC = () => {
                                       <tr key={app.applicationNo} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-3 text-center font-mono text-slate-400">{idx + 1}</td>
                                         <td className="px-6 py-3 font-mono font-bold text-slate-700">{app.applicationNo}</td>
-                                        <td className="px-6 py-3 font-semibold">
-                                          <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded border border-slate-200">
-                                            {app.appType}
-                                          </span>
-                                        </td>
                                         <td className="px-6 py-3 font-medium text-slate-600">{app.description}</td>
                                       </tr>
                                     ))}
@@ -1225,6 +1242,8 @@ const DgmDashboardPage: React.FC = () => {
               </div>
             </Reveal>
 
+              </>
+            )}
           </div>
         </div>
       </div>
