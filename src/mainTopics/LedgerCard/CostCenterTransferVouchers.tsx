@@ -143,12 +143,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 										setIsOpen(false);
 										setSearchTerm("");
 									}}
-									className={`px-3 py-2 cursor-pointer hover:bg-red-50 hover:text-[#7A0000] flex justify-between items-center gap-3 transition ${
+									className={`px-3 py-2 cursor-pointer hover:bg-red-50 hover:text-[#7A0000] flex items-center gap-3 transition ${
 										value === opt.CostCenterId ? "bg-red-50 text-[#7A0000] font-bold" : "text-gray-700"
 									}`}
 								>
 									<span className="font-mono font-semibold shrink-0">{opt.CostCenterId}</span>
-									<span className="text-gray-500 text-xs truncate max-w-[220px] md:max-w-[320px] text-right">{opt.CostCenterName}</span>
+									<span className="text-gray-500 text-xs truncate text-left max-w-[220px] md:max-w-[320px]">{opt.CostCenterName}</span>
 								</div>
 							))
 						)}
