@@ -32,6 +32,7 @@ import SMCManagementInfo from "../pages/SMCManagementInfo";
 import FIFO from "../pages/FIFO";
 import Construction from "../pages/Construction";
 import Common from "../pages/Common";
+import SMC from "../pages/SMC";
 import GeneralLedger from "../pages/GeneralLedger";
 
 
@@ -275,6 +276,15 @@ const ReportRoutes = () => (
 			element={
 				<Layout>
 					<SMCManagementInfo />
+				</Layout>
+			}
+		/>
+
+		<Route
+			path="/report/service-main-card"
+			element={
+				<Layout>
+					<SMC/>
 				</Layout>
 			}
 		/>

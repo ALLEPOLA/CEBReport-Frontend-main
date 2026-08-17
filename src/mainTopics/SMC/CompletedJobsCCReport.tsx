@@ -1,4 +1,4 @@
-// CashSheetReport.tsx
+// CompletedJobsCCReport.tsx
 import React, { useEffect, useState } from "react";
 import { Search, RotateCcw, Eye, X, Download, Printer } from "lucide-react";
 import { useUser } from "../../contexts/UserContext";
@@ -9,59 +9,74 @@ interface Department {
     DeptName: string;
 }
 
-interface CashSheetItem {
-    ChqRun: string | null;
-    ChqDt: string | null;
-    Payee: string | null;
-    PymtDocNo: string | null;
-    ChqAmt: number | null;
-    ChqNo: string | null;
+interface CompletedJobsCCItem {
+    ApplicationType: string | null;
+    ApplicationNo: string | null;
+    PivNo: string | null;
+    PivNo3: string | null;
+    PivDate3: string | null;
+    PivAmount3: string | null;
+    PivDate: string | null;
+    PivAmount: string | null;
+    ConfirmedDate: string | null;
+    SubmitDate: string | null;
+    ProjectNo: string | null;
+    FirstName: string | null;
+    LastName: string | null;
+    Amount: string | null;
+    FinishedDate: string | null;
+    ContractorName: string | null;
+    MeterNo1: string | null;
+    InitReading1: string | null;
+    MeterNo2: string | null;
+    InitReading2: string | null;
+    MeterNo3: string | null;
+    InitReading3: string | null;
+    NeighboursAccNo: string | null;
+    Phase: string | null;
+    ConnectionType: string | null;
+    TariffCatCode: string | null;
+    TariffCode: string | null;
+    TotalLength: string | null;
+    Sin: string | null;
+    WiringType: string | null;
+    ConnectedDate: string | null;
+    ServiceStreetAddress: string | null;
+    ServiceSuburb: string | null;
+    ServiceCity: string | null;
+    AccountNo: string | null;
+    AccCreatedDate: string | null;
+    PivReceiptNo: string | null;
+    CctName: string | null;
 }
 
-interface CashSheetSummary {
-    repYear: string;
-    repMonth: string;
+interface CompletedJobsCCSummary {
+    fromDate: string;
+    toDate: string;
     costCtr: string;
+    jobType: string;
     totalRecords: number;
-    totalAmount: number;
 }
 
 /* ────── Constants ────── */
 const PAGE_SIZE = 9;
 const FETCH_TIMEOUT_MS = 240000;
+const COMPANY_NAME = "Electricity Distribution Lanka Private Limited";
 
-const MONTHS = [
-    { value: "01", label: "January" },
-    { value: "02", label: "February" },
-    { value: "03", label: "March" },
-    { value: "04", label: "April" },
-    { value: "05", label: "May" },
-    { value: "06", label: "June" },
-    { value: "07", label: "July" },
-    { value: "08", label: "August" },
-    { value: "09", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
+const JOB_TYPE_OPTIONS: { value: string; label: string }[] = [
+    { value: "", label: "All Types" },
+    { value: "NC", label: "NC - New Connection" },
+    { value: "CR", label: "CR - Change of Reading" },
+    { value: "TC", label: "TC - Temporary Connection" },
 ];
 
 /* ────── Helpers ────── */
 const formatDate = (dateStr: string | null | undefined): string => {
     if (!dateStr?.trim()) return "";
     const dt = dateStr.trim();
-
-    if (dt.includes("T")) {
-        return dt.split("T")[0].replace(/-/g, "/");
-    }
-
-    if (/^\d{8}$/.test(dt)) {
-        return `${dt.slice(0, 4)}/${dt.slice(4, 6)}/${dt.slice(6)}`;
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dt)) {
-        return dt.replace(/-/g, "/");
-    }
-
+    if (dt.includes("T")) return dt.split("T")[0].replace(/-/g, "/");
+    if (/^\d{8}$/.test(dt)) return `${dt.slice(0, 4)}/${dt.slice(4, 6)}/${dt.slice(6)}`;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dt)) return dt.replace(/-/g, "/");
     return dt;
 };
 
@@ -71,122 +86,116 @@ const csvEscape = (val: string | number | null | undefined): string => {
     return /[,\n"]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 };
 
-const formatAmount = (amount: string | number | null | undefined): string => {
-    if (amount == null || amount === "" || isNaN(Number(amount))) return "0.00";
-    const num = parseFloat(String(amount));
-    return num.toLocaleString("en-LK", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
-};
-
 /* ────── Table Modal Component ────── */
-const CashSheetReportTable: React.FC<{
-    data: CashSheetItem[];
-    summary: CashSheetSummary | null;
-    repYear: string;
-    repMonth: string;
+const CompletedJobsCCTable: React.FC<{
+    data: CompletedJobsCCItem[];
+    summary: CompletedJobsCCSummary | null;
+    fromDate: string;
+    toDate: string;
     costCenter: string;
     departmentName: string;
+    jobTypeLabel: string;
     onClose: () => void;
-}> = ({ data, summary, repYear, repMonth, costCenter, departmentName, onClose }) => {
+}> = ({ data, summary, fromDate, toDate, costCenter, departmentName, jobTypeLabel, onClose }) => {
     const maroon = "text-[#7A0000]";
+    const fromLabel = formatDate(fromDate);
+    const toLabel = formatDate(toDate);
+    const reportTitle = `Cost center wise completed jobs From ${fromLabel} To ${toLabel}`;
 
-    const monthLabel = MONTHS.find((m) => m.value === repMonth)?.label || repMonth;
-    const reportTitle = `Cash Sheet for the Month of ${monthLabel} ${repYear}`;
-
-    // Sort by Cheque Run, Cheque No, Cheque Date
-    const sortedData = [...data].sort((a, b) => {
-        const runA = (a.ChqRun || "").trim().padStart(10, "0");
-        const runB = (b.ChqRun || "").trim().padStart(10, "0");
-        const runCmp = runA.localeCompare(runB);
-        if (runCmp !== 0) return runCmp;
-
-        const chqA = (a.ChqNo || "").trim().padStart(10, "0");
-        const chqB = (b.ChqNo || "").trim().padStart(10, "0");
-        const chqCmp = chqA.localeCompare(chqB);
-        if (chqCmp !== 0) return chqCmp;
-
-        const dateA = a.ChqDt || "";
-        const dateB = b.ChqDt || "";
-        return dateA.localeCompare(dateB);
-    });
-
-    const totalAmount = summary?.totalAmount ?? sortedData.reduce((sum, it) => sum + (Number(it.ChqAmt) || 0), 0);
+    const sortedData = [...data]; // already ordered by backend (application_type desc, project_no asc)
     const totalRecords = summary?.totalRecords ?? sortedData.length;
+
+    interface ColumnDef {
+        key: string;
+        label: string;
+        isDate?: boolean;
+        align?: "right";
+        getValue: (it: CompletedJobsCCItem) => string;
+    }
+
+    const joinNonEmpty = (parts: (string | null | undefined)[], sep = ", "): string =>
+        parts.filter((p) => p && p.trim()).join(sep);
+
+    const columns: ColumnDef[] = [
+        { key: "ApplicationNo", label: "Application No", getValue: (it) => it.ApplicationNo ?? "" },
+        { key: "Name", label: "Name", getValue: (it) => joinNonEmpty([it.FirstName, it.LastName], " ") },
+        { key: "SubmitDate", label: "App Submitted Date", isDate: true, getValue: (it) => it.SubmitDate ?? "" },
+        {
+            key: "ServiceAddress",
+            label: "Applicant Service Address",
+            getValue: (it) => joinNonEmpty([it.ServiceStreetAddress, it.ServiceSuburb, it.ServiceCity]),
+        },
+        { key: "ApplicationType", label: "Application Type", getValue: (it) => it.ApplicationType ?? "" },
+        { key: "PivNo", label: "PIV No", getValue: (it) => it.PivNo ?? "" },
+        { key: "PivDate", label: "PIV Date", isDate: true, getValue: (it) => it.PivDate ?? "" },
+        { key: "PivAmount", label: "PIV Amount", align: "right", getValue: (it) => it.PivAmount ?? "" },
+        { key: "ConfirmedDate", label: "PIV Confirm Date", isDate: true, getValue: (it) => it.ConfirmedDate ?? "" },
+        { key: "WiringType", label: "Wiring Type", getValue: (it) => it.WiringType ?? "" },
+        { key: "TariffCode", label: "Tariff", getValue: (it) => it.TariffCode ?? "" },
+        { key: "TotalLength", label: "Total Length", getValue: (it) => it.TotalLength ?? "" },
+        { key: "Phase", label: "Phase", getValue: (it) => it.Phase ?? "" },
+        { key: "TariffCatCode", label: "Tariff Category", getValue: (it) => it.TariffCatCode ?? "" },
+        { key: "NeighboursAccNo", label: "Neighbours Account No", getValue: (it) => it.NeighboursAccNo ?? "" },
+        { key: "ProjectNo", label: "Project No", getValue: (it) => it.ProjectNo ?? "" },
+        { key: "ContractorName", label: "Contractor Name", getValue: (it) => it.ContractorName ?? "" },
+        { key: "Sin", label: "SIN No", getValue: (it) => it.Sin ?? "" },
+        { key: "ConnectedDate", label: "Connected Date", isDate: true, getValue: (it) => it.ConnectedDate ?? "" },
+        { key: "AccountNo", label: "Account No", getValue: (it) => it.AccountNo ?? "" },
+        { key: "AccCreatedDate", label: "Account Created Date", isDate: true, getValue: (it) => it.AccCreatedDate ?? "" },
+        { key: "MeterNo1", label: "Meter 1", getValue: (it) => it.MeterNo1 ?? "" },
+        { key: "InitReading1", label: "Reading 1", getValue: (it) => it.InitReading1 ?? "" },
+        { key: "MeterNo2", label: "Meter 2", getValue: (it) => it.MeterNo2 ?? "" },
+        { key: "InitReading2", label: "Reading 2", getValue: (it) => it.InitReading2 ?? "" },
+        { key: "MeterNo3", label: "Meter 3", getValue: (it) => it.MeterNo3 ?? "" },
+        { key: "InitReading3", label: "Reading 3", getValue: (it) => it.InitReading3 ?? "" },
+    ];
+
+    const cellValue = (it: CompletedJobsCCItem, col: ColumnDef) => {
+        const raw = col.getValue(it);
+        return col.isDate ? formatDate(raw) : raw;
+    };
 
     /* ────── CSV Download ────── */
     const downloadCSV = () => {
         const titleRows = [
             reportTitle,
-            `Cost Center: ${costCenter}/${departmentName}`,
+            COMPANY_NAME,
+            `Cost Center: ${costCenter} / ${departmentName}`,
+            `Job Type: ${jobTypeLabel}`,
             `Total Records: ${totalRecords}`,
-            `Total Amount (LKR): ${formatAmount(totalAmount)}`,
             "",
         ];
-        const headers = [
-            "Cheque Run",
-            "Cheque No.",
-            "Payslips No",
-            "Cheque Date",
-            "Payee",
-            "Amount (LKR)",
-        ];
-        const rows = sortedData.map((it) =>
-            [
-                csvEscape(it.ChqRun),
-                csvEscape(it.ChqNo),
-                csvEscape(it.PymtDocNo),
-                csvEscape(formatDate(it.ChqDt)),
-                csvEscape(it.Payee),
-                csvEscape(it.ChqAmt),
-            ].join(",")
+        const headers = ["Item", ...columns.map((c) => c.label)];
+        const rows = sortedData.map((it, i) =>
+            [csvEscape(i + 1), ...columns.map((c) => csvEscape(cellValue(it, c)))].join(",")
         );
-        const totalRow = [
-            "TOTAL",
-            "",
-            "",
-            "",
-            "",
-            csvEscape(formatAmount(totalAmount)),
-        ].join(",");
-        const csv = [...titleRows, headers.join(","), ...rows, totalRow].join("\n");
+        const csv = [...titleRows, headers.join(","), ...rows].join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `CashSheet_${costCenter}_${repYear}_${repMonth}.csv`;
+        a.download = `CompletedJobsCC_${costCenter}_${fromDate}_${toDate}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };
 
-    /* ────── Print PDF ──────
-       NOTE: the print window below only loads the inline <style> block defined in this
-       function — it does NOT have Tailwind CSS available. Any Tailwind utility class
-       (text-right, text-center, etc.) written directly into this HTML string is inert.
-       Alignment inside this template must always be set via inline style="..." instead,
-       which is why every td below carries an explicit text-align rather than a class. */
+    /* ────── Print PDF ────── */
     const printPDF = () => {
         let rowsHTML = "";
         sortedData.forEach((it, i) => {
+            const cells = columns
+                .map((c) => `<td${c.align === "right" ? ' style="text-align:right;"' : ""}>${cellValue(it, c) || ""}</td>`)
+                .join("");
             rowsHTML += `
         <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-          <td class="px-3 py-2 border-l border-r border-gray-300 text-xs" style="text-align:left;">${it.ChqRun || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:left;">${it.ChqNo || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:left;">${it.PymtDocNo || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:center;">${formatDate(it.ChqDt)}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-xs break-words" style="text-align:left;">${it.Payee || ""}</td>
-          <td class="px-3 py-2 border-r border-gray-300 text-xs" style="text-align:right;">${formatAmount(it.ChqAmt)}</td>
+          <td style="text-align:center;">${i + 1}</td>
+          ${cells}
         </tr>`;
         });
 
-        // Add total row
-        rowsHTML += `
-        <tr style="background:#d3d3d3; font-weight:bold;">
-          <td colspan="5" style="padding:6px 8px; border:1px solid #d1d5db; text-align:right; font-size:9px;">TOTAL</td>
-          <td style="padding:6px 8px; border:1px solid #d1d5db; text-align:right; font-size:9px;">${formatAmount(totalAmount)}</td>
-        </tr>
-      `;
+        const headCells = columns
+            .map((c) => `<th${c.align === "right" ? ' style="text-align:right;"' : ""}>${c.label}</th>`)
+            .join("");
 
         const html = `
 <!DOCTYPE html>
@@ -194,13 +203,14 @@ const CashSheetReportTable: React.FC<{
 <head>
   <style>
     @media print {
-      @page { margin: 8mm 5mm 10mm 5mm; }
+      @page { margin: 8mm 5mm 10mm 5mm; size: landscape; }
       body { margin:0; font-family:Arial,Helvetica,sans-serif; }
-      .title { margin: 10px 8px 20px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
-      .info { margin:6px 8px; font-size:9px; display:flex; justify-content:space-between; }
-      table { border-collapse:collapse; width:100%; font-size:8.5px; }
-      th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
-      th { background:#7A0000; color:#1f2937; text-align:center; font-weight:bold; }
+      .title { margin: 10px 8px 2px; text-align:center; font-weight:bold; color:#7A0000; font-size:12.5px; }
+      .company { margin: 2px 8px 6px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
+      .info { margin:6px 8px 10px; font-size:9px; }
+      table { border-collapse:collapse; width:100%; font-size:7.5px; }
+      th, td { border:1px solid #d1d5db; padding:4px 6px; word-wrap:break-word; }
+      th { background:#7A0000; color:#fff; text-align:center; font-weight:bold; }
       tr.bg-gray-50 { background:#f5f5f5; }
       @page {
         @bottom-left { content:"Printed on: ${new Date().toLocaleString("en-US", { timeZone: "Asia/Colombo" })}"; font-size:7px; color:gray; }
@@ -211,27 +221,17 @@ const CashSheetReportTable: React.FC<{
 </head>
 <body>
   <div class="title">${reportTitle}</div>
-  <div class="info">
-    <div><strong>Cost Center:</strong> ${costCenter} / ${departmentName}</div>
-    <div style="font-weight:600; color:#4B5563;">Currency : LKR</div>
-  </div>
-  <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
+  <div class="company">${COMPANY_NAME}</div>
+  <div class="info"><strong>Cost Center:</strong> ${costCenter} / ${departmentName} &nbsp;&nbsp; <strong>Job Type:</strong> ${jobTypeLabel} &nbsp;&nbsp; <strong>Records:</strong> ${totalRecords}</div>
+  <table>
     <thead>
-      <tr style="background:#7A0000; color:#1f2937;">
-        <th style="padding:6px 8px; width:12%;">Cheque Run</th>
-        <th style="padding:6px 8px; width:10%;">Cheque No.</th>
-        <th style="padding:6px 8px; width:14%;">Payslips No</th>
-        <th style="padding:6px 8px; width:12%;">Cheque Date</th>
-        <th style="padding:6px 8px; width:30%;">Payee</th>
-        <th style="padding:6px 8px; width:12%; text-align:right;">Amount (LKR)</th>
+      <tr>
+        <th>Item</th>
+        ${headCells}
       </tr>
     </thead>
     <tbody>${rowsHTML}</tbody>
   </table>
-  <div style="margin-top:20px; display:flex; justify-content:space-between; padding:0 15px; font-size:9px;">
-    <div>Prepared By: ____________________</div>
-    <div>Checked By: ____________________</div>
-  </div>
 </body>
 </html>`;
 
@@ -270,51 +270,54 @@ const CashSheetReportTable: React.FC<{
                             <X className="w-3 h-3" /> Close
                         </button>
                     </div>
-                    <h2 className={`text-lg md:text-xl font-bold text-center md:mb-6 ${maroon}`}>
+
+                    <h2 className={`text-base md:text-lg font-bold text-center ${maroon}`}>
                         {reportTitle}
                     </h2>
-                    <div className="flex flex-col sm:flex-row justify-between text-sm mb-4 gap-2 px-2">
-                        <div>
-                            <span className="font-bold">Cost Center:</span> {costCenter} / {departmentName}
-                        </div>
-                        <div className="flex gap-4 font-semibold text-gray-600">
-                            <div>Records: {totalRecords}</div>
-                            <div>Total Amount: LKR {formatAmount(totalAmount)}</div>
-                        </div>
+                    <h3 className={`text-sm md:text-base font-semibold text-center mb-1 ${maroon}`}>
+                        {COMPANY_NAME}
+                    </h3>
+                    <div className="text-sm mb-4 px-2">
+                        <span className="font-bold">Cost Center:</span> {costCenter} / {departmentName}
+                        <span className="ml-4 font-bold">Job Type:</span> {jobTypeLabel}
+                        <span className="ml-4 text-gray-500">Records: {totalRecords}</span>
                     </div>
+
                     <div className="mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
-                        <div className="min-w-[1000px]">
+                        <div style={{ minWidth: `${(columns.length + 1) * 130}px` }}>
                             <table className="w-full text-xs border-collapse">
                                 <thead>
                                     <tr className="bg-[#7A0000] text-white sticky top-0">
-                                        <th className="px-4 py-2 border border-gray-300 text-center font-bold">Cheque Run</th>
-                                        <th className="px-4 py-2 border border-gray-300 text-center font-bold">Cheque No.</th>
-                                        <th className="px-4 py-2 border border-gray-300 text-center font-bold">Payslips No</th>
-                                        <th className="px-4 py-2 border border-gray-300 text-center font-bold">Cheque Date</th>
-                                        <th className="px-4 py-2 border border-gray-300 text-center font-bold">Payee</th>
-                                        <th className="px-4 py-2 border border-gray-300 text-right font-bold">Amount (LKR)</th>
+                                        <th className="px-3 py-2 border border-gray-300 font-bold">Item</th>
+                                        {columns.map((c) => (
+                                            <th
+                                                key={c.key}
+                                                className={`px-3 py-2 border border-gray-300 font-bold whitespace-nowrap ${
+                                                    c.align === "right" ? "text-right" : ""
+                                                }`}
+                                            >
+                                                {c.label}
+                                            </th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {sortedData.map((it, i) => (
                                         <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                            <td className="px-4 py-2 border-l border-r border-gray-300 font-mono">{it.ChqRun}</td>
-                                            <td className="px-4 py-2 border-r border-gray-300 font-mono">{it.ChqNo}</td>
-                                            <td className="px-4 py-2 border-r border-gray-300 font-mono">{it.PymtDocNo}</td>
-                                            <td className="px-4 py-2 text-center border-r border-gray-300 font-mono">{formatDate(it.ChqDt)}</td>
-                                            <td className="px-4 py-2 border-r border-gray-300 break-words max-w-[250px]">{it.Payee}</td>
-                                            <td className="px-4 py-2 text-right border-r border-gray-300 font-mono">{formatAmount(it.ChqAmt)}</td>
+                                            <td className="px-3 py-2 border-l border-r border-gray-300 text-center font-mono">{i + 1}</td>
+                                            {columns.map((c) => (
+                                                <td
+                                                    key={c.key}
+                                                    className={`px-3 py-2 border-r border-gray-300 font-mono ${
+                                                        c.isDate ? "text-center" : c.align === "right" ? "text-right" : ""
+                                                    }`}
+                                                >
+                                                    {cellValue(it, c)}
+                                                </td>
+                                            ))}
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot>
-                                    <tr className="bg-[#d3d3d3] font-bold sticky bottom-0">
-                                        <td colSpan={5} className="px-4 py-2 border border-gray-300 text-right">TOTAL</td>
-                                        <td className="px-4 py-2 border border-gray-300 text-right font-mono">
-                                            {formatAmount(totalAmount)}
-                                        </td>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
                     </div>
@@ -325,7 +328,7 @@ const CashSheetReportTable: React.FC<{
 };
 
 /* ────── MAIN COMPONENT ────── */
-const CashSheetReport: React.FC = () => {
+const CompletedJobsCCReport: React.FC = () => {
     const { user } = useUser();
     const [departments, setDepartments] = useState<Department[]>([]);
     const [filtered, setFiltered] = useState<Department[]>([]);
@@ -335,24 +338,24 @@ const CashSheetReport: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const currentYear = new Date().getFullYear();
-    const currentMonthVal = String(new Date().getMonth() + 1).padStart(2, "0");
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const firstOfMonthStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        .toISOString()
+        .slice(0, 10);
 
-    const [repYear, setRepYear] = useState(String(currentYear));
-    const [repMonth, setRepMonth] = useState(currentMonthVal);
+    const [fromDate, setFromDate] = useState(firstOfMonthStr);
+    const [toDate, setToDate] = useState(todayStr);
+    const [jobType, setJobType] = useState("");
 
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
-    const [reportData, setReportData] = useState<CashSheetItem[]>([]);
-    const [reportSummary, setReportSummary] = useState<CashSheetSummary | null>(null);
+    const [reportData, setReportData] = useState<CompletedJobsCCItem[]>([]);
+    const [reportSummary, setReportSummary] = useState<CompletedJobsCCSummary | null>(null);
     const [showReport, setShowReport] = useState(false);
     const [reportLoading, setReportLoading] = useState(false);
 
     const epfNo = user?.Userno || "";
     const maroon = "text-[#7A0000]";
     const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
-
-    // Generate list of years for selection (current year down to 10 years back)
-    const yearsList = Array.from({ length: 11 }, (_, i) => String(currentYear - i));
 
     useEffect(() => {
         const fetchDepartments = async () => {
@@ -398,12 +401,16 @@ const CashSheetReport: React.FC = () => {
     }, [searchId, searchName, departments]);
 
     const fetchReport = async (dept: Department) => {
-        if (!repYear.trim() || repYear.length !== 4 || isNaN(Number(repYear))) {
-            toast.error("Please enter a valid 4-digit year.");
+        if (!fromDate) {
+            toast.error("Please select a from date.");
             return;
         }
-        if (!repMonth) {
-            toast.error("Please select a month.");
+        if (!toDate) {
+            toast.error("Please select a to date.");
+            return;
+        }
+        if (new Date(toDate) < new Date(fromDate)) {
+            toast.error("To date cannot be earlier than from date.");
             return;
         }
 
@@ -417,7 +424,9 @@ const CashSheetReport: React.FC = () => {
         const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
         try {
-            const url = `/misapi/api/cashsheet/report?repYear=${repYear.trim()}&repMonth=${repMonth}&costCtr=${dept.DeptId}`;
+            const url = `/misapi/api/completedjobscc/report?fromDate=${fromDate}&toDate=${toDate}&costCtr=${dept.DeptId}${
+                jobType ? `&jobType=${jobType}` : ""
+            }`;
             const res = await fetch(url, { signal: controller.signal });
             clearTimeout(timeout);
 
@@ -426,7 +435,7 @@ const CashSheetReport: React.FC = () => {
 
             if (!json.success) throw new Error(json.message || "No data");
 
-            const items: CashSheetItem[] = json.data || [];
+            const items: CompletedJobsCCItem[] = json.data || [];
             if (items.length === 0) {
                 toast.warn("No records found.");
                 setShowReport(false);
@@ -475,41 +484,48 @@ const CashSheetReport: React.FC = () => {
             style={{ marginLeft: "2rem" }}
         >
             <h2 className={`text-xl font-bold mb-4 ${maroon}`}>
-                Cash Sheet Report
+                Cost Center Wise Completed Jobs
             </h2>
 
-            {/* ────── Year / Month filters (widened, matches Price Variance Report style) ────── */}
+            {/* ────── From / To date / Job Type filters ────── */}
             <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="flex items-center gap-2">
                         <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
-                            Year:
+                            From Date:
                         </label>
-                        <select
-                            value={repYear}
-                            onChange={(e) => setRepYear(e.target.value)}
+                        <input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
                             className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
-                        >
-                            {yearsList.map((y) => (
-                                <option key={y} value={y}>
-                                    {y}
-                                </option>
-                            ))}
-                        </select>
+                        />
                     </div>
 
                     <div className="flex items-center gap-2">
                         <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
-                            Month:
+                            To Date:
+                        </label>
+                        <input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
+                            Job Type:
                         </label>
                         <select
-                            value={repMonth}
-                            onChange={(e) => setRepMonth(e.target.value)}
+                            value={jobType}
+                            onChange={(e) => setJobType(e.target.value)}
                             className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
                         >
-                            {MONTHS.map((m) => (
-                                <option key={m.value} value={m.value}>
-                                    {m.label}
+                            {JOB_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
                                 </option>
                             ))}
                         </select>
@@ -637,17 +653,20 @@ const CashSheetReport: React.FC = () => {
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
                                 <p className="text-xl font-bold text-[#7A0000]">Loading Report...</p>
-                                <p className="text-sm text-gray-600">Fetching cash sheet details from server</p>
+                                <p className="text-sm text-gray-600">Fetching completed job records from server</p>
                             </div>
                         )}
                         {!reportLoading && reportData.length > 0 && (
-                            <CashSheetReportTable
+                            <CompletedJobsCCTable
                                 data={reportData}
                                 summary={reportSummary}
-                                repYear={repYear}
-                                repMonth={repMonth}
+                                fromDate={fromDate}
+                                toDate={toDate}
                                 costCenter={selectedDept.DeptId}
                                 departmentName={selectedDept.DeptName}
+                                jobTypeLabel={
+                                    JOB_TYPE_OPTIONS.find((opt) => opt.value === jobType)?.label ?? "All Types"
+                                }
                                 onClose={closeReport}
                             />
                         )}
@@ -658,4 +677,4 @@ const CashSheetReport: React.FC = () => {
     );
 };
 
-export default CashSheetReport;
+export default CompletedJobsCCReport;

@@ -200,14 +200,16 @@ import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPa
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
 import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
+//SMC
+import JobRegisterCCReport from "../mainTopics/SMC/JobRegisterCCReport.tsx";
+import JobRegCCNCReport from "../mainTopics/SMC/JobRegCCNCReport.tsx";
+import SMCAllApplicationReport from "../mainTopics/SMC/SMCAllApplicationReport.tsx";
+import CompletedJobsCCReport from "../mainTopics/SMC/CompletedJobsCCReport.tsx";
+
 //SMC - Management Information
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 import PivIIPaidNotEnergizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnergizedReport.tsx";
-import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport";
-import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
-import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
-import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
-import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
-import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
 import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFinBillNotGeneratedReport.tsx";
 
 //FIFO reports
@@ -479,13 +481,16 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inventory dashboard": InventoryDashboardPage,
 	"area general manager dashboard": AreaEngineerDashboardPage,
 
+	// SMC
+	"cost center wise job register": JobRegisterCCReport,
+	"cost center wise new connection job register": JobRegCCNCReport,
+	"area wise smc all details": SMCAllApplicationReport,
+	"cost center wise completed jobs" : CompletedJobsCCReport,
+
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not energized": PivIIPaidNotEnergizedReport,
-	"cost center wise job register": JobRegisterCCReport,
-	"cost center wise new connection job register": JobRegCCNCReport,
-	"area wise smc all details": SMCAllApplicationReport,
 	"cost center wise job finished not paid contractor payment": JobFinBillNotGeneratedReport,
 	
 	//FIFO reports

@@ -251,7 +251,7 @@ const ChequeSummaryReport: React.FC = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Cheque Details From ${fromDate} To ${toDate}`,
+			`Cheque Summary From ${fromDate} To ${toDate}`,
 			`Branch - ${cctName}`,
 			`Cost center No - ${costCtrDisplay}`,
 			"",
@@ -335,7 +335,7 @@ const ChequeSummaryReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Cheque Details From ${fromDate} To ${toDate}</div>
+  <div class="title">Cheque Summary From ${fromDate} To ${toDate}</div>
   <div class="info">
     <div><strong>Branch -</strong> ${cctName}</div>
     <div><strong>Cost center No -</strong> ${costCtrDisplay}</div>
@@ -615,7 +615,7 @@ const ChequeSummaryReport: React.FC = () => {
 								<h2
 									className={`text-lg md:text-xl font-bold text-center md:mb-4 ${maroon}`}
 								>
-									Cheque Details From {fromDate} To {toDate}
+									Cheque Summary From {fromDate} To {toDate}
 								</h2>
 								<div className="text-sm mb-3 ml-5 mr-12 space-y-1">
 									<div>
