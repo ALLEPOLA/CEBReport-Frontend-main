@@ -205,6 +205,7 @@ import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPa
 import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
 import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
 import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
+import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFinBillNotGeneratedReport.tsx";
 
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
@@ -480,7 +481,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise job register": JobRegisterCCReport,
 	"cost center wise new connection job register": JobRegCCNCReport,
 	"area wise smc all details": SMCAllApplicationReport,
-
+	"cost center wise job finished not paid contractor payment": JobFinBillNotGeneratedReport,
+	
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
 	"quantity on hand material wise fifo": QuantityMatFIFOReport,
