@@ -4,7 +4,7 @@ import SubtopicCard from "../components/shared/SubtopicCard";
 import { useReportRenderer } from "../hooks/useReportRenderer";
 
 const SMC = () => {
-    const { subtopics, selectedSubtopicId } = useRoleBasedSubtopics(["SMC"]);
+    const { subtopics, selectedSubtopicId } = useRoleBasedSubtopics(["Service Main Card"]);
     const [expandedCard, setExpandedCard] = useState<number | null>(null);
   const renderReport = useReportRenderer();
 
