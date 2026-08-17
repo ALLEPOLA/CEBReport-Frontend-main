@@ -1,4 +1,4 @@
-// PivIIPaidNotEnagizedReport.tsx
+// PivIIPaidNotEnergizedReport.tsx
 import React, {useEffect, useState} from "react";
 import {Download, Printer, X, RotateCcw, Eye, Search} from "lucide-react";
 import {toast} from "react-toastify";
@@ -83,7 +83,7 @@ const minYear = currentYear - 20;
 const minDate = `${minYear}-${currentMonth}-${currentDay}`;
 
 /* ────── MAIN COMPONENT ────── */
-const PivIIPaidNotEnagizedReport: React.FC = () => {
+const PivIIPaidNotEnergizedReport: React.FC = () => {
 	const {user} = useUser();
 	const epfNo = user?.Userno || "";
 
@@ -193,7 +193,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 
 		try {
 			const costCtrParam = encodeURIComponent(selectedDept!.DeptId);
-			const url = `/misapi/api/pivpaidnotenagized/report/${fromDate}/${toDate}/${costCtrParam}`;
+			const url = `/misapi/api/pivpaidnotenergized/report/${fromDate}/${toDate}/${costCtrParam}`;
 
 			const res = await fetch(url, {credentials: "include", signal: controller.signal});
 			clearTimeout(timeoutId);
@@ -277,7 +277,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Customer paid PIV II - Not Enagized - From PIV Paid date ${fromDate} To ${toDate}`,
+			`Customer paid PIV II - Not Energized - From PIV Paid date ${fromDate} To ${toDate}`,
 			`Cost Center: ${costCtrDisplay}/${cctName}`,
 			"",
 		];
@@ -322,7 +322,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `PivIIPaidNotEnagized_${costCtrDisplay}_${fromDate}_${toDate}.csv`;
+		a.download = `PivIIPaidNotEnergized_${costCtrDisplay}_${fromDate}_${toDate}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -396,7 +396,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Customer paid PIV II - Not Enagized - From PIV Paid date ${fromDate} To ${toDate}</div>
+  <div class="title">Customer paid PIV II - Not Energized - From PIV Paid date ${fromDate} To ${toDate}</div>
   <div class="info">
     <div><strong>Cost Center:</strong> ${costCtrDisplay}/${cctName}</div>
   </div>
@@ -443,7 +443,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 	return (
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
-				<h2 className={`text-xl font-bold ${maroon}`}>PIV II Paid Not Enagized</h2>
+				<h2 className={`text-xl font-bold ${maroon}`}>PIV II Paid Not Energized</h2>
 			</div>
 
 			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
@@ -636,7 +636,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 								</div>
 
 								<h2 className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}>
-									Customer paid PIV II - Not Enagized - From PIV Paid date {fromDate} To {toDate}
+									Customer paid PIV II - Not Energized - From PIV Paid date {fromDate} To {toDate}
 								</h2>
 								<div className="text-sm mb-3 ml-5 mr-12">
 									<span className="font-bold">Cost Center:</span> {costCtrDisplay}/{cctName}
@@ -741,4 +741,4 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 	);
 };
 
-export default PivIIPaidNotEnagizedReport;
+export default PivIIPaidNotEnergizedReport;
