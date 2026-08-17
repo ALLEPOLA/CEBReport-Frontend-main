@@ -69,6 +69,7 @@ import ProvinceWisePeriodStatus from "../mainTopics/CashBook/ProvincePeriodStatu
 import CurrentAcctBalCC from "../mainTopics/CashBook/CurrentAcctBalCC";
 import AreaWiseCashBookInquiryReport from "../mainTopics/CashBook/AreaWiseCashBookInquiryReport.tsx";
 import CashbookInquiryDrCrReport from "../mainTopics/CashBook/CashBookInquiryDrCrReport.tsx";
+import ChequeCancellationDivisionReport from "../mainTopics/CashBook/ChequeCancellationDivisionReport.tsx";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -331,6 +332,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
     "cost center wise current account balance" : CurrentAcctBalCC,
 	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 	"cash book inquiry debit credit": CashbookInquiryDrCrReport,
+	"Cheque cancellation division": ChequeCancellationDivisionReport,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
