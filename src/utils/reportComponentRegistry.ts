@@ -194,13 +194,15 @@ import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPa
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
 import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
+//SMC
+import JobRegisterCCReport from "../mainTopics/SMC/JobRegisterCCReport.tsx";
+import JobRegCCNCReport from "../mainTopics/SMC/JobRegCCNCReport.tsx";
+import SMCAllApplicationReport from "../mainTopics/SMC/SMCAllApplicationReport.tsx";
+
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
 import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport.tsx";
-import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
-import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
-import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
 import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFinBillNotGeneratedReport.tsx";
 
 //FIFO reports
@@ -460,13 +462,15 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inventory dashboard": InventoryDashboardPage,
 	"area general manager dashboard": AreaEngineerDashboardPage,
 
+	// SMC
+	"cost center wise job register": JobRegisterCCReport,
+	"cost center wise new connection job register": JobRegCCNCReport,
+	"area wise smc all details": SMCAllApplicationReport,
+
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
 	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
-	"cost center wise job register": JobRegisterCCReport,
-	"cost center wise new connection job register": JobRegCCNCReport,
-	"area wise smc all details": SMCAllApplicationReport,
 	"cost center wise job finished not paid contractor payment": JobFinBillNotGeneratedReport,
 	
 	//FIFO reports
