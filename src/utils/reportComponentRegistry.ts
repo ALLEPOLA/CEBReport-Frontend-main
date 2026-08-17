@@ -199,6 +199,7 @@ import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPa
 import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
 //SMC - Management Information
+import PivIIPaidNotEnergizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnergizedReport.tsx";
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport";
 import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
 import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
@@ -477,7 +478,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
-	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+	"piv ii paid not energized": PivIIPaidNotEnergizedReport,
 	"cost center wise job register": JobRegisterCCReport,
 	"cost center wise new connection job register": JobRegCCNCReport,
 	"area wise smc all details": SMCAllApplicationReport,
