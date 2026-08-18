@@ -1,4 +1,4 @@
-// ChequeSummaryReport.tsx
+// CCDocInquiryPendingReport.tsx
 import React, {useEffect, useState} from "react";
 import {Download, Printer, X, RotateCcw, Eye, Search} from "lucide-react";
 import {toast} from "react-toastify";
@@ -9,10 +9,12 @@ interface Department {
 	DeptName: string;
 }
 
-interface ChequeSummaryItem {
-	ChqDt: string | null;
-	ChqNo: string | null;
-	ChqAmt: number | null;
+interface CCDocInquiryPendingItem {
+	Category: string | null;
+	DeptId: string | null;
+	DocNo: string | null;
+	DocDt: string | null;
+	TranStatus: string | null;
 	CctName: string | null;
 }
 
@@ -22,20 +24,10 @@ const FETCH_TIMEOUT_MS = 120000;
 const PAGE_SIZE = 9;
 
 /* ────── Formatting helpers ────── */
-const formatNumber = (num: number | string | null | undefined): string => {
-	const n = num === null || num === undefined ? NaN : Number(num);
-	if (isNaN(n)) return "0.00";
-	const abs = Math.abs(n);
-	const formatted = abs.toLocaleString("en-US", {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	});
-	return n < 0 ? `(${formatted})` : formatted;
-};
-
 const formatDate = (dateStr: string | null): string => {
 	if (!dateStr) return "";
 	const d = new Date(dateStr);
+	if (isNaN(d.getTime())) return "";
 	const year = d.getFullYear();
 	const month = String(d.getMonth() + 1).padStart(2, "0");
 	const day = String(d.getDate()).padStart(2, "0");
@@ -59,7 +51,7 @@ const minYear = currentYear - 20;
 const minDate = `${minYear}-${currentMonth}-${currentDay}`;
 
 /* ────── MAIN COMPONENT ────── */
-const ChequeSummaryReport: React.FC = () => {
+const CCDocInquiryPendingReport: React.FC = () => {
 	const {user} = useUser();
 	const epfNo = user?.Userno || "";
 
@@ -76,7 +68,7 @@ const ChequeSummaryReport: React.FC = () => {
 	const [fromDate, setFromDate] = useState("");
 	const [toDate, setToDate] = useState("");
 	const [selectedDept, setSelectedDept] = useState<Department | null>(null);
-	const [reportData, setReportData] = useState<ChequeSummaryItem[]>([]);
+	const [reportData, setReportData] = useState<CCDocInquiryPendingItem[]>([]);
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
 
@@ -163,7 +155,7 @@ const ChequeSummaryReport: React.FC = () => {
 
 		try {
 			const costCtrParam = encodeURIComponent(dept.DeptId);
-			const url = `/misapi/api/chequesummary/report/${fromDate}/${toDate}/${costCtrParam}`;
+			const url = `/misapi/api/ccdocinquirypending/report/${fromDate}/${toDate}/${costCtrParam}`;
 
 			const res = await fetch(url, {
 				credentials: "include",
@@ -180,7 +172,7 @@ const ChequeSummaryReport: React.FC = () => {
 			if (!json.success)
 				throw new Error(json.message || "Failed to load data");
 
-			const items: ChequeSummaryItem[] = json.data || [];
+			const items: CCDocInquiryPendingItem[] = json.data || [];
 			if (items.length > MAX_RECORDS)
 				throw new Error(
 					`Too many records (${items.length}). Please refine your search.`
@@ -235,14 +227,14 @@ const ChequeSummaryReport: React.FC = () => {
 		setReportLoading(false);
 	};
 
-	/* ────── Single flat table, sorted per SQL: chq_no, chq_dt ────── */
+	/* ────── Sorted per SQL: ORDER BY 1,2,4 (category, dept_id, doc_dt) ────── */
 	const sortedData = [...reportData].sort(
 		(a, b) =>
-			(a.ChqNo || "").localeCompare(b.ChqNo || "") ||
-			(a.ChqDt || "").localeCompare(b.ChqDt || "")
+			(a.Category || "").localeCompare(b.Category || "") ||
+			(a.DeptId || "").localeCompare(b.DeptId || "") ||
+			(a.DocDt || "").localeCompare(b.DocDt || "")
 	);
 
-	const grandTotalChqAmt = reportData.reduce((s, r) => s + (r.ChqAmt || 0), 0);
 	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
 	const costCtrDisplay = selectedDept?.DeptId || "";
 
@@ -251,61 +243,55 @@ const ChequeSummaryReport: React.FC = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Cheque Summary From ${fromDate} To ${toDate}`,
-			`Branch - ${cctName}`,
-			`Cost center No - ${costCtrDisplay}`,
+			`Cost center pending document inquiry report from ${fromDate} to ${toDate}`,
+			`Cost center: ${costCtrDisplay}/${cctName}`,
 			"",
 		];
 
-		const headers = ["No.", "Cheque", "Cheque No", "Total Cheque Amount"];
+		const headers = ["Category", "Transaction", "Document No.", "Status"];
 		const rows: string[] = [headers.join(",")];
 
-		sortedData.forEach((it, i) => {
+		sortedData.forEach((it) => {
 			rows.push(
 				[
-					csvEscape(i + 1),
-					csvEscape(formatDate(it.ChqDt)),
-					csvEscape(it.ChqNo),
-					csvEscape(formatNumber(it.ChqAmt)),
+					csvEscape(it.Category),
+					csvEscape(formatDate(it.DocDt)),
+					csvEscape(it.DocNo),
+					csvEscape(it.TranStatus),
 				].join(",")
 			);
 		});
-
-		rows.push(`Total Cheque amount,,,${csvEscape(formatNumber(grandTotalChqAmt))}`);
 
 		const csv = [...titleRows, ...rows].join("\n");
 		const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `ChequeSummary_${fromDate}_${toDate}.csv`;
+		a.download = `CCDocInquiryPending_${fromDate}_${toDate}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
 
-	/* ────── PDF print ──────
-	   NOTE: This HTML is written into a brand-new window via window.open("", "_blank"),
-	   which has NO access to the app's Tailwind stylesheet. Any Tailwind utility class
-	   (text-right, text-center, bg-white, font-mono, px-3, py-2, etc.) used here does
-	   NOTHING in that window. Every visual rule — alignment, spacing, borders, colors —
-	   must be written as inline `style="..."` or defined in the <style> block below.
-	*/
+	/* ────── PDF print ────── */
 	const printPDF = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
-		const cellBase =
-			"padding:6px 8px; border:1px solid #d1d5db; font-size:8.5px;";
-		const mono = "font-family:monospace;";
-
 		sortedData.forEach((it, i) => {
-			const rowBg = i % 2 ? "#ffffff" : "#f9fafb";
 			rows += `
-          <tr style="background:${rowBg};">
-            <td style="${cellBase} text-align:center;">${i + 1}</td>
-            <td style="${cellBase} text-align:center;">${formatDate(it.ChqDt)}</td>
-            <td style="${cellBase} text-align:center; ${mono}">${it.ChqNo || ""}</td>
-            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.ChqAmt)}</td>
+          <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
+            <td class="px-3 py-2 border-l border-r border-gray-300 text-left text-xs">${
+					it.Category || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
+					it.DocDt
+				)}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.DocNo || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
+					it.TranStatus || ""
+				}</td>
           </tr>`;
 		});
 
@@ -319,11 +305,10 @@ const ChequeSummaryReport: React.FC = () => {
       body { margin:0; font-family:Arial,Helvetica,sans-serif; }
       .title { margin: 10px 8px 20px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
       .info { margin:6px 8px; font-size:9px; }
-      .info div { margin-bottom:3px; }
       table { border-collapse:collapse; width:100%; font-size:8.5px; }
       th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
-      tfoot td { background:#d3d3d3; font-weight:bold; }
+      .font-mono { font-family:monospace; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
 				"en-US",
@@ -335,35 +320,19 @@ const ChequeSummaryReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Cheque Summary From ${fromDate} To ${toDate}</div>
-  <div class="info">
-    <div><strong>Branch -</strong> ${cctName}</div>
-    <div><strong>Cost center No -</strong> ${costCtrDisplay}</div>
-  </div>
+  <div class="title">Cost center pending document inquiry report from ${fromDate} to ${toDate}</div>
+  <div class="info"><strong>Cost center:</strong> ${costCtrDisplay}/${cctName}</div>
   <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:10%; text-align:center;">No.</th>
-        <th style="padding:6px 8px; width:25%; text-align:center;">Cheque</th>
-        <th style="padding:6px 8px; width:30%; text-align:center;">Cheque No</th>
-        <th style="padding:6px 8px; width:35%; text-align:right;">Total Cheque Amount</th>
+        <th style="padding:6px 8px; width:30%;">Category</th>
+        <th style="padding:6px 8px; width:18%;">Transaction</th>
+        <th style="padding:6px 8px; width:27%;">Document No.</th>
+        <th style="padding:6px 8px; width:25%;">Status</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
-    <tfoot>
-      <tr>
-        <td colspan="3" style="text-align:right; padding:6px 8px; border:1px solid #d1d5db;">Total Cheque amount</td>
-        <td style="text-align:right; padding:6px 8px; border:1px solid #d1d5db; font-family:monospace;">${formatNumber(
-			grandTotalChqAmt
-		)}</td>
-      </tr>
-    </tfoot>
   </table>
-
-  <div style="margin-top:20px; display:flex; justify-content:space-between; padding:0 15px; font-size:9px;">
-    <div>Prepared By: ____________________</div>
-    <div>Checked By: ____________________</div>
-  </div>
 </body>
 </html>`;
 
@@ -385,7 +354,7 @@ const ChequeSummaryReport: React.FC = () => {
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
 				<h2 className={`text-xl font-bold ${maroon}`}>
-					Cheque Summary
+					Cost Center Wise Document Inquiry Pending
 				</h2>
 			</div>
 
@@ -585,7 +554,7 @@ const ChequeSummaryReport: React.FC = () => {
 									Loading Report...
 								</p>
 								<p className="text-sm text-gray-600">
-									Fetching cheque summary from server
+									Fetching pending document data from server
 								</p>
 							</div>
 						)}
@@ -613,35 +582,31 @@ const ChequeSummaryReport: React.FC = () => {
 								</div>
 
 								<h2
-									className={`text-lg md:text-xl font-bold text-center md:mb-4 ${maroon}`}
+									className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}
 								>
-									Cheque Summary From {fromDate} To {toDate}
+									Cost center pending document inquiry report from {fromDate} to {toDate}
 								</h2>
-								<div className="text-sm mb-3 ml-5 mr-12 space-y-1">
-									<div>
-										<span className="font-bold">Branch -</span> {cctName}
-									</div>
-									<div>
-										<span className="font-bold">Cost center No -</span> {costCtrDisplay}
-									</div>
+								<div className="text-sm mb-3 ml-5 mr-12">
+									<span className="font-bold">Cost center:</span>{" "}
+									{costCtrDisplay}/{cctName}
 								</div>
 
 								<div className="ml-5 mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
-									<div className="min-w-[600px]">
+									<div className="min-w-[700px]">
 										<table className="w-full text-xs border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "10%"}}>
-														No.
+													<th className="px-4 py-2 border border-gray-300" style={{width: "30%"}}>
+														Category
 													</th>
-													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "25%"}}>
-														Cheque
+													<th className="px-4 py-2 border border-gray-300" style={{width: "18%"}}>
+														Transaction
 													</th>
-													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "30%"}}>
-														Cheque No
+													<th className="px-4 py-2 border border-gray-300" style={{width: "27%"}}>
+														Document No.
 													</th>
-													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "35%"}}>
-														Total Cheque Amount
+													<th className="px-4 py-2 border border-gray-300" style={{width: "25%"}}>
+														Status
 													</th>
 												</tr>
 											</thead>
@@ -655,34 +620,21 @@ const ChequeSummaryReport: React.FC = () => {
 																: "bg-gray-50"
 														}
 													>
-														<td className="px-4 py-2 border-l border-r border-gray-300 text-center">
-															{i + 1}
+														<td className="px-4 py-2 border-l border-r border-gray-300">
+															{it.Category || ""}
 														</td>
 														<td className="px-4 py-2 text-center border-r border-gray-300">
-															{formatDate(it.ChqDt)}
+															{formatDate(it.DocDt)}
 														</td>
-														<td className="px-4 py-2 font-mono text-center border-r border-gray-300">
-															{it.ChqNo || ""}
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
+															{it.DocNo || ""}
 														</td>
-														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">
-															{formatNumber(it.ChqAmt)}
+														<td className="px-4 py-2 border-r border-gray-300">
+															{it.TranStatus || ""}
 														</td>
 													</tr>
 												))}
 											</tbody>
-											<tfoot>
-												<tr className="bg-[#d3d3d3] font-bold">
-													<td
-														colSpan={3}
-														className="px-4 py-2 text-right border border-gray-300"
-													>
-														Total Cheque amount
-													</td>
-													<td className="px-4 py-2 text-right font-mono border border-gray-300">
-														{formatNumber(grandTotalChqAmt)}
-													</td>
-												</tr>
-											</tfoot>
 										</table>
 										<p className="text-xs text-gray-500 mt-2 text-right px-2">
 											Total records: {reportData.length.toLocaleString()}
@@ -698,4 +650,4 @@ const ChequeSummaryReport: React.FC = () => {
 	);
 };
 
-export default ChequeSummaryReport;
+export default CCDocInquiryPendingReport;

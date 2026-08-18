@@ -68,6 +68,9 @@ import RegionPeriodStatusReport from "../mainTopics/CashBook/Regionperiodstatusr
 import ProvinceWisePeriodStatus from "../mainTopics/CashBook/ProvincePeriodStatusReport";
 import CurrentAcctBalCC from "../mainTopics/CashBook/CurrentAcctBalCC";
 import AreaWiseCashBookInquiryReport from "../mainTopics/CashBook/AreaWiseCashBookInquiryReport.tsx";
+import CashbookInquiryDrCrReport from "../mainTopics/CashBook/CashBookInquiryDrCrReport.tsx";
+import ChequeCancellationDivisionReport from "../mainTopics/CashBook/ChequeCancellationDivisionReport.tsx";
+import ChequeDetailsInquiryReport from "../mainTopics/CashBook/ChequeDetailsInquiryReport.tsx";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -197,13 +200,17 @@ import ExecutiveDashboardPage from "../mainTopics/Dashboard/ExecutiveDashboardPa
 import InventoryDashboardPage from "../mainTopics/Dashboard/InventoryDashboardPage";
 import AreaEngineerDashboardPage from "../mainTopics/Dashboard/AreaEngineerDashboardPage";
 
+//SMC
+import JobRegisterCCReport from "../mainTopics/SMC/JobRegisterCCReport.tsx";
+import JobRegCCNCReport from "../mainTopics/SMC/JobRegCCNCReport.tsx";
+import SMCAllApplicationReport from "../mainTopics/SMC/SMCAllApplicationReport.tsx";
+import CompletedJobsCCReport from "../mainTopics/SMC/CompletedJobsCCReport.tsx";
+
 //SMC - Management Information
-import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport";
-import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report";
-import PivIIPaidNotEnagizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnagizedReport";
-import JobRegisterCCReport from "../mainTopics/SMC-ManagementInfo/JobRegisterCCReport";
-import JobRegCCNCReport from "../mainTopics/SMC-ManagementInfo/JobRegCCNCReport";
-import SMCAllApplicationReport from "../mainTopics/SMC-ManagementInfo/SMCAllApplicationReport.tsx";
+import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
+import CCT1T2T3Report from "../mainTopics/SMC-ManagementInfo/CCT1T2T3Report.tsx";
+import PivIIPaidNotEnergizedReport from "../mainTopics/SMC-ManagementInfo/PIVIIPaidNotEnergizedReport.tsx";
+import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFinBillNotGeneratedReport.tsx";
 
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
@@ -218,6 +225,7 @@ import ConstructionCompletedReport from "../mainTopics/Construction/Construction
 import InventoryDocInquiryReport from "../mainTopics/Common/InventoryDocInquiryReport.tsx";
 import BranchPendingDocInquiryReport from "../mainTopics/Common/BranchPendingDocInquiryReport.tsx";
 import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/MaterialRequisitionWithIssueDetailsReport .tsx";
+import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingReport.tsx";
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
@@ -333,6 +341,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"province wise period status": ProvinceWisePeriodStatus,
 	"cost center wise current account balance": CurrentAcctBalCC,
 	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
+	"cash book inquiry debit credit": CashbookInquiryDrCrReport,
+	"Cheque cancellation division": ChequeCancellationDivisionReport,
+	"cheque details inquiry cheque no range": ChequeDetailsInquiryReport,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
@@ -473,14 +484,18 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inventory dashboard": InventoryDashboardPage,
 	"area general manager dashboard": AreaEngineerDashboardPage,
 
-	//SMC - Management Information
-	"smc job progress": SmcJobProgressReport,
-	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
-	"piv ii paid not enagized": PivIIPaidNotEnagizedReport,
+	// SMC
 	"cost center wise job register": JobRegisterCCReport,
 	"cost center wise new connection job register": JobRegCCNCReport,
 	"area wise smc all details": SMCAllApplicationReport,
+	"cost center wise completed jobs" : CompletedJobsCCReport,
 
+	//SMC - Management Information
+	"smc job progress": SmcJobProgressReport,
+	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
+	"piv ii paid not energized": PivIIPaidNotEnergizedReport,
+	"cost center wise job finished not paid contractor payment": JobFinBillNotGeneratedReport,
+	
 	//FIFO reports
 	"issue and receipt summary": IssueReceiptSummaryReport,
 	"quantity on hand material wise fifo": QuantityMatFIFOReport,
@@ -494,6 +509,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inventory document inquiry": InventoryDocInquiryReport,
 	"branch province pending document inquiry": BranchPendingDocInquiryReport,
 	"material requisition with issue details": MaterialRequisitionWithIssueDetailsReport,
+	"cost center document inquiry pending": CCDocInquiryPendingReport,
 
 	//General Ledger Reports
 	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,

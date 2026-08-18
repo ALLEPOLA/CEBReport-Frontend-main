@@ -1,4 +1,4 @@
-// ChequeSummaryReport.tsx
+// ChequeDetailsInquiryReport.tsx
 import React, {useEffect, useState} from "react";
 import {Download, Printer, X, RotateCcw, Eye, Search} from "lucide-react";
 import {toast} from "react-toastify";
@@ -9,11 +9,17 @@ interface Department {
 	DeptName: string;
 }
 
-interface ChequeSummaryItem {
+interface ChequeDetailsInquiryItem {
+	ChqRun: string | null;
 	ChqDt: string | null;
+	Payee: string | null;
+	PymtDocNo: string | null;
 	ChqNo: string | null;
-	ChqAmt: number | null;
-	CctName: string | null;
+	RunBy: string | null;
+	ModiBy: string | null;
+	ApprvUid1: string | null;
+	TranStatus: string | null;
+	BranchName: string | null;
 }
 
 /* ────── Constants ────── */
@@ -22,17 +28,6 @@ const FETCH_TIMEOUT_MS = 120000;
 const PAGE_SIZE = 9;
 
 /* ────── Formatting helpers ────── */
-const formatNumber = (num: number | string | null | undefined): string => {
-	const n = num === null || num === undefined ? NaN : Number(num);
-	if (isNaN(n)) return "0.00";
-	const abs = Math.abs(n);
-	const formatted = abs.toLocaleString("en-US", {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	});
-	return n < 0 ? `(${formatted})` : formatted;
-};
-
 const formatDate = (dateStr: string | null): string => {
 	if (!dateStr) return "";
 	const d = new Date(dateStr);
@@ -49,21 +44,12 @@ const csvEscape = (val: string | number | null | undefined): string => {
 	return str;
 };
 
-const today = new Date();
-const currentYear = today.getFullYear();
-const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
-const currentDay = String(today.getDate()).padStart(2, "0");
-const maxDate = `${currentYear}-${currentMonth}-${currentDay}`;
-
-const minYear = currentYear - 20;
-const minDate = `${minYear}-${currentMonth}-${currentDay}`;
-
 /* ────── MAIN COMPONENT ────── */
-const ChequeSummaryReport: React.FC = () => {
+const ChequeDetailsInquiryReport: React.FC = () => {
 	const {user} = useUser();
 	const epfNo = user?.Userno || "";
 
-	/* ── Cost Center list state ── */
+	/* ── Cost center list state ── */
 	const [departments, setDepartments] = useState<Department[]>([]);
 	const [filtered, setFiltered] = useState<Department[]>([]);
 	const [searchId, setSearchId] = useState("");
@@ -73,17 +59,17 @@ const ChequeSummaryReport: React.FC = () => {
 	const [deptError, setDeptError] = useState<string | null>(null);
 
 	/* ── Report state ── */
-	const [fromDate, setFromDate] = useState("");
-	const [toDate, setToDate] = useState("");
+	const [fromNo, setFromNo] = useState("");
+	const [toNo, setToNo] = useState("");
 	const [selectedDept, setSelectedDept] = useState<Department | null>(null);
-	const [reportData, setReportData] = useState<ChequeSummaryItem[]>([]);
+	const [reportData, setReportData] = useState<ChequeDetailsInquiryItem[]>([]);
 	const [reportLoading, setReportLoading] = useState(false);
 	const [showReport, setShowReport] = useState(false);
 
 	const maroon = "text-[#7A0000]";
 	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
-	/* ────── Fetch Departments ────── */
+	/* ────── Fetch Cost Centers (Departments) ────── */
 	useEffect(() => {
 		const fetchDepartments = async () => {
 			if (!epfNo) {
@@ -134,16 +120,16 @@ const ChequeSummaryReport: React.FC = () => {
 
 	/* ────── Input validation ────── */
 	const validateInputs = (): boolean => {
-		if (!fromDate) {
-			toast.error("Please select 'From Date'");
+		if (fromNo === "" || !/^\d+$/.test(fromNo)) {
+			toast.error("Please enter a valid 'From No'");
 			return false;
 		}
-		if (!toDate) {
-			toast.error("Please select 'To Date'");
+		if (toNo === "" || !/^\d+$/.test(toNo)) {
+			toast.error("Please enter a valid 'To No'");
 			return false;
 		}
-		if (new Date(toDate) < new Date(fromDate)) {
-			toast.error("'To Date' cannot be earlier than 'From Date'");
+		if (parseInt(toNo, 10) < parseInt(fromNo, 10)) {
+			toast.error("'To No' cannot be less than 'From No'");
 			return false;
 		}
 		return true;
@@ -163,7 +149,7 @@ const ChequeSummaryReport: React.FC = () => {
 
 		try {
 			const costCtrParam = encodeURIComponent(dept.DeptId);
-			const url = `/misapi/api/chequesummary/report/${fromDate}/${toDate}/${costCtrParam}`;
+			const url = `/misapi/api/chequedetailsinquiry/report/${costCtrParam}/${fromNo}/${toNo}`;
 
 			const res = await fetch(url, {
 				credentials: "include",
@@ -180,7 +166,7 @@ const ChequeSummaryReport: React.FC = () => {
 			if (!json.success)
 				throw new Error(json.message || "Failed to load data");
 
-			const items: ChequeSummaryItem[] = json.data || [];
+			const items: ChequeDetailsInquiryItem[] = json.data || [];
 			if (items.length > MAX_RECORDS)
 				throw new Error(
 					`Too many records (${items.length}). Please refine your search.`
@@ -218,8 +204,8 @@ const ChequeSummaryReport: React.FC = () => {
 	};
 
 	const clearAll = () => {
-		setFromDate("");
-		setToDate("");
+		setFromNo("");
+		setToNo("");
 		setSearchId("");
 		setSearchName("");
 		setShowReport(false);
@@ -235,77 +221,106 @@ const ChequeSummaryReport: React.FC = () => {
 		setReportLoading(false);
 	};
 
-	/* ────── Single flat table, sorted per SQL: chq_no, chq_dt ────── */
+	/* ────── Single flat table, sorted by cheque run then payslip no ────── */
 	const sortedData = [...reportData].sort(
 		(a, b) =>
-			(a.ChqNo || "").localeCompare(b.ChqNo || "") ||
-			(a.ChqDt || "").localeCompare(b.ChqDt || "")
+			(a.ChqRun || "").localeCompare(b.ChqRun || "") ||
+			(a.PymtDocNo || "").localeCompare(b.PymtDocNo || "")
 	);
 
-	const grandTotalChqAmt = reportData.reduce((s, r) => s + (r.ChqAmt || 0), 0);
-	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
-	const costCtrDisplay = selectedDept?.DeptId || "";
+	const costCenterName =
+		reportData.find((r) => r.BranchName)?.BranchName || selectedDept?.DeptName || "";
+	const costCenterDisplay = selectedDept?.DeptId || "";
 
 	/* ────── CSV download ────── */
 	const downloadCSV = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Cheque Summary From ${fromDate} To ${toDate}`,
-			`Branch - ${cctName}`,
-			`Cost center No - ${costCtrDisplay}`,
+			`Cheque payment Inquiry Report - Cheque No from ${fromNo} To ${toNo}`,
+			`Cost Center : ${costCenterDisplay}/${costCenterName}`,
 			"",
 		];
 
-		const headers = ["No.", "Cheque", "Cheque No", "Total Cheque Amount"];
+		const headers = [
+			"No",
+			"PaySlip No",
+			"Cheque Run",
+			"Cheque Date",
+			"Payee",
+			"Entered By",
+			"Checked By",
+			"Approved By",
+			"Cheque No",
+			"Status",
+		];
 		const rows: string[] = [headers.join(",")];
 
 		sortedData.forEach((it, i) => {
 			rows.push(
 				[
 					csvEscape(i + 1),
+					csvEscape(it.PymtDocNo),
+					csvEscape(it.ChqRun),
 					csvEscape(formatDate(it.ChqDt)),
+					csvEscape(it.Payee),
+					csvEscape(it.RunBy),
+					csvEscape(it.ModiBy),
+					csvEscape(it.ApprvUid1),
 					csvEscape(it.ChqNo),
-					csvEscape(formatNumber(it.ChqAmt)),
+					csvEscape(it.TranStatus),
 				].join(",")
 			);
 		});
-
-		rows.push(`Total Cheque amount,,,${csvEscape(formatNumber(grandTotalChqAmt))}`);
 
 		const csv = [...titleRows, ...rows].join("\n");
 		const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `ChequeSummary_${fromDate}_${toDate}.csv`;
+		a.download = `ChequeDetailsInquiry_${fromNo}_${toNo}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
 
-	/* ────── PDF print ──────
-	   NOTE: This HTML is written into a brand-new window via window.open("", "_blank"),
-	   which has NO access to the app's Tailwind stylesheet. Any Tailwind utility class
-	   (text-right, text-center, bg-white, font-mono, px-3, py-2, etc.) used here does
-	   NOTHING in that window. Every visual rule — alignment, spacing, borders, colors —
-	   must be written as inline `style="..."` or defined in the <style> block below.
-	*/
+	/* ────── PDF print ────── */
 	const printPDF = () => {
 		if (reportData.length === 0) return;
 
 		let rows = "";
-		const cellBase =
-			"padding:6px 8px; border:1px solid #d1d5db; font-size:8.5px;";
-		const mono = "font-family:monospace;";
-
 		sortedData.forEach((it, i) => {
-			const rowBg = i % 2 ? "#ffffff" : "#f9fafb";
 			rows += `
-          <tr style="background:${rowBg};">
-            <td style="${cellBase} text-align:center;">${i + 1}</td>
-            <td style="${cellBase} text-align:center;">${formatDate(it.ChqDt)}</td>
-            <td style="${cellBase} text-align:center; ${mono}">${it.ChqNo || ""}</td>
-            <td style="${cellBase} text-align:right; ${mono}">${formatNumber(it.ChqAmt)}</td>
+          <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
+            <td class="px-3 py-2 border-l border-r border-gray-300 text-center text-xs">${
+					i + 1
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.PymtDocNo || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.ChqRun || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
+					it.ChqDt
+				)}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs break-words">${
+					it.Payee || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
+					it.RunBy || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
+					it.ModiBy || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
+					it.ApprvUid1 || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.ChqNo || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
+					it.TranStatus || ""
+				}</td>
           </tr>`;
 		});
 
@@ -318,12 +333,11 @@ const ChequeSummaryReport: React.FC = () => {
       @page { margin: 8mm 5mm 10mm 5mm; }
       body { margin:0; font-family:Arial,Helvetica,sans-serif; }
       .title { margin: 10px 8px 20px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
-      .info { margin:6px 8px; font-size:9px; }
-      .info div { margin-bottom:3px; }
-      table { border-collapse:collapse; width:100%; font-size:8.5px; }
-      th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
+      .info { margin:6px 8px; font-size:9px; display:flex; justify-content:space-between; }
+      table { border-collapse:collapse; width:100%; font-size:8px; }
+      th, td { border:1px solid #d1d5db; padding:5px 6px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
-      tfoot td { background:#d3d3d3; font-weight:bold; }
+      .font-mono { font-family:monospace; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
 				"en-US",
@@ -335,29 +349,26 @@ const ChequeSummaryReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Cheque Summary From ${fromDate} To ${toDate}</div>
+  <div class="title">Cheque payment Inquiry Report - Cheque No from ${fromNo} To ${toNo}</div>
   <div class="info">
-    <div><strong>Branch -</strong> ${cctName}</div>
-    <div><strong>Cost center No -</strong> ${costCtrDisplay}</div>
+    <div><strong>Cost Center :</strong> ${costCenterDisplay}/${costCenterName}</div>
   </div>
-  <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
+  <table style="width:100%; border-collapse:collapse; font-size:8px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:6px 8px; width:10%; text-align:center;">No.</th>
-        <th style="padding:6px 8px; width:25%; text-align:center;">Cheque</th>
-        <th style="padding:6px 8px; width:30%; text-align:center;">Cheque No</th>
-        <th style="padding:6px 8px; width:35%; text-align:right;">Total Cheque Amount</th>
+        <th style="padding:5px 6px; width:4%;">No</th>
+        <th style="padding:5px 6px; width:10%;">PaySlip No</th>
+        <th style="padding:5px 6px; width:10%;">Cheque Run</th>
+        <th style="padding:5px 6px; width:10%;">Cheque Date</th>
+        <th style="padding:5px 6px; width:18%;">Payee</th>
+        <th style="padding:5px 6px; width:12%;">Entered By</th>
+        <th style="padding:5px 6px; width:12%;">Checked By</th>
+        <th style="padding:5px 6px; width:12%;">Approved By</th>
+        <th style="padding:5px 6px; width:8%;">Cheque No</th>
+        <th style="padding:5px 6px; width:14%;">Status</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
-    <tfoot>
-      <tr>
-        <td colspan="3" style="text-align:right; padding:6px 8px; border:1px solid #d1d5db;">Total Cheque amount</td>
-        <td style="text-align:right; padding:6px 8px; border:1px solid #d1d5db; font-family:monospace;">${formatNumber(
-			grandTotalChqAmt
-		)}</td>
-      </tr>
-    </tfoot>
   </table>
 
   <div style="margin-top:20px; display:flex; justify-content:space-between; padding:0 15px; font-size:9px;">
@@ -385,42 +396,42 @@ const ChequeSummaryReport: React.FC = () => {
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
 				<h2 className={`text-xl font-bold ${maroon}`}>
-					Cheque Summary
+					Cheque Details Inquiry (Cheque No Range)
 				</h2>
 			</div>
 
 			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-					{/* From Date */}
+					{/* From No */}
 					<div className="flex items-center gap-2">
 						<label
 							className={`text-xs font-bold ${maroon} whitespace-nowrap`}
 						>
-							From Date:
+							From No:
 						</label>
 						<input
-							type="date"
-							value={fromDate}
-							onChange={(e) => setFromDate(e.target.value)}
-							min={minDate}
-							max={maxDate}
+							type="number"
+							value={fromNo}
+							onChange={(e) => setFromNo(e.target.value)}
+							min={0}
+							placeholder="e.g. 1"
 							className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
 						/>
 					</div>
 
-					{/* To Date */}
+					{/* To No */}
 					<div className="flex items-center gap-2">
 						<label
 							className={`text-xs font-bold ${maroon} whitespace-nowrap`}
 						>
-							To Date:
+							To No:
 						</label>
 						<input
-							type="date"
-							value={toDate}
-							onChange={(e) => setToDate(e.target.value)}
-							min={minDate}
-							max={maxDate}
+							type="number"
+							value={toNo}
+							onChange={(e) => setToNo(e.target.value)}
+							min={0}
+							placeholder="e.g. 20"
 							className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
 						/>
 					</div>
@@ -518,7 +529,7 @@ const ChequeSummaryReport: React.FC = () => {
 											<td className="px-4 py-2 text-center">
 												<button
 													onClick={() => fetchReport(dept)}
-													disabled={!fromDate || !toDate}
+													disabled={!fromNo || !toNo}
 													className={`px-3 py-1 rounded text-xs font-medium hover:brightness-110 transition shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 mx-auto
                             ${
 											selectedDept?.DeptId === dept.DeptId &&
@@ -577,7 +588,7 @@ const ChequeSummaryReport: React.FC = () => {
 			{/* ────── REPORT MODAL ────── */}
 			{showReport && selectedDept && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/90 print:static print:inset-auto print:p-0 print:bg-white">
-					<div className="relative bg-white w-[95vw] sm:w-[90vw] md:w-[80vw] lg:w-[65vw] xl:w-[55vw] max-w-4xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden mt-20 md:mt-32 lg:mt-40 lg:ml-64 mx-auto print:relative print:w-full print:max-w-none print:rounded-none print:shadow-none print:border-none print:overflow-visible">
+					<div className="relative bg-white w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[75vw] max-w-7xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden mt-20 md:mt-32 lg:mt-40 lg:ml-64 mx-auto print:relative print:w-full print:max-w-none print:rounded-none print:shadow-none print:border-none print:overflow-visible">
 						{reportLoading && (
 							<div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
 								<div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#7A0000]"></div>
@@ -585,7 +596,7 @@ const ChequeSummaryReport: React.FC = () => {
 									Loading Report...
 								</p>
 								<p className="text-sm text-gray-600">
-									Fetching cheque summary from server
+									Fetching cheque payment data from server
 								</p>
 							</div>
 						)}
@@ -613,35 +624,49 @@ const ChequeSummaryReport: React.FC = () => {
 								</div>
 
 								<h2
-									className={`text-lg md:text-xl font-bold text-center md:mb-4 ${maroon}`}
+									className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}
 								>
-									Cheque Summary From {fromDate} To {toDate}
+									Cheque payment Inquiry Report - Cheque No from {fromNo} To {toNo}
 								</h2>
-								<div className="text-sm mb-3 ml-5 mr-12 space-y-1">
-									<div>
-										<span className="font-bold">Branch -</span> {cctName}
-									</div>
-									<div>
-										<span className="font-bold">Cost center No -</span> {costCtrDisplay}
-									</div>
+								<div className="text-sm mb-3 ml-5 mr-12">
+									<span className="font-bold">Cost Center :</span>{" "}
+									{costCenterDisplay}/{costCenterName}
 								</div>
 
 								<div className="ml-5 mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
-									<div className="min-w-[600px]">
+									<div className="min-w-[1300px]">
 										<table className="w-full text-xs border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "10%"}}>
-														No.
+													<th className="px-4 py-2 border border-gray-300" style={{width: "4%"}}>
+														No
 													</th>
-													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "25%"}}>
-														Cheque
+													<th className="px-4 py-2 border border-gray-300" style={{width: "10%"}}>
+														PaySlip No
 													</th>
-													<th className="px-4 py-2 border border-gray-300 text-center" style={{width: "30%"}}>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "10%"}}>
+														Cheque Run
+													</th>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "10%"}}>
+														Cheque Date
+													</th>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "18%"}}>
+														Payee
+													</th>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "12%"}}>
+														Entered By
+													</th>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "12%"}}>
+														Checked By
+													</th>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "12%"}}>
+														Approved By
+													</th>
+													<th className="px-4 py-2 border border-gray-300" style={{width: "8%"}}>
 														Cheque No
 													</th>
-													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "35%"}}>
-														Total Cheque Amount
+													<th className="px-4 py-2 border border-gray-300" style={{width: "14%"}}>
+														Status
 													</th>
 												</tr>
 											</thead>
@@ -658,31 +683,36 @@ const ChequeSummaryReport: React.FC = () => {
 														<td className="px-4 py-2 border-l border-r border-gray-300 text-center">
 															{i + 1}
 														</td>
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
+															{it.PymtDocNo || ""}
+														</td>
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
+															{it.ChqRun || ""}
+														</td>
 														<td className="px-4 py-2 text-center border-r border-gray-300">
 															{formatDate(it.ChqDt)}
 														</td>
-														<td className="px-4 py-2 font-mono text-center border-r border-gray-300">
+														<td className="px-4 py-2 border-r border-gray-300 break-words">
+															{it.Payee || ""}
+														</td>
+														<td className="px-4 py-2 border-r border-gray-300">
+															{it.RunBy || ""}
+														</td>
+														<td className="px-4 py-2 border-r border-gray-300">
+															{it.ModiBy || ""}
+														</td>
+														<td className="px-4 py-2 border-r border-gray-300">
+															{it.ApprvUid1 || ""}
+														</td>
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
 															{it.ChqNo || ""}
 														</td>
-														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">
-															{formatNumber(it.ChqAmt)}
+														<td className="px-4 py-2 border-r border-gray-300">
+															{it.TranStatus || ""}
 														</td>
 													</tr>
 												))}
 											</tbody>
-											<tfoot>
-												<tr className="bg-[#d3d3d3] font-bold">
-													<td
-														colSpan={3}
-														className="px-4 py-2 text-right border border-gray-300"
-													>
-														Total Cheque amount
-													</td>
-													<td className="px-4 py-2 text-right font-mono border border-gray-300">
-														{formatNumber(grandTotalChqAmt)}
-													</td>
-												</tr>
-											</tfoot>
 										</table>
 										<p className="text-xs text-gray-500 mt-2 text-right px-2">
 											Total records: {reportData.length.toLocaleString()}
@@ -698,4 +728,4 @@ const ChequeSummaryReport: React.FC = () => {
 	);
 };
 
-export default ChequeSummaryReport;
+export default ChequeDetailsInquiryReport;

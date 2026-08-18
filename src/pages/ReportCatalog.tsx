@@ -13,7 +13,7 @@ export const ReportCatalog = () => {
   const [selectedCatCode, setSelectedCatCode] = useState<string>("ALL");
   const [selectedReport, setSelectedReport] = useState<CatalogReportItem | null>(null);
 
-  // Filtered Categories list (excluding Dashboard and All Reports)
+  // Filtered Categories list (excluding Dashboard, Dashboard Reports, Report Catalog, and All Reports)
   const validCategories = useMemo(() => {
     return categories.filter((c) => {
       const code = (c.catCode || "").trim().toLowerCase();
@@ -22,6 +22,9 @@ export const ReportCatalog = () => {
         code !== "dashboard" &&
         name !== "dashboard" &&
         name !== "main dashboard" &&
+        name !== "dashboard reports" &&
+        name !== "report catalog" &&
+        code !== "report catalog" &&
         code !== "all reports" &&
         name !== "all reports" &&
         code !== "all" &&
