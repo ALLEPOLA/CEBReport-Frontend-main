@@ -229,6 +229,7 @@ import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingR
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
+import DocInquiryGlReport from "../mainTopics/GeneralLedger/DocInquiryGLReport.tsx";
 import CurrentAccountReconciliationExternal from "../mainTopics/LedgerCard/CurrentAccountReconciliationExternal.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
@@ -513,6 +514,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//General Ledger Reports
 	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
+	"document inquiry gl all transaction": DocInquiryGlReport,
 };
 
 /**
