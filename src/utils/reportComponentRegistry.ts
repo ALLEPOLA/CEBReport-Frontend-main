@@ -230,6 +230,7 @@ import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingR
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
 import CurrentAccountReconciliationExternal from "../mainTopics/LedgerCard/CurrentAccountReconciliationExternal.tsx";
+import CurrAcctReconExtPeriod from "../mainTopics/LedgerCard/CurrAcctReconExtPeriod.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -309,6 +310,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"transaction history ordinary": TransactionHistoryOrdinary,
 	"current account reconciliation (external)": CurrentAccountReconciliationExternal,
 	"current account reconsiliation (external)": CurrentAccountReconciliationExternal,
+	"current account reconciliation (external) - period": CurrAcctReconExtPeriod,
+	"current account reconsiliation(external)- period": CurrAcctReconExtPeriod,
 	"payment inquiries": PaymentInquiry,
 
 	// Collections reports
