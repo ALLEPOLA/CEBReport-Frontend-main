@@ -1,32 +1,23 @@
-// PivIIPaidNotEnagizedReport.tsx
+// ChequeCancellationDivisionReport.tsx
 import React, {useEffect, useState} from "react";
 import {Download, Printer, X, RotateCcw, Eye, Search} from "lucide-react";
 import {toast} from "react-toastify";
 import {useUser} from "../../contexts/UserContext";
 
-interface Department {
-	DeptId: string;
-	DeptName: string;
+interface Division {
+	CompId: string;
+	CompName: string;
 }
 
-interface PivItem {
-	ApplicationType: string | null;
-	ApplicationSubType: string | null;
-	TariffCode: string | null;
-	Phase: string | null;
-	StdCost: number | null;
-	EstimateNo: string | null;
-	ProjectNo: string | null;
-	ConfirmedDate: string | null;
-	PivNo: string | null;
-	PaidAmount: number | null;
-	CctName: string | null;
-}
-
-interface ReportSummary {
-	totalRecords: number;
-	totalPaidAmount: number;
-	totalStdCost: number;
+interface ChequeCancellationDivisionItem {
+	DeptId: string | null;
+	DocNo: string | null;
+	ChqDt: string | null;
+	ChqNo: string | null;
+	ChqAmt: number | null;
+	ChqRun: string | null;
+	RunDt: string | null;
+	BranchName: string | null;
 }
 
 /* ────── Constants ────── */
@@ -49,7 +40,6 @@ const formatNumber = (num: number | string | null | undefined): string => {
 const formatDate = (dateStr: string | null): string => {
 	if (!dateStr) return "";
 	const d = new Date(dateStr);
-	if (isNaN(d.getTime())) return "";
 	const year = d.getFullYear();
 	const month = String(d.getMonth() + 1).padStart(2, "0");
 	const day = String(d.getDate()).padStart(2, "0");
@@ -63,16 +53,6 @@ const csvEscape = (val: string | number | null | undefined): string => {
 	return str;
 };
 
-const parseApiResponse = (response: any): any[] => {
-	if (Array.isArray(response)) return response;
-	if (response.data && Array.isArray(response.data)) return response.data;
-	if (response.result && Array.isArray(response.result)) return response.result;
-	if (response.departments && Array.isArray(response.departments)) return response.departments;
-	if (response.Data && Array.isArray(response.Data)) return response.Data;
-	console.warn("Unexpected API response format:", response);
-	return [];
-};
-
 const today = new Date();
 const currentYear = today.getFullYear();
 const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
@@ -83,87 +63,84 @@ const minYear = currentYear - 20;
 const minDate = `${minYear}-${currentMonth}-${currentDay}`;
 
 /* ────── MAIN COMPONENT ────── */
-const PivIIPaidNotEnagizedReport: React.FC = () => {
+const ChequeCancellationDivisionReport: React.FC = () => {
 	const {user} = useUser();
 	const epfNo = user?.Userno || "";
+
+	/* ── Division list state ── */
+	const [divisions, setDivisions] = useState<Division[]>([]);
+	const [filtered, setFiltered] = useState<Division[]>([]);
+	const [searchId, setSearchId] = useState("");
+	const [searchName, setSearchName] = useState("");
+	const [page, setPage] = useState(1);
+	const [divisionLoading, setDivisionLoading] = useState(true);
+	const [divisionError, setDivisionError] = useState<string | null>(null);
+
+	/* ── Report state ── */
+	const [fromDate, setFromDate] = useState("");
+	const [toDate, setToDate] = useState("");
+	const [selectedDivision, setSelectedDivision] = useState<Division | null>(null);
+	const [reportData, setReportData] = useState<ChequeCancellationDivisionItem[]>([]);
+	const [reportLoading, setReportLoading] = useState(false);
+	const [showReport, setShowReport] = useState(false);
 
 	const maroon = "text-[#7A0000]";
 	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
-	/* ── Cost Center list state ── */
-	const [departments, setDepartments] = useState<Department[]>([]);
-	const [filtered, setFiltered] = useState<Department[]>([]);
-	const [searchId, setSearchId] = useState("");
-	const [searchName, setSearchName] = useState("");
-	const [page, setPage] = useState(1);
-	const [deptLoading, setDeptLoading] = useState(true);
-	const [deptError, setDeptError] = useState<string | null>(null);
-
-	const [selectedDept, setSelectedDept] = useState<Department | null>(null);
-
-	/* ── Other filter state ── */
-	const [fromDate, setFromDate] = useState("");
-	const [toDate, setToDate] = useState("");
-
-	/* ── Report state ── */
-	const [reportData, setReportData] = useState<PivItem[]>([]);
-	const [, setReportSummary] = useState<ReportSummary | null>(null);
-	const [reportLoading, setReportLoading] = useState(false);
-	const [showReport, setShowReport] = useState(false);
-
-	/* ────── Fetch Departments ────── */
+	/* ────── Fetch Divisions ────── */
+	// NOTE: endpoint assumed to mirror the departments endpoint pattern.
+	// Update the URL below to your actual division/company list API if different.
 	useEffect(() => {
-		const fetchDepartments = async () => {
+		const fetchDivisions = async () => {
 			if (!epfNo) {
-				setDeptError("No EPF number available.");
+				setDivisionError("No EPF number available.");
 				toast.error("Login required.");
-				setDeptLoading(false);
+				setDivisionLoading(false);
 				return;
 			}
 
-			setDeptLoading(true);
+			setDivisionLoading(true);
 			try {
 				const res = await fetch(
-					`/misapi/api/incomeexpenditure/departments/${epfNo}`
+					`/misapi/api/incomeexpenditure/Usercompanies/${epfNo}/70`
 				);
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
-				const json = await res.json();
-				const raw = parseApiResponse(json);
-				const deps: Department[] = raw.map((d: any) => ({
-					DeptId: String(d.DeptId || d.deptId || ""),
-					DeptName: String(d.DeptName || d.deptName || "").trim(),
+				const txt = await res.text();
+				const parsed = JSON.parse(txt);
+				const raw = Array.isArray(parsed)
+					? parsed
+					: parsed.data || [];
+				const list: Division[] = raw.map((c: any) => ({
+					CompId: c.CompId,
+					CompName: c.CompName,
 				}));
-				setDepartments(deps);
-				setFiltered(deps);
+				setDivisions(list);
+				setFiltered(list);
 			} catch (e: any) {
-				setDeptError(e.message);
-				toast.error("Failed to load cost centers.");
+				setDivisionError(e.message);
+				toast.error("Failed to load divisions.");
 			} finally {
-				setDeptLoading(false);
+				setDivisionLoading(false);
 			}
 		};
-		fetchDepartments();
+		fetchDivisions();
 	}, [epfNo]);
 
-	/* ────── Filter Departments ────── */
+	/* ────── Filter Divisions ────── */
 	useEffect(() => {
-		const f = departments.filter(
+		const f = divisions.filter(
 			(d) =>
 				(!searchId ||
-					d.DeptId.toLowerCase().includes(searchId.toLowerCase())) &&
+					d.CompId.toLowerCase().includes(searchId.toLowerCase())) &&
 				(!searchName ||
-					d.DeptName.toLowerCase().includes(searchName.toLowerCase()))
+					d.CompName.toLowerCase().includes(searchName.toLowerCase()))
 		);
 		setFiltered(f);
 		setPage(1);
-	}, [searchId, searchName, departments]);
+	}, [searchId, searchName, divisions]);
 
 	/* ────── Input validation ────── */
 	const validateInputs = (): boolean => {
-		if (!selectedDept) {
-			toast.error("Please select a cost center.");
-			return false;
-		}
 		if (!fromDate) {
 			toast.error("Please select 'From Date'");
 			return false;
@@ -179,23 +156,26 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 		return true;
 	};
 
-	/* ────── Fetch report ────── */
-	const fetchReport = async () => {
+	/* ────── Fetch report for a selected Division ────── */
+	const fetchReport = async (division: Division) => {
 		if (!validateInputs()) return;
 
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+		setSelectedDivision(division);
 		setReportLoading(true);
 		setReportData([]);
-		setReportSummary(null);
 		setShowReport(true);
 
 		try {
-			const costCtrParam = encodeURIComponent(selectedDept!.DeptId);
-			const url = `/misapi/api/pivpaidnotenagized/report/${fromDate}/${toDate}/${costCtrParam}`;
+			const compIdParam = encodeURIComponent(division.CompId);
+			const url = `/misapi/api/chequecancellationdivision/report/${fromDate}/${toDate}/${compIdParam}`;
 
-			const res = await fetch(url, {credentials: "include", signal: controller.signal});
+			const res = await fetch(url, {
+				credentials: "include",
+				signal: controller.signal,
+			});
 			clearTimeout(timeoutId);
 
 			if (!res.ok) {
@@ -204,20 +184,23 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 			}
 
 			const json = await res.json();
-			if (!json.success) throw new Error(json.message || "Failed to load data");
+			if (!json.success)
+				throw new Error(json.message || "Failed to load data");
 
-			const items: PivItem[] = json.data || [];
+			const items: ChequeCancellationDivisionItem[] = json.data || [];
 			if (items.length > MAX_RECORDS)
-				throw new Error(`Too many records (${items.length}). Please refine your search.`);
+				throw new Error(
+					`Too many records (${items.length}). Please refine your search.`
+				);
 
 			if (items.length === 0) {
 				toast.warn("No records found for the selected criteria.");
 				setShowReport(false);
+				setSelectedDivision(null);
 				return;
 			}
 
 			setReportData(items);
-			setReportSummary(json.summary || null);
 			toast.success(`${items.length} records loaded successfully.`);
 		} catch (e: any) {
 			if (e.name === "AbortError") {
@@ -229,8 +212,8 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 				toast.error(msg);
 			}
 			setReportData([]);
-			setReportSummary(null);
 			setShowReport(false);
+			setSelectedDivision(null);
 		} finally {
 			setReportLoading(false);
 		}
@@ -242,58 +225,55 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 	};
 
 	const clearAll = () => {
-		setSelectedDept(null);
 		setFromDate("");
 		setToDate("");
 		setSearchId("");
 		setSearchName("");
 		setShowReport(false);
 		setReportData([]);
-		setReportSummary(null);
+		setSelectedDivision(null);
 		toast.info("Filters cleared.");
 	};
 
 	const closeReport = () => {
 		setShowReport(false);
 		setReportData([]);
-		setReportSummary(null);
+		setSelectedDivision(null);
 		setReportLoading(false);
 	};
 
-	/* ────── Sorted per SQL: ORDER BY 1,2,3,4 (app type, sub type, tariff, phase) ────── */
+	/* ────── Single flat table, sorted by Dept then Cheque date/no ────── */
 	const sortedData = [...reportData].sort(
 		(a, b) =>
-			(a.ApplicationType || "").localeCompare(b.ApplicationType || "") ||
-			(a.ApplicationSubType || "").localeCompare(b.ApplicationSubType || "") ||
-			(a.TariffCode || "").localeCompare(b.TariffCode || "") ||
-			(a.Phase || "").localeCompare(b.Phase || "")
+			(a.DeptId || "").localeCompare(b.DeptId || "") ||
+			(a.ChqDt || "").localeCompare(b.ChqDt || "") ||
+			(a.ChqNo || "").localeCompare(b.ChqNo || "")
 	);
 
-	const cctName = reportData.find((r) => r.CctName)?.CctName || selectedDept?.DeptName || "";
-	const costCtrDisplay = selectedDept?.DeptId || "";
+	const grandTotalChqAmt = reportData.reduce((s, r) => s + (r.ChqAmt || 0), 0);
+	const divisionName =
+		reportData.find((r) => r.BranchName)?.BranchName || selectedDivision?.CompName || "";
+	const divisionDisplay = selectedDivision?.CompId || "";
 
 	/* ────── CSV download ────── */
 	const downloadCSV = () => {
 		if (reportData.length === 0) return;
 
 		const titleRows = [
-			`Customer paid PIV II - Not Enagized - From PIV Paid date ${fromDate} To ${toDate}`,
-			`Cost Center: ${costCtrDisplay}/${cctName}`,
+			`Cheque Details From ${fromDate} To ${toDate}`,
+			`Division/Region : ${divisionDisplay}/${divisionName}`,
 			"",
 		];
 
 		const headers = [
-			"NO",
-			"App.",
-			"App.Sub Type",
-			"Phase",
-			"Tariff",
-			"Estimate No",
-			"Project No",
-			"PIV II No",
-			"Estimated Cost",
-			"PIV II Date",
-			"Paid Amount",
+			"No",
+			"Department Id",
+			"Cheque Cancellation Date",
+			"Cheque No.",
+			"Cheque Cancellation No",
+			"Total Cheque Amount",
+			"PP No",
+			"PP Date",
 		];
 		const rows: string[] = [headers.join(",")];
 
@@ -301,28 +281,25 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 			rows.push(
 				[
 					csvEscape(i + 1),
-					csvEscape(it.ApplicationType),
-					csvEscape(it.ApplicationSubType),
-					csvEscape(it.Phase),
-					csvEscape(it.TariffCode),
-					csvEscape(it.EstimateNo),
-					csvEscape(it.ProjectNo),
-					csvEscape(it.PivNo),
-					csvEscape(formatNumber(it.StdCost)),
-					csvEscape(formatDate(it.ConfirmedDate)),
-					csvEscape(formatNumber(it.PaidAmount)),
+					csvEscape(it.DeptId),
+					csvEscape(formatDate(it.ChqDt)),
+					csvEscape(it.ChqNo),
+					csvEscape(it.DocNo),
+					csvEscape(formatNumber(it.ChqAmt)),
+					csvEscape(it.ChqRun),
+					csvEscape(formatDate(it.RunDt)),
 				].join(",")
 			);
 		});
 
-		rows.push("", "Prepared by:,,,,,,,,,,", "checked by:,,,,,,,,,,");
+		rows.push(`Total,,,,,${csvEscape(formatNumber(grandTotalChqAmt))},,`);
 
 		const csv = [...titleRows, ...rows].join("\n");
 		const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `PivIIPaidNotEnagized_${costCtrDisplay}_${fromDate}_${toDate}.csv`;
+		a.download = `ChequeCancellationDivision_${fromDate}_${toDate}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -335,36 +312,29 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 		sortedData.forEach((it, i) => {
 			rows += `
           <tr class="${i % 2 ? "bg-white" : "bg-gray-50"}">
-            <td class="px-3 py-2 border-l border-r border-gray-300 text-center text-xs">${i + 1}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
-					it.ApplicationType || ""
+            <td class="px-3 py-2 border-l border-r border-gray-300 text-center text-xs">${
+					i + 1
 				}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
-					it.ApplicationSubType || ""
+					it.DeptId || ""
 				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${
-					it.Phase || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs">${
-					it.TariffCode || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
-					it.EstimateNo || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
-					it.ProjectNo || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
-					it.PivNo || ""
-				}</td>
-            <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					it.StdCost
-				)}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
-					it.ConfirmedDate
+					it.ChqDt
 				)}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.ChqNo || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.DocNo || ""
+				}</td>
             <td class="px-3 py-2 border-r border-gray-300 text-right text-xs font-mono">${formatNumber(
-					it.PaidAmount
+					it.ChqAmt
+				)}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-left text-xs font-mono">${
+					it.ChqRun || ""
+				}</td>
+            <td class="px-3 py-2 border-r border-gray-300 text-center text-xs">${formatDate(
+					it.RunDt
 				)}</td>
           </tr>`;
 		});
@@ -377,14 +347,13 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
     @media print {
       @page { margin: 8mm 5mm 10mm 5mm; }
       body { margin:0; font-family:Arial,Helvetica,sans-serif; }
-      .title { margin: 10px 8px 6px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
-      .info { margin:4px 8px; font-size:9.5px; }
-      .info div { margin-bottom:3px; }
-      table { border-collapse:collapse; width:100%; font-size:8px; margin-top:10px; }
-      th, td { border:1px solid #d1d5db; padding:5px 6px; word-wrap:break-word; }
+      .title { margin: 10px 8px 20px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
+      .info { margin:6px 8px; font-size:9px; display:flex; justify-content:space-between; }
+      table { border-collapse:collapse; width:100%; font-size:8.5px; }
+      th, td { border:1px solid #d1d5db; padding:6px 8px; word-wrap:break-word; }
       th { background:linear-gradient(to right,#7A0000,#A52A2A); color:white; text-align:center; font-weight:bold; }
+      tfoot td { background:#d3d3d3; font-weight:bold; }
       .font-mono { font-family:monospace; }
-      .sig-row { display:flex; justify-content:space-between; margin-top:30px; padding:0 15px; font-size:9px; }
       @page {
         @bottom-left  { content:"Printed on: ${new Date().toLocaleString(
 				"en-US",
@@ -396,32 +365,39 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Customer paid PIV II - Not Enagized - From PIV Paid date ${fromDate} To ${toDate}</div>
+  <div class="title">Cheque Details From ${fromDate} To ${toDate}</div>
   <div class="info">
-    <div><strong>Cost Center:</strong> ${costCtrDisplay}/${cctName}</div>
+    <div><strong>Division/Region :</strong> ${divisionDisplay}/${divisionName}</div>
+    <div style="font-weight:600; color:#4B5563;">Currency : LKR</div>
   </div>
-  <table style="width:100%; border-collapse:collapse; font-size:8px; border:1px solid #d1d5db;">
+  <table style="width:100%; border-collapse:collapse; font-size:8.5px; border:1px solid #d1d5db;">
     <thead>
       <tr style="background:linear-gradient(to right,#7A0000,#A52A2A); color:white;">
-        <th style="padding:5px 6px; width:4%;">NO</th>
-        <th style="padding:5px 6px; width:8%;">App.</th>
-        <th style="padding:5px 6px; width:14%;">App.Sub Type</th>
-        <th style="padding:5px 6px; width:7%;">Phase</th>
-        <th style="padding:5px 6px; width:9%;">Tariff</th>
-        <th style="padding:5px 6px; width:11%;">Estimate No</th>
-        <th style="padding:5px 6px; width:11%;">Project No</th>
-        <th style="padding:5px 6px; width:11%;">PIV II No</th>
-        <th style="padding:5px 6px; width:10%; text-align:right;">Estimated Cost</th>
-        <th style="padding:5px 6px; width:9%;">PIV II Date</th>
-        <th style="padding:5px 6px; width:10%; text-align:right;">Paid Amount</th>
+        <th style="padding:6px 8px; width:5%;">No</th>
+        <th style="padding:6px 8px; width:12%;">Department Id</th>
+        <th style="padding:6px 8px; width:14%;">Cheque Cancellation Date</th>
+        <th style="padding:6px 8px; width:12%;">Cheque No.</th>
+        <th style="padding:6px 8px; width:14%;">Cheque Cancellation No</th>
+        <th style="padding:6px 8px; width:15%; text-align:right;">Total Cheque Amount</th>
+        <th style="padding:6px 8px; width:14%;">PP No</th>
+        <th style="padding:6px 8px; width:14%;">PP Date</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align:right; padding:6px 8px; border:1px solid #d1d5db;">Total</td>
+        <td style="text-align:right; padding:6px 8px; border:1px solid #d1d5db; font-family:monospace;">${formatNumber(
+			grandTotalChqAmt
+		)}</td>
+        <td colspan="2" style="border:1px solid #d1d5db;"></td>
+      </tr>
+    </tfoot>
   </table>
 
-  <div class="sig-row">
-    <div>Prepared by: ____________________</div>
-    <div>checked by: ____________________</div>
+  <div style="margin-top:20px; display:flex; justify-content:space-between; padding:0 15px; font-size:9px;">
+    <div>Prepared By: ____________________</div>
+    <div>Checked By: ____________________</div>
   </div>
 </body>
 </html>`;
@@ -443,13 +419,18 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 	return (
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
-				<h2 className={`text-xl font-bold ${maroon}`}>PIV II Paid Not Enagized</h2>
+				<h2 className={`text-xl font-bold ${maroon}`}>
+					Cheque Cancellation (Division)
+				</h2>
 			</div>
 
 			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-4">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+					{/* From Date */}
 					<div className="flex items-center gap-2">
-						<label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
+						<label
+							className={`text-xs font-bold ${maroon} whitespace-nowrap`}
+						>
 							From Date:
 						</label>
 						<input
@@ -461,8 +442,12 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 							className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
 						/>
 					</div>
+
+					{/* To Date */}
 					<div className="flex items-center gap-2">
-						<label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
+						<label
+							className={`text-xs font-bold ${maroon} whitespace-nowrap`}
+						>
 							To Date:
 						</label>
 						<input
@@ -476,16 +461,6 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 					</div>
 				</div>
 
-				<div className="flex flex-col md:flex-row flex-wrap gap-4 items-end">
-					<button
-						onClick={fetchReport}
-						disabled={!selectedDept || !fromDate || !toDate}
-						className={`px-3 py-1.5 ${maroonGrad} text-white rounded-md text-sm font-medium hover:brightness-110 transition shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1`}
-					>
-						<Eye className="w-3 h-3" /> View
-					</button>
-				</div>
-
 				<div className="flex justify-end mt-4">
 					<button
 						onClick={clearAll}
@@ -496,7 +471,7 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 				</div>
 			</div>
 
-			{/* ────── Cost Center List ────── */}
+			{/* ────── Division List ────── */}
 			<div className="flex flex-wrap gap-2 mb-4">
 				<div className="relative">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -528,48 +503,76 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 				)}
 			</div>
 
-			{deptLoading && (
+			{divisionLoading && (
 				<div className="flex flex-col items-center justify-center py-12">
 					<div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#7A0000]"></div>
-					<p className="mt-3 text-gray-600 text-sm">Loading cost centers...</p>
-				</div>
-			)}
-
-			{deptError && (
-				<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
-					{deptError}
-				</div>
-			)}
-
-			{!deptLoading && !deptError && filtered.length > 0 && (
-				<>
-					<p className="text-xs text-gray-500 mb-2">
-						Select a cost center below, then fill in the date range above and click View.
+					<p className="mt-3 text-gray-600 text-sm">
+						Loading divisions...
 					</p>
+				</div>
+			)}
+
+			{divisionError && (
+				<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+					{divisionError}
+				</div>
+			)}
+
+			{!divisionLoading && !divisionError && filtered.length > 0 && (
+				<>
 					<div className="overflow-x-auto rounded-lg border border-gray-200">
 						<div className="max-h-[50vh] overflow-y-auto">
 							<table className="w-full table-fixed text-left text-xs md:text-sm">
-								<thead className={`${maroonGrad} text-white sticky top-0`}>
+								<thead
+									className={`${maroonGrad} text-white sticky top-0`}
+								>
 									<tr>
-										<th className="px-4 py-2 w-1/2">Cost Center Code</th>
-										<th className="px-4 py-2 w-1/2">Cost Center Name</th>
+										<th className="px-4 py-2 w-1/4">
+											Division Code
+										</th>
+										<th className="px-4 py-2 w-1/2">
+											Division Name
+										</th>
+										<th className="px-4 py-2 w-1/4 text-center">
+											Action
+										</th>
 									</tr>
 								</thead>
 								<tbody>
-									{paginated.map((dept, i) => (
+									{paginated.map((division, i) => (
 										<tr
 											key={i}
-											onClick={() => setSelectedDept(dept)}
-											className={`cursor-pointer ${
-												selectedDept?.DeptId === dept.DeptId
-													? "bg-[#7A0000] text-white"
-													: i % 2
-													? "bg-white hover:bg-gray-100"
-													: "bg-gray-50 hover:bg-gray-100"
-											}`}
+											className={i % 2 ? "bg-white" : "bg-gray-50"}
 										>
-											<td className="px-4 py-2 truncate">{dept.DeptId}</td>
-											<td className="px-4 py-2 truncate">{dept.DeptName}</td>
+											<td className="px-4 py-2 truncate">
+												{division.CompId}
+											</td>
+											<td className="px-4 py-2 truncate">
+												{division.CompName}
+											</td>
+											<td className="px-4 py-2 text-center">
+												<button
+													onClick={() => fetchReport(division)}
+													disabled={!fromDate || !toDate}
+													className={`px-3 py-1 rounded text-xs font-medium hover:brightness-110 transition shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 mx-auto
+                            ${
+											selectedDivision?.CompId === division.CompId &&
+											reportLoading
+												? "bg-green-600 text-white"
+												: selectedDivision?.CompId === division.CompId
+												? "bg-green-600 text-white"
+												: `${maroonGrad} text-white`
+										}`}
+												>
+													<Eye className="w-3 h-3" />
+													{selectedDivision?.CompId === division.CompId &&
+													reportLoading
+														? "Viewing"
+														: selectedDivision?.CompId === division.CompId
+														? "Viewing"
+														: "View"}
+												</button>
+											</td>
 										</tr>
 									))}
 								</tbody>
@@ -590,7 +593,12 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 						</span>
 						<button
 							onClick={() =>
-								setPage((p) => Math.min(Math.ceil(filtered.length / PAGE_SIZE), p + 1))
+								setPage((p) =>
+									Math.min(
+										Math.ceil(filtered.length / PAGE_SIZE),
+										p + 1
+									)
+								)
 							}
 							disabled={page >= Math.ceil(filtered.length / PAGE_SIZE)}
 							className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
@@ -602,14 +610,18 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 			)}
 
 			{/* ────── REPORT MODAL ────── */}
-			{showReport && selectedDept && (
+			{showReport && selectedDivision && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/90 print:static print:inset-auto print:p-0 print:bg-white">
 					<div className="relative bg-white w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[75vw] max-w-7xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden mt-20 md:mt-32 lg:mt-40 lg:ml-64 mx-auto print:relative print:w-full print:max-w-none print:rounded-none print:shadow-none print:border-none print:overflow-visible">
 						{reportLoading && (
 							<div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
 								<div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#7A0000]"></div>
-								<p className="text-xl font-bold text-[#7A0000]">Loading Report...</p>
-								<p className="text-sm text-gray-600">Fetching PIV II data from server</p>
+								<p className="text-xl font-bold text-[#7A0000]">
+									Loading Report...
+								</p>
+								<p className="text-sm text-gray-600">
+									Fetching cheque cancellation data from server
+								</p>
 							</div>
 						)}
 						{!reportLoading && reportData.length > 0 && (
@@ -635,11 +647,19 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 									</button>
 								</div>
 
-								<h2 className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}>
-									Customer paid PIV II - Not Enagized - From PIV Paid date {fromDate} To {toDate}
+								<h2
+									className={`text-lg md:text-xl font-bold text-center md:mb-2 ${maroon}`}
+								>
+									Cheque Details From {fromDate} To {toDate}
 								</h2>
-								<div className="text-sm mb-3 ml-5 mr-12">
-									<span className="font-bold">Cost Center:</span> {costCtrDisplay}/{cctName}
+								<div className="flex justify-between text-sm mb-3 ml-5 mr-12">
+									<div>
+										<span className="font-bold">Division/Region :</span>{" "}
+										{divisionDisplay}/{divisionName}
+									</div>
+									<div className="font-semibold text-gray-600">
+										Currency : LKR
+									</div>
 								</div>
 
 								<div className="ml-5 mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
@@ -647,90 +667,88 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 										<table className="w-full text-xs border-collapse">
 											<thead className={`${maroonGrad} text-white`}>
 												<tr>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "4%"}}>
-														NO
+													<th className="px-4 py-2 border border-gray-300" style={{width: "5%"}}>
+														No
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "8%"}}>
-														App.
+													<th className="px-4 py-2 border border-gray-300" style={{width: "12%"}}>
+														Department Id
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "14%"}}>
-														App.Sub Type
+													<th className="px-4 py-2 border border-gray-300" style={{width: "14%"}}>
+														Cheque Cancellation Date
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "7%"}}>
-														Phase
+													<th className="px-4 py-2 border border-gray-300" style={{width: "12%"}}>
+														Cheque No.
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "9%"}}>
-														Tariff
+													<th className="px-4 py-2 border border-gray-300" style={{width: "14%"}}>
+														Cheque Cancellation No
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "11%"}}>
-														Estimate No
+													<th className="px-4 py-2 border border-gray-300 text-right" style={{width: "15%"}}>
+														Total Cheque Amount
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "11%"}}>
-														Project No
+													<th className="px-4 py-2 border border-gray-300" style={{width: "14%"}}>
+														PP No
 													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "11%"}}>
-														PIV II No
-													</th>
-													<th className="px-3 py-2 border border-gray-300 text-right" style={{width: "10%"}}>
-														Estimated Cost
-													</th>
-													<th className="px-3 py-2 border border-gray-300" style={{width: "9%"}}>
-														PIV II Date
-													</th>
-													<th className="px-3 py-2 border border-gray-300 text-right" style={{width: "10%"}}>
-														Paid Amount
+													<th className="px-4 py-2 border border-gray-300" style={{width: "14%"}}>
+														PP Date
 													</th>
 												</tr>
 											</thead>
 											<tbody>
 												{sortedData.map((it, i) => (
-													<tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-														<td className="px-3 py-2 text-center border-l border-r border-gray-300">
+													<tr
+														key={i}
+														className={
+															i % 2 === 0
+																? "bg-white"
+																: "bg-gray-50"
+														}
+													>
+														<td className="px-4 py-2 border-l border-r border-gray-300 text-center">
 															{i + 1}
 														</td>
-														<td className="px-3 py-2 border-r border-gray-300">
-															{it.ApplicationType || ""}
+														<td className="px-4 py-2 border-r border-gray-300">
+															{it.DeptId || ""}
 														</td>
-														<td className="px-3 py-2 border-r border-gray-300">
-															{it.ApplicationSubType || ""}
+														<td className="px-4 py-2 text-center border-r border-gray-300">
+															{formatDate(it.ChqDt)}
 														</td>
-														<td className="px-3 py-2 text-center border-r border-gray-300">
-															{it.Phase || ""}
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
+															{it.ChqNo || ""}
 														</td>
-														<td className="px-3 py-2 border-r border-gray-300">
-															{it.TariffCode || ""}
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
+															{it.DocNo || ""}
 														</td>
-														<td className="px-3 py-2 font-mono border-r border-gray-300">
-															{it.EstimateNo || ""}
+														<td className="px-4 py-2 text-right font-mono border-r border-gray-300">
+															{formatNumber(it.ChqAmt)}
 														</td>
-														<td className="px-3 py-2 font-mono border-r border-gray-300">
-															{it.ProjectNo || ""}
+														<td className="px-4 py-2 font-mono border-r border-gray-300">
+															{it.ChqRun || ""}
 														</td>
-														<td className="px-3 py-2 font-mono border-r border-gray-300">
-															{it.PivNo || ""}
-														</td>
-														<td className="px-3 py-2 text-right font-mono border-r border-gray-300">
-															{formatNumber(it.StdCost)}
-														</td>
-														<td className="px-3 py-2 text-center border-r border-gray-300">
-															{formatDate(it.ConfirmedDate)}
-														</td>
-														<td className="px-3 py-2 text-right font-mono border-r border-gray-300">
-															{formatNumber(it.PaidAmount)}
+														<td className="px-4 py-2 text-center border-r border-gray-300">
+															{formatDate(it.RunDt)}
 														</td>
 													</tr>
 												))}
 											</tbody>
+											<tfoot>
+												<tr className="bg-[#d3d3d3] font-bold">
+													<td
+														colSpan={5}
+														className="px-4 py-2 text-right border border-gray-300"
+													>
+														Total
+													</td>
+													<td className="px-4 py-2 text-right font-mono border border-gray-300">
+														{formatNumber(grandTotalChqAmt)}
+													</td>
+													<td colSpan={2} className="border border-gray-300"></td>
+												</tr>
+											</tfoot>
 										</table>
 										<p className="text-xs text-gray-500 mt-2 text-right px-2">
 											Total records: {reportData.length.toLocaleString()}
 										</p>
 									</div>
-								</div>
-
-								<div className="flex justify-between mt-8 ml-5 mr-12 mb-4 text-sm">
-									<div>Prepared by: ____________________</div>
-									<div>checked by: ____________________</div>
 								</div>
 							</div>
 						)}
@@ -741,4 +759,4 @@ const PivIIPaidNotEnagizedReport: React.FC = () => {
 	);
 };
 
-export default PivIIPaidNotEnagizedReport;
+export default ChequeCancellationDivisionReport;

@@ -6,6 +6,8 @@ import {
 import {
     fetchWithErrorHandling, getSolarTypeValue, getReportCategoryValue
 } from "../../components/mainTopics/PUCSLSolarConnection/pucslUtils.ts";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 type ReportCategory = "Province" | "Division" | "Entire CEB";
 
@@ -31,6 +33,9 @@ interface UNTResponse {
 const SolarDataForUNT = () => {
   const maroon = "text-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
+
+  const { user } = useUser();
+  const { locked } = useReportScope();
 
   // ── Form State ────────────────────────────────────────────────────────────
   const [reportCategory, setReportCategory] = useState<ReportCategory>("Province");
@@ -67,9 +72,14 @@ const SolarDataForUNT = () => {
         // - Bill Cycles are fetched from: /misapi/api/ordinary/areas/billcycle/min
         // - Provinces are fetched from: /misapi/api/ordinary/province
         // - Regions/Divisions are fetched from: /misapi/api/ordinary/region
+        let provinceUrl = "/misapi/api/ordinary/province";
+        if (locked["Region"]?.code) {
+          provinceUrl += `?regionCode=${locked["Region"].code}`;
+        }
+
         const [cyclesRes, provinceRes, divisionRes] = await Promise.all([
           fetchWithErrorHandling("/misapi/api/ordinary/areas/billcycle/min"),
-          fetchWithErrorHandling("/misapi/api/ordinary/province"),
+          fetchWithErrorHandling(provinceUrl),
           fetchWithErrorHandling("/misapi/api/ordinary/region"),
         ]) as [
           { data?: { BillCycles?: string[]; MaxBillCycle?: string } },
@@ -107,12 +117,30 @@ const SolarDataForUNT = () => {
     };
 
     loadFilters();
-  }, []);
+  }, [user.Level, user.RegionCode, user.ProvinceCode]);
 
-  // Reset typeCode when category changes
+  // Sync typeCode with locked value or reset it when report category changes
   useEffect(() => {
-    setTypeCode("");
-  }, [reportCategory]);
+    const lockKey = reportCategory === "Division" ? "Region" : "Province";
+    const lock = locked[lockKey];
+    if (lock) {
+      setTypeCode(lock.code);
+    } else {
+      setTypeCode("");
+    }
+  }, [reportCategory, user.Level, user.RegionCode, user.ProvinceCode, user.ProvinceName]);
+
+  // If user level is below 60, render access restricted UI
+  if (!user?.Level || user.Level < 60) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-sm text-center">
+        <h2 className="text-lg font-bold text-[#7A0000] mb-2">Access Restricted</h2>
+        <p className="text-sm text-gray-600">
+          This report isn't available at your access level.
+        </p>
+      </div>
+    );
+  }
 
   // Compute values for Province/Division dropdowns
   const typeOptions = useMemo(() => {
@@ -467,16 +495,22 @@ const SolarDataForUNT = () => {
               {/* Category Select */}
               <div className="flex flex-col">
                 <label className={`${maroon} text-xs font-medium mb-1`}>Select Category:</label>
-                <select
-                  value={reportCategory}
-                  onChange={(e) => setReportCategory(e.target.value as ReportCategory)}
-                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white text-gray-800"
-                  disabled={isLoadingFilters || isLoadingReport}
-                >
-                  <option value="Province">Province</option>
-                  <option value="Division">Division</option>
-                  <option value="Entire CEB">Entire CEB</option>
-                </select>
+                {user.Level === 60 ? (
+                  <div className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed">
+                    Province
+                  </div>
+                ) : (
+                  <select
+                    value={reportCategory}
+                    onChange={(e) => setReportCategory(e.target.value as ReportCategory)}
+                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white text-gray-800"
+                    disabled={isLoadingFilters || isLoadingReport}
+                  >
+                    <option value="Province">Province</option>
+                    <option value="Division">Division</option>
+                    {user.Level >= 80 && <option value="Entire CEB">Entire CEB</option>}
+                  </select>
+                )}
               </div>
 
               {/* Dynamic Province/Division select */}
@@ -485,20 +519,36 @@ const SolarDataForUNT = () => {
                   <label className={`${maroon} text-xs font-medium mb-1`}>
                     {reportCategory === "Province" ? "Select Province:" : "Select Division:"}
                   </label>
-                  <select
-                    value={typeCode}
-                    onChange={(e) => setTypeCode(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white text-gray-800"
-                    disabled={isLoadingFilters || isLoadingReport}
-                    required
-                  >
-                    <option value="">Select Value</option>
-                    {typeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const lockKey = reportCategory === "Division" ? "Region" : "Province";
+                    const lock = locked[lockKey];
+                    return lock ? (
+                      <select
+                        disabled
+                        value={lock.code}
+                        className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      >
+                        <option value={lock.code}>
+                          {lock.name ? `${lock.code} - ${lock.name}` : lock.code}
+                        </option>
+                      </select>
+                    ) : (
+                      <select
+                        value={typeCode}
+                        onChange={(e) => setTypeCode(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white text-gray-800"
+                        disabled={isLoadingFilters || isLoadingReport}
+                        required
+                      >
+                        <option value="">Select Value</option>
+                        {typeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    );
+                  })()}
                 </div>
               )}
 
