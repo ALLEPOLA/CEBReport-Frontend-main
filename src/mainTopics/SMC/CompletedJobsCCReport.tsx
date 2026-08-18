@@ -9,44 +9,39 @@ interface Department {
     DeptName: string;
 }
 
+interface JobType {
+    Code: string;
+    Description: string;
+}
+
 interface CompletedJobsCCItem {
     ApplicationType: string | null;
     ApplicationNo: string | null;
+    Name: string | null;
+    SubmitDate: string | null;
+    Address: string | null;
     PivNo: string | null;
-    PivNo3: string | null;
-    PivDate3: string | null;
-    PivAmount3: string | null;
     PivDate: string | null;
     PivAmount: string | null;
     ConfirmedDate: string | null;
-    SubmitDate: string | null;
+    WiringType: string | null;
+    TariffCode: string | null;
+    TotalLength: string | null;
+    Phase: string | null;
+    TariffCatCode: string | null;
+    NeighboursAccNo: string | null;
     ProjectNo: string | null;
-    FirstName: string | null;
-    LastName: string | null;
-    Amount: string | null;
-    FinishedDate: string | null;
     ContractorName: string | null;
+    Sin: string | null;
+    ConnectedDate: string | null;
+    AccountNo: string | null;
+    AccCreatedDate: string | null;
     MeterNo1: string | null;
     InitReading1: string | null;
     MeterNo2: string | null;
     InitReading2: string | null;
     MeterNo3: string | null;
     InitReading3: string | null;
-    NeighboursAccNo: string | null;
-    Phase: string | null;
-    ConnectionType: string | null;
-    TariffCatCode: string | null;
-    TariffCode: string | null;
-    TotalLength: string | null;
-    Sin: string | null;
-    WiringType: string | null;
-    ConnectedDate: string | null;
-    ServiceStreetAddress: string | null;
-    ServiceSuburb: string | null;
-    ServiceCity: string | null;
-    AccountNo: string | null;
-    AccCreatedDate: string | null;
-    PivReceiptNo: string | null;
     CctName: string | null;
 }
 
@@ -62,13 +57,6 @@ interface CompletedJobsCCSummary {
 const PAGE_SIZE = 9;
 const FETCH_TIMEOUT_MS = 240000;
 const COMPANY_NAME = "Electricity Distribution Lanka Private Limited";
-
-const JOB_TYPE_OPTIONS: { value: string; label: string }[] = [
-    { value: "", label: "All Types" },
-    { value: "NC", label: "NC - New Connection" },
-    { value: "CR", label: "CR - Change of Reading" },
-    { value: "TC", label: "TC - Temporary Connection" },
-];
 
 /* ────── Helpers ────── */
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -86,6 +74,77 @@ const csvEscape = (val: string | number | null | undefined): string => {
     return /[,\n"]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 };
 
+const todayISO = (): string => new Date().toISOString().split("T")[0];
+
+const firstOfMonthISO = (): string => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
+};
+
+// Normalizes a raw dictionary row from /jobtypes (unknown real column names)
+// into a { Code, Description } pair by trying common key variants.
+const normalizeJobType = (row: Record<string, any>): JobType => {
+    const pick = (keys: string[]): string => {
+        for (const k of keys) {
+            if (row[k] !== undefined && row[k] !== null) return String(row[k]).trim();
+        }
+        return "";
+    };
+    const code = pick([
+        "CODE", "Code", "SUB_TYPE_CODE", "APPLICATION_SUB_TYPE", "APPLICATION_TYPE", "TYPE_CODE", "ID",
+    ]);
+    const description = pick([
+        "DESCRIPTION", "Description", "DESCR", "SUB_TYPE_DESCR", "TYPE_DESCR", "NAME",
+    ]);
+    return {
+        Code: code || Object.values(row)[0]?.toString().trim() || "",
+        Description: description || Object.values(row)[1]?.toString().trim() || code,
+    };
+};
+
+interface ColumnDef {
+    key: string;
+    label: string;
+    isDate?: boolean;
+    align?: "right";
+    getValue: (it: CompletedJobsCCItem) => string;
+}
+
+const columns: ColumnDef[] = [
+    { key: "ApplicationNo", label: "Application No", getValue: (it) => it.ApplicationNo ?? "" },
+    { key: "Name", label: "Name", getValue: (it) => it.Name ?? "" },
+    { key: "SubmitDate", label: "App Submitted Date", isDate: true, getValue: (it) => it.SubmitDate ?? "" },
+    { key: "Address", label: "Applicant Service Address", getValue: (it) => it.Address ?? "" },
+    { key: "ApplicationType", label: "Application Type", getValue: (it) => it.ApplicationType ?? "" },
+    { key: "PivNo", label: "PIV No", getValue: (it) => it.PivNo ?? "" },
+    { key: "PivDate", label: "PIV Date", isDate: true, getValue: (it) => it.PivDate ?? "" },
+    { key: "PivAmount", label: "PIV Amount", align: "right", getValue: (it) => it.PivAmount ?? "" },
+    { key: "ConfirmedDate", label: "PIV Confirm Date", isDate: true, getValue: (it) => it.ConfirmedDate ?? "" },
+    { key: "WiringType", label: "Wiring Type", getValue: (it) => it.WiringType ?? "" },
+    { key: "TariffCode", label: "Tariff", getValue: (it) => it.TariffCode ?? "" },
+    { key: "TotalLength", label: "Total Length", getValue: (it) => it.TotalLength ?? "" },
+    { key: "Phase", label: "Phase", getValue: (it) => it.Phase ?? "" },
+    { key: "TariffCatCode", label: "Tariff Category", getValue: (it) => it.TariffCatCode ?? "" },
+    { key: "NeighboursAccNo", label: "Neighbours Account No", getValue: (it) => it.NeighboursAccNo ?? "" },
+    { key: "ProjectNo", label: "Project No", getValue: (it) => it.ProjectNo ?? "" },
+    { key: "ContractorName", label: "Contractor Name", getValue: (it) => it.ContractorName ?? "" },
+    { key: "Sin", label: "SIN No", getValue: (it) => it.Sin ?? "" },
+    { key: "ConnectedDate", label: "Connected Date", isDate: true, getValue: (it) => it.ConnectedDate ?? "" },
+    { key: "AccountNo", label: "Account No", getValue: (it) => it.AccountNo ?? "" },
+    { key: "AccCreatedDate", label: "Account Created Date", isDate: true, getValue: (it) => it.AccCreatedDate ?? "" },
+    { key: "MeterNo1", label: "Meter 1", getValue: (it) => it.MeterNo1 ?? "" },
+    { key: "InitReading1", label: "Reading 1", getValue: (it) => it.InitReading1 ?? "" },
+    { key: "MeterNo2", label: "Meter 2", getValue: (it) => it.MeterNo2 ?? "" },
+    { key: "InitReading2", label: "Reading 2", getValue: (it) => it.InitReading2 ?? "" },
+    { key: "MeterNo3", label: "Meter 3", getValue: (it) => it.MeterNo3 ?? "" },
+    { key: "InitReading3", label: "Reading 3", getValue: (it) => it.InitReading3 ?? "" },
+];
+
+const cellValue = (it: CompletedJobsCCItem, col: ColumnDef) => {
+    const raw = col.getValue(it);
+    return col.isDate ? formatDate(raw) : raw;
+};
+
 /* ────── Table Modal Component ────── */
 const CompletedJobsCCTable: React.FC<{
     data: CompletedJobsCCItem[];
@@ -101,67 +160,19 @@ const CompletedJobsCCTable: React.FC<{
     const fromLabel = formatDate(fromDate);
     const toLabel = formatDate(toDate);
     const reportTitle = `Cost center wise completed jobs From ${fromLabel} To ${toLabel}`;
+    const costCenterLine = `Cost Center : ${costCenter}${departmentName ? " - " + departmentName : ""}`;
+    const jobTypeLine = `Job Type : ${jobTypeLabel}`;
 
     const sortedData = [...data]; // already ordered by backend (application_type desc, project_no asc)
     const totalRecords = summary?.totalRecords ?? sortedData.length;
 
-    interface ColumnDef {
-        key: string;
-        label: string;
-        isDate?: boolean;
-        align?: "right";
-        getValue: (it: CompletedJobsCCItem) => string;
-    }
-
-    const joinNonEmpty = (parts: (string | null | undefined)[], sep = ", "): string =>
-        parts.filter((p) => p && p.trim()).join(sep);
-
-    const columns: ColumnDef[] = [
-        { key: "ApplicationNo", label: "Application No", getValue: (it) => it.ApplicationNo ?? "" },
-        { key: "Name", label: "Name", getValue: (it) => joinNonEmpty([it.FirstName, it.LastName], " ") },
-        { key: "SubmitDate", label: "App Submitted Date", isDate: true, getValue: (it) => it.SubmitDate ?? "" },
-        {
-            key: "ServiceAddress",
-            label: "Applicant Service Address",
-            getValue: (it) => joinNonEmpty([it.ServiceStreetAddress, it.ServiceSuburb, it.ServiceCity]),
-        },
-        { key: "ApplicationType", label: "Application Type", getValue: (it) => it.ApplicationType ?? "" },
-        { key: "PivNo", label: "PIV No", getValue: (it) => it.PivNo ?? "" },
-        { key: "PivDate", label: "PIV Date", isDate: true, getValue: (it) => it.PivDate ?? "" },
-        { key: "PivAmount", label: "PIV Amount", align: "right", getValue: (it) => it.PivAmount ?? "" },
-        { key: "ConfirmedDate", label: "PIV Confirm Date", isDate: true, getValue: (it) => it.ConfirmedDate ?? "" },
-        { key: "WiringType", label: "Wiring Type", getValue: (it) => it.WiringType ?? "" },
-        { key: "TariffCode", label: "Tariff", getValue: (it) => it.TariffCode ?? "" },
-        { key: "TotalLength", label: "Total Length", getValue: (it) => it.TotalLength ?? "" },
-        { key: "Phase", label: "Phase", getValue: (it) => it.Phase ?? "" },
-        { key: "TariffCatCode", label: "Tariff Category", getValue: (it) => it.TariffCatCode ?? "" },
-        { key: "NeighboursAccNo", label: "Neighbours Account No", getValue: (it) => it.NeighboursAccNo ?? "" },
-        { key: "ProjectNo", label: "Project No", getValue: (it) => it.ProjectNo ?? "" },
-        { key: "ContractorName", label: "Contractor Name", getValue: (it) => it.ContractorName ?? "" },
-        { key: "Sin", label: "SIN No", getValue: (it) => it.Sin ?? "" },
-        { key: "ConnectedDate", label: "Connected Date", isDate: true, getValue: (it) => it.ConnectedDate ?? "" },
-        { key: "AccountNo", label: "Account No", getValue: (it) => it.AccountNo ?? "" },
-        { key: "AccCreatedDate", label: "Account Created Date", isDate: true, getValue: (it) => it.AccCreatedDate ?? "" },
-        { key: "MeterNo1", label: "Meter 1", getValue: (it) => it.MeterNo1 ?? "" },
-        { key: "InitReading1", label: "Reading 1", getValue: (it) => it.InitReading1 ?? "" },
-        { key: "MeterNo2", label: "Meter 2", getValue: (it) => it.MeterNo2 ?? "" },
-        { key: "InitReading2", label: "Reading 2", getValue: (it) => it.InitReading2 ?? "" },
-        { key: "MeterNo3", label: "Meter 3", getValue: (it) => it.MeterNo3 ?? "" },
-        { key: "InitReading3", label: "Reading 3", getValue: (it) => it.InitReading3 ?? "" },
-    ];
-
-    const cellValue = (it: CompletedJobsCCItem, col: ColumnDef) => {
-        const raw = col.getValue(it);
-        return col.isDate ? formatDate(raw) : raw;
-    };
-
     /* ────── CSV Download ────── */
     const downloadCSV = () => {
         const titleRows = [
-            reportTitle,
-            COMPANY_NAME,
-            `Cost Center: ${costCenter} / ${departmentName}`,
-            `Job Type: ${jobTypeLabel}`,
+            csvEscape(COMPANY_NAME),
+            csvEscape(reportTitle),
+            csvEscape(costCenterLine),
+            csvEscape(jobTypeLine),
             `Total Records: ${totalRecords}`,
             "",
         ];
@@ -205,9 +216,10 @@ const CompletedJobsCCTable: React.FC<{
     @media print {
       @page { margin: 8mm 5mm 10mm 5mm; size: landscape; }
       body { margin:0; font-family:Arial,Helvetica,sans-serif; }
-      .title { margin: 10px 8px 2px; text-align:center; font-weight:bold; color:#7A0000; font-size:12.5px; }
-      .company { margin: 2px 8px 6px; text-align:center; font-weight:bold; color:#7A0000; font-size:13px; }
-      .info { margin:6px 8px 10px; font-size:9px; }
+      .company { margin: 10px 8px 2px; text-align:center; font-weight:bold; color:#1f2937; font-size:14px; letter-spacing:0.5px; }
+      .title { margin: 2px 8px 6px; text-align:center; font-weight:bold; color:#7A0000; font-size:12px; }
+      .costcenter { margin: 0 8px 2px; text-align:center; font-weight:600; color:#374151; font-size:10px; }
+      .jobtype { margin: 0 8px 12px; text-align:center; font-weight:600; color:#374151; font-size:10px; }
       table { border-collapse:collapse; width:100%; font-size:7.5px; }
       th, td { border:1px solid #d1d5db; padding:4px 6px; word-wrap:break-word; }
       th { background:#7A0000; color:#fff; text-align:center; font-weight:bold; }
@@ -220,9 +232,10 @@ const CompletedJobsCCTable: React.FC<{
   </style>
 </head>
 <body>
-  <div class="title">${reportTitle}</div>
   <div class="company">${COMPANY_NAME}</div>
-  <div class="info"><strong>Cost Center:</strong> ${costCenter} / ${departmentName} &nbsp;&nbsp; <strong>Job Type:</strong> ${jobTypeLabel} &nbsp;&nbsp; <strong>Records:</strong> ${totalRecords}</div>
+  <div class="title">${reportTitle}</div>
+  <div class="costcenter">${costCenterLine}</div>
+  <div class="jobtype">${jobTypeLine} &nbsp;&nbsp; Records: ${totalRecords}</div>
   <table>
     <thead>
       <tr>
@@ -271,16 +284,24 @@ const CompletedJobsCCTable: React.FC<{
                         </button>
                     </div>
 
-                    <h2 className={`text-base md:text-lg font-bold text-center ${maroon}`}>
-                        {reportTitle}
-                    </h2>
-                    <h3 className={`text-sm md:text-base font-semibold text-center mb-1 ${maroon}`}>
-                        {COMPANY_NAME}
-                    </h3>
-                    <div className="text-sm mb-4 px-2">
-                        <span className="font-bold">Cost Center:</span> {costCenter} / {departmentName}
-                        <span className="ml-4 font-bold">Job Type:</span> {jobTypeLabel}
-                        <span className="ml-4 text-gray-500">Records: {totalRecords}</span>
+                    {/* ────── Report Header Block ────── */}
+                    <div className="text-center mb-4">
+                        <h1 className="text-base md:text-lg font-bold text-gray-800 tracking-wide">
+                            {COMPANY_NAME}
+                        </h1>
+                        <h2 className={`text-sm md:text-base font-bold mt-1 ${maroon}`}>
+                            {reportTitle}
+                        </h2>
+                        <p className="text-xs md:text-sm font-semibold text-gray-700 mt-1">
+                            {costCenterLine}
+                        </p>
+                        <p className="text-xs md:text-sm font-semibold text-gray-700">
+                            {jobTypeLine}
+                        </p>
+                    </div>
+
+                    <div className="flex justify-end text-sm mb-4 px-2">
+                        <span className="font-semibold text-gray-600">Records: {totalRecords}</span>
                     </div>
 
                     <div className="mt-1 mb-5 border border-gray-200 rounded-lg overflow-x-auto print:ml-12 print:mt-12 print:overflow-visible">
@@ -338,14 +359,12 @@ const CompletedJobsCCReport: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const firstOfMonthStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-        .toISOString()
-        .slice(0, 10);
+    const [fromDate, setFromDate] = useState(firstOfMonthISO());
+    const [toDate, setToDate] = useState(todayISO());
 
-    const [fromDate, setFromDate] = useState(firstOfMonthStr);
-    const [toDate, setToDate] = useState(todayStr);
+    const [jobTypes, setJobTypes] = useState<JobType[]>([]);
     const [jobType, setJobType] = useState("");
+    const [jobTypesLoading, setJobTypesLoading] = useState(true);
 
     const [selectedDept, setSelectedDept] = useState<Department | null>(null);
     const [reportData, setReportData] = useState<CompletedJobsCCItem[]>([]);
@@ -391,6 +410,27 @@ const CompletedJobsCCReport: React.FC = () => {
     }, [epfNo]);
 
     useEffect(() => {
+        const fetchJobTypes = async () => {
+            setJobTypesLoading(true);
+            try {
+                const res = await fetch(`/misapi/api/jobregistercc/jobtypes`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const json = await res.json();
+                const raw = Array.isArray(json) ? json : json.data || [];
+                const types: JobType[] = raw.map((r: any) => normalizeJobType(r));
+                setJobTypes(types);
+                if (types.length > 0) setJobType(types[0].Code);
+            } catch (e: any) {
+                toast.error("Failed to load job types.");
+            } finally {
+                setJobTypesLoading(false);
+            }
+        };
+
+        fetchJobTypes();
+    }, []);
+
+    useEffect(() => {
         const f = departments.filter(
             (d) =>
                 (!searchId || d.DeptId.toLowerCase().includes(searchId.toLowerCase())) &&
@@ -413,6 +453,10 @@ const CompletedJobsCCReport: React.FC = () => {
             toast.error("To date cannot be earlier than from date.");
             return;
         }
+        if (!jobType) {
+            toast.error("Please select a job type.");
+            return;
+        }
 
         setReportLoading(true);
         setSelectedDept(dept);
@@ -424,9 +468,9 @@ const CompletedJobsCCReport: React.FC = () => {
         const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
         try {
-            const url = `/misapi/api/completedjobscc/report?fromDate=${fromDate}&toDate=${toDate}&costCtr=${dept.DeptId}${
-                jobType ? `&jobType=${jobType}` : ""
-            }`;
+            const fromParam = fromDate.replace(/-/g, "/");
+            const toParam = toDate.replace(/-/g, "/");
+            const url = `/misapi/api/completedjobscc/report?fromDate=${fromParam}&toDate=${toParam}&costCtr=${dept.DeptId}&jobType=${jobType}`;
             const res = await fetch(url, { signal: controller.signal });
             clearTimeout(timeout);
 
@@ -478,6 +522,8 @@ const CompletedJobsCCReport: React.FC = () => {
 
     const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+    const jobTypeLabel = jobTypes.find((j) => j.Code === jobType)?.Description || jobType;
+
     return (
         <div
             className="max-w-[95%] mx-auto p-6 bg-white rounded-lg shadow-md text-sm md:text-base relative ml-16 mt-8"
@@ -487,12 +533,12 @@ const CompletedJobsCCReport: React.FC = () => {
                 Cost Center Wise Completed Jobs
             </h2>
 
-            {/* ────── From / To date / Job Type filters ────── */}
+            {/* ────── Date range / Job type filters ────── */}
             <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div className="flex items-center gap-2">
                         <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
-                            From Date:
+                            From:
                         </label>
                         <input
                             type="date"
@@ -504,7 +550,7 @@ const CompletedJobsCCReport: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                         <label className={`text-xs font-bold ${maroon} whitespace-nowrap`}>
-                            To Date:
+                            To:
                         </label>
                         <input
                             type="date"
@@ -521,11 +567,14 @@ const CompletedJobsCCReport: React.FC = () => {
                         <select
                             value={jobType}
                             onChange={(e) => setJobType(e.target.value)}
-                            className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+                            disabled={jobTypesLoading || jobTypes.length === 0}
+                            className="pl-3 pr-3 py-1.5 w-full rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm disabled:opacity-50"
                         >
-                            {JOB_TYPE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
+                            {jobTypesLoading && <option>Loading...</option>}
+                            {!jobTypesLoading && jobTypes.length === 0 && <option>No job types found</option>}
+                            {jobTypes.map((jt) => (
+                                <option key={jt.Code} value={jt.Code}>
+                                    {jt.Description ? `${jt.Code} - ${jt.Description}` : jt.Code}
                                 </option>
                             ))}
                         </select>
@@ -664,9 +713,7 @@ const CompletedJobsCCReport: React.FC = () => {
                                 toDate={toDate}
                                 costCenter={selectedDept.DeptId}
                                 departmentName={selectedDept.DeptName}
-                                jobTypeLabel={
-                                    JOB_TYPE_OPTIONS.find((opt) => opt.value === jobType)?.label ?? "All Types"
-                                }
+                                jobTypeLabel={jobTypeLabel}
                                 onClose={closeReport}
                             />
                         )}
