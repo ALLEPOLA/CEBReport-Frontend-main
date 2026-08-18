@@ -221,6 +221,7 @@ import MaterialRequisitionWithIssueDetailsReport from "../mainTopics/Common/Mate
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
+import CurrentAccountReconciliationExternal from "../mainTopics/LedgerCard/CurrentAccountReconciliationExternal.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -298,6 +299,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	// Customer Details
 	"customer information": CustomerDetails,
 	"transaction history ordinary": TransactionHistoryOrdinary,
+	"current account reconciliation (external)": CurrentAccountReconciliationExternal,
+	"current account reconsiliation (external)": CurrentAccountReconciliationExternal,
 	"payment inquiries": PaymentInquiry,
 
 	// Collections reports
@@ -327,8 +330,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"price variance wh wise": PriceVarianceWHReport,
 	"cheque summary": ChequeSummaryReport,
 	"region wise period status": RegionPeriodStatusReport,
-	"province wise period status" : ProvinceWisePeriodStatus,
-    "cost center wise current account balance" : CurrentAcctBalCC,
+	"province wise period status": ProvinceWisePeriodStatus,
+	"cost center wise current account balance": CurrentAcctBalCC,
 	"area wise cash book inquiry": AreaWiseCashBookInquiryReport,
 
 	// General reports
