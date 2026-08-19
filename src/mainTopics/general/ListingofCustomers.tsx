@@ -124,7 +124,7 @@ const ListingOfCustomers: React.FC = () => {
   useEffect(() => {
     setIsLoadingAreas(true);
     setAreaError(null);
-    let url = "/misapi/api/bulk/areas";
+    let url = "/misapi/api/ordinary/areas";
     if (locked["Region"]?.code) {
       url += `?regionCode=${locked["Region"].code}`;
     } else if (locked["Province"]?.code) {
