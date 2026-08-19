@@ -33,6 +33,19 @@ export default defineConfig(({ mode }) => {
 					//rewrite: (path) => path.replace(/^\/misapi/, ""),
 				},
 
+				"/misapi/api/docinquirygl/report": {
+					target: env.VITE_LOCAL_API,
+					changeOrigin: true,
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
+
+				"/misapi/api/glinquirybydoc/report": {
+					target: env.VITE_LOCAL_API,
+					changeOrigin: true,
+					secure: false,
+					rewrite: (path) => path.replace(/^\/misapi/, ""),
+				},
 
 				"/misapi": {
 					target: env.VITE_SERVER_API,

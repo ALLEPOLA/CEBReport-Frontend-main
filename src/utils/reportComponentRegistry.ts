@@ -216,6 +216,7 @@ import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFi
 import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
 import QuantityMatFIFOReport from "../mainTopics/fifo/QuantityMatFIFOReport";
 
+
 // Construction 
 import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport";
 import ConstructionAllReport from "../mainTopics/Construction/ConstructionAllReport";
