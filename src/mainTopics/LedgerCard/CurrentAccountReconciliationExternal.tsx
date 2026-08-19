@@ -321,7 +321,7 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
           <td class="p-1 border border-gray-300 text-left text-xs break-words">${it.DocNo}</td>
           <td class="p-1 border border-gray-300 text-left text-xs">${it.Ref1 || ""}</td>
           <td class="p-1 border border-gray-300 text-left text-xs">${it.Ref2 || ""}</td>
-          <td class="p-1 border border-gray-300 text-left text-xs break-words">${it.Remarks || ""}</td>
+          <td class="p-1 border border-gray-300 text-left text-[7px] break-words">${it.Remarks || ""}</td>
           <td class="p-1 border border-gray-300 text-left text-xs">${it.DesgDept || ""}</td>
           <td class="p-1 border border-gray-300 text-center text-xs">${formatDate(it.AcctDt)}</td>
           <td class="p-1 border border-gray-300 text-right text-xs font-mono">${formatNumber(it.DrAmt)}</td>
@@ -386,10 +386,10 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
         <th style="width:6%">Dept Id</th>
         <th style="width:6%">Org Dept</th>
         <th style="width:7%">Doc Pf</th>
-        <th style="width:9%">Doc No</th>
-        <th style="width:9%">Ref 1</th>
-        <th style="width:6%">Ref 2</th>
-        <th style="width:13%">Remarks</th>
+        <th style="width:8%">Doc No</th>
+        <th style="width:10.5%">Ref 1</th>
+        <th style="width:8.5%">Ref 2</th>
+        <th style="width:10%">Remarks</th>
         <th style="width:6%">Des Dept</th>
         <th style="width:6%">Acct Date</th>
         <th style="width:7%">Dr Amt</th>
@@ -872,17 +872,17 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 											<th className="px-1.5 py-1 w-[7%] border-r border-gray-200">
 												Doc Pf
 											</th>
-											<th className="px-1.5 py-1 w-[10%] border-r border-gray-200">
+											<th className="px-1.5 py-1 w-[9%] border-r border-gray-200">
 												Doc No
 											</th>
 											
-											<th className="px-1.5 py-1 w-[9%] border-r border-gray-200">
+											<th className="px-1.5 py-1 w-[10.5%] border-r border-gray-200">
 												Ref 1
 											</th>
-											<th className="px-1.5 py-1 w-[6%] border-r border-gray-200">
+											<th className="px-1.5 py-1 w-[8.5%] border-r border-gray-200">
 												Ref 2
 											</th>
-											<th className="px-1.5 py-1 w-[11%] border-r border-gray-200">
+											<th className="px-1.5 py-1 w-[8%] border-r border-gray-200">
 												Remarks
 											</th>
 											<th className="px-1.5 py-1 w-[6%] border-r border-gray-200">
@@ -935,7 +935,7 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 												<td className="px-1.5 py-1 text-left border-r border-gray-200">
 													{it.Ref2 || ""}
 												</td>
-												<td className="px-1.5 py-1 text-left break-words text-xs border-r border-gray-200">
+												<td className="px-1.5 py-1 text-left break-words text-[10px] leading-tight border-r border-gray-200">
 													{it.Remarks || ""}
 												</td>
 												<td className="px-1.5 py-1 text-left border-r border-gray-200">

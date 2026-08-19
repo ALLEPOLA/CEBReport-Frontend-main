@@ -39,7 +39,7 @@ interface ReportItem {
 	CompNm: string;
 }
 
-/* ────── Number formatting – negative → (-123.45) ────── */
+/* â”€â”€â”€â”€â”€â”€ Number formatting â€“ negative â†’ (123.45) â”€â”€â”€â”€â”€â”€ */
 const formatNumber = (num: number | string | null | undefined): string => {
 	const n = num === null || num === undefined ? NaN : Number(num);
 	if (isNaN(n) || n === 0) return "0.00";
@@ -52,14 +52,14 @@ const formatNumber = (num: number | string | null | undefined): string => {
 	return n < 0 ? `(-${formatted})` : formatted;
 };
 
-/* ────── Date formatting ────── */
+/* â”€â”€â”€â”€â”€â”€ Date formatting â”€â”€â”€â”€â”€â”€ */
 const formatDate = (dateStr: string | null): string => {
 	if (!dateStr) return "";
 	const date = new Date(dateStr);
 	return date.toLocaleDateString("en-GB");
 };
 
-/* ────── CSV safe escape ────── */
+/* â”€â”€â”€â”€â”€â”€ CSV safe escape â”€â”€â”€â”€â”€â”€ */
 const csvEscape = (val: string | null | undefined): string => {
 	if (val == null) return "";
 	const str = String(val);
@@ -69,8 +69,8 @@ const csvEscape = (val: string | null | undefined): string => {
 	return str;
 };
 
-/* ────── MAIN COMPONENT ────── */
-const CurrAcctReconExtPeriod: React.FC = () => {
+/* â”€â”€â”€â”€â”€â”€ MAIN COMPONENT â”€â”€â”€â”€â”€â”€ */
+const CurrAcctReconInt: React.FC = () => {
 	const { user } = useUser();
 	const epfNo = user?.Userno || "";
 
@@ -87,8 +87,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 	// Selection state
 	const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 	const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
-	const [monthFrom, setMonthFrom] = useState<number | undefined>(undefined);
-	const [monthTo, setMonthTo] = useState<number | undefined>(undefined);
+	const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined);
 	const [subac, setSubac] = useState("");
 
 	// Report data state
@@ -100,8 +99,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 
 	// Dropdown state
 	const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
-	const [monthFromDropdownOpen, setMonthFromDropdownOpen] = useState(false);
-	const [monthToDropdownOpen, setMonthToDropdownOpen] = useState(false);
+	const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
 
 	const maroon = "text-[#7A0000]";
 	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
@@ -119,12 +117,10 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 			const target = e.target as HTMLElement;
 			if (
 				!target.closest(".year-dropdown") &&
-				!target.closest(".month-from-dropdown") &&
-				!target.closest(".month-to-dropdown")
+				!target.closest(".month-dropdown")
 			) {
 				setYearDropdownOpen(false);
-				setMonthFromDropdownOpen(false);
-				setMonthToDropdownOpen(false);
+				setMonthDropdownOpen(false);
 			}
 		};
 		document.addEventListener("mousedown", handleClickOutside);
@@ -221,30 +217,21 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 		return monthNames[monthNum - 1] || "";
 	};
 
-	/* ────── HANDLE VIEW CLICK ────── */
+	/* â”€â”€â”€â”€â”€â”€ HANDLE VIEW CLICK â”€â”€â”€â”€â”€â”€ */
 	const handleCompanySelect = async (company: Company) => {
 		setSelectedCompany(company);
 
-		if (selectedYear && monthFrom && monthTo && subac.trim()) {
-			if (monthFrom > monthTo) {
-				toast.error("Month From cannot be greater than Month To.");
-				return;
-			}
+		if (selectedYear && selectedMonth && subac.trim()) {
 			await fetchLedgerData(company);
 		}
 	};
 
 	const fetchLedgerData = async (company?: Company) => {
 		const targetCompany = company || selectedCompany;
-		if (!targetCompany || !selectedYear || !monthFrom || !monthTo || !subac.trim()) {
+		if (!targetCompany || !selectedYear || !selectedMonth || !subac.trim()) {
 			toast.error(
-				"Please select Year, Month From, Month To, enter Sub Account and select a Company"
+				"Please select Year, Month, enter Sub Account and select a Company"
 			);
-			return;
-		}
-
-		if (monthFrom > monthTo) {
-			toast.error("Month From cannot be greater than Month To.");
 			return;
 		}
 
@@ -255,7 +242,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 
 		try {
 			const resp = await fetch(
-				`/misapi/api/ledgercard/curr-acct-recon-ext-period?compId=${encodeURIComponent(targetCompany.compId)}&repyear=${selectedYear}&monthFrom=${monthFrom}&monthTo=${monthTo}&subac=${encodeURIComponent(subac.trim())}`,
+				`/misapi/api/ledgercard/current-account-reconciliation-internal?REGION=${encodeURIComponent(targetCompany.compId)}&YEAR=${selectedYear}&MONTH=${selectedMonth}&SUBAC=${encodeURIComponent(subac.trim())}`,
 				{
 					method: "GET",
 					headers: {
@@ -275,7 +262,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 
 			if (items.length === 0) {
 				toast.warn("No records found.");
-				setSelectedCompany(null);
+				setSelectedCompany(null); 
 				return;
 			}
 
@@ -301,8 +288,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 
 	const clearAll = () => {
 		setSelectedYear(undefined);
-		setMonthFrom(undefined);
-		setMonthTo(undefined);
+		setSelectedMonth(undefined);
 		setSubac("");
 		setSelectedCompany(null);
 		setSearchId("");
@@ -310,22 +296,19 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 		setPage(1);
 	};
 
-	/* ────── CLOSE REPORT (reset selectedCompany) ────── */
+	/* â”€â”€â”€â”€â”€â”€ CLOSE REPORT (reset selectedCompany) â”€â”€â”€â”€â”€â”€ */
 	const closeReport = () => {
 		setShowReport(false);
 		setReportData([]);
 		setSelectedCompany(null);
 	};
 
-	const totalDr = reportData.reduce((acc, curr) => acc + (curr.DrAmt || 0), 0);
-	const totalCr = reportData.reduce((acc, curr) => acc + (curr.CrAmt || 0), 0);
-
-	const periodDisplay = `${getSimpleMonthName(monthFrom)} - ${getSimpleMonthName(monthTo)} ${selectedYear}`;
-
-	/* ────── PRINT (PDF) ────── */
+	/* â”€â”€â”€â”€â”€â”€ PRINT (PDF) â”€â”€â”€â”€â”€â”€ */
 	const printPDF = () => {
 		if (reportData.length === 0 || !iframeRef.current || !selectedCompany)
 			return;
+
+		const monthName = getSimpleMonthName(selectedMonth);
 
 		let rows = "";
 		reportData.forEach((it, i) => {
@@ -347,6 +330,9 @@ const CurrAcctReconExtPeriod: React.FC = () => {
           <td class="p-1 border border-gray-300 text-left text-xs">${it.TrfParentId || ""}</td>
         </tr>`;
 		});
+
+        const totalDr = reportData.reduce((acc, curr) => acc + (curr.DrAmt || 0), 0);
+        const totalCr = reportData.reduce((acc, curr) => acc + (curr.CrAmt || 0), 0);
 
 		const html = `
 <!DOCTYPE html>
@@ -378,13 +364,13 @@ const CurrAcctReconExtPeriod: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Current Account Reconciliation (External) - Period ${periodDisplay}</div>
+  <div class="title">Current Account Reconciliation (Internal) ${monthName} ${selectedYear}</div>
 
   <div class="info">
     <div>
       <p><span style="font-weight:bold;">Company :</span> ${selectedCompany.CompName} (${selectedCompany.compId})</p>
-      <p><span style="font-weight:bold;">Account Code :</span> L9200</p>
-      <p><span style="font-weight:bold;">Sub Account / To Dept :</span> ${subac}</p>
+      <p><span style="font-weight:bold;">Account Code :</span> L9100</p>
+      <p><span style="font-weight:bold;">Sub Account :</span> ${subac}</p>
     </div>
 	<div>
       <p><span style="font-weight:bold;">Opening Balance :</span> ${formatNumber(reportData[0]?.OpBal)}</p>
@@ -439,16 +425,18 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 		}
 	};
 
-	/* ────── CSV DOWNLOAD ────── */
+	/* â”€â”€â”€â”€â”€â”€ CSV DOWNLOAD â”€â”€â”€â”€â”€â”€ */
 	const handleDownloadCSV = () => {
 		if (reportData.length === 0 || !selectedCompany) return;
 
+		const monthName = getSimpleMonthName(selectedMonth);
+
 		const titleRows = [
-			`Current Account Reconciliation (External) - Period`,
+			`Current Account Reconciliation (Internal)`,
 			`Company: ${selectedCompany.CompName} (${selectedCompany.compId})`,
-			`Period: ${periodDisplay}`,
-			`Account Code: L9200`,
-			`Sub Account / To Dept: ${subac}`,
+			`Period: ${monthName} ${selectedYear}`,
+			`Account Code: L9100`,
+			`Sub Account: ${subac}`,
 			`Opening Balance: ${formatNumber(reportData[0]?.OpBal)}`,
 			`Closing Balance: ${formatNumber(reportData[0]?.ClBal)}`,
 			`Currency: LKR`,
@@ -493,14 +481,13 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 			...titleRows,
 			headers.join(","),
 			...rows.map((r) => r.join(",")),
-			["", "", "", "", "", "", "", "", "", "Total:", formatNumber(totalDr), formatNumber(totalCr), "", ""].join(","),
 		].join("\n");
 
 		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `curr_acct_recon_ext_period_${selectedCompany.compId}_${selectedYear}_${monthFrom}-${monthTo}.csv`;
+		a.download = `current_account_recon_${selectedCompany.compId}_${selectedYear}_${String(selectedMonth).padStart(2, "0")}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -519,8 +506,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 				type="button"
 				onClick={() => {
 					setYearDropdownOpen(!yearDropdownOpen);
-					setMonthFromDropdownOpen(false);
-					setMonthToDropdownOpen(false);
+					setMonthDropdownOpen(false);
 				}}
 				className="w-full flex justify-between items-center px-3 py-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-[#7A0000]"
 			>
@@ -541,7 +527,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 							onClick={() => {
 								setSelectedYear(year);
 								setYearDropdownOpen(false);
-								if (monthFrom && monthTo && subac.trim() && selectedCompany) {
+								if (selectedMonth && subac.trim() && selectedCompany) {
 									fetchLedgerData();
 								}
 							}}
@@ -559,44 +545,43 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 		</div>
 	);
 
-	// Month From Dropdown Component
-	const MonthFromDropdown = () => (
-		<div className="month-from-dropdown relative">
+	// Month Dropdown Component
+	const MonthDropdown = () => (
+		<div className="month-dropdown relative">
 			<label className="block text-xs font-medium text-gray-700 mb-1">
-				Month From
+				Month
 			</label>
 			<button
 				type="button"
 				onClick={() => {
-					setMonthFromDropdownOpen(!monthFromDropdownOpen);
+					setMonthDropdownOpen(!monthDropdownOpen);
 					setYearDropdownOpen(false);
-					setMonthToDropdownOpen(false);
 				}}
 				className="w-full flex justify-between items-center px-3 py-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-[#7A0000]"
 			>
-				<span>{getMonthName(monthFrom)}</span>
+				<span>{getMonthName(selectedMonth)}</span>
 				<ChevronDown
 					className={`w-3 h-3 text-gray-400 transition-transform ${
-						monthFromDropdownOpen ? "rotate-180" : ""
+						monthDropdownOpen ? "rotate-180" : ""
 					}`}
 				/>
 			</button>
 
-			{monthFromDropdownOpen && (
+			{monthDropdownOpen && (
 				<div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
 					{months.map((month) => (
 						<button
 							key={month}
 							type="button"
 							onClick={() => {
-								setMonthFrom(month);
-								setMonthFromDropdownOpen(false);
-								if (selectedYear && monthTo && subac.trim() && selectedCompany) {
+								setSelectedMonth(month);
+								setMonthDropdownOpen(false);
+								if (selectedYear && subac.trim() && selectedCompany) {
 									fetchLedgerData();
 								}
 							}}
 							className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
-								monthFrom === month
+								selectedMonth === month
 									? "bg-[#7A0000] text-white"
 									: "text-gray-700"
 							}`}
@@ -609,80 +594,30 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 		</div>
 	);
 
-	// Month To Dropdown Component
-	const MonthToDropdown = () => (
-		<div className="month-to-dropdown relative">
-			<label className="block text-xs font-medium text-gray-700 mb-1">
-				Month To
-			</label>
-			<button
-				type="button"
-				onClick={() => {
-					setMonthToDropdownOpen(!monthToDropdownOpen);
-					setYearDropdownOpen(false);
-					setMonthFromDropdownOpen(false);
-				}}
-				className="w-full flex justify-between items-center px-3 py-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-[#7A0000]"
-			>
-				<span>{getMonthName(monthTo)}</span>
-				<ChevronDown
-					className={`w-3 h-3 text-gray-400 transition-transform ${
-						monthToDropdownOpen ? "rotate-180" : ""
-					}`}
-				/>
-			</button>
+	const totalDr = reportData.reduce((acc, curr) => acc + (curr.DrAmt || 0), 0);
+	const totalCr = reportData.reduce((acc, curr) => acc + (curr.CrAmt || 0), 0);
 
-			{monthToDropdownOpen && (
-				<div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
-					{months.map((month) => (
-						<button
-							key={month}
-							type="button"
-							onClick={() => {
-								setMonthTo(month);
-								setMonthToDropdownOpen(false);
-								if (selectedYear && monthFrom && subac.trim() && selectedCompany) {
-									fetchLedgerData();
-								}
-							}}
-							className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
-								monthTo === month
-									? "bg-[#7A0000] text-white"
-									: "text-gray-700"
-							}`}
-						>
-							{getMonthName(month)}
-						</button>
-					))}
-				</div>
-			)}
-		</div>
-	);
-
-	/* ────── RENDER ────── */
+	/* â”€â”€â”€â”€â”€â”€ RENDER â”€â”€â”€â”€â”€â”€ */
 	return (
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
 				<h2 className={`text-xl font-bold ${maroon}`}>
-					Current Account Reconciliation (External) - Period
+					Current Account Reconciliation (Internal)
 				</h2>
 			</div>
 
 			{/* Search and Date Selection Section */}
 			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-					<div>
+				<div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+					<div className="md:col-start-3">
 						<YearDropdown />
 					</div>
 					<div>
-						<MonthFromDropdown />
-					</div>
-					<div>
-						<MonthToDropdown />
+						<MonthDropdown />
 					</div>
 					<div>
 						<label className="block text-xs font-medium text-gray-700 mb-1">
-							Sub Account / To Dept
+							Sub Account
 						</label>
 						<input
 							type="text"
@@ -797,8 +732,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 													}
 													disabled={
 														!selectedYear ||
-														!monthFrom ||
-														!monthTo ||
+														!selectedMonth ||
 														!subac.trim()
 													}
 													className={`px-3 py-1 ${
@@ -892,7 +826,7 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 							<h2
 								className={`text-lg font-bold text-center mb-1 ${maroon}`}
 							>
-								Current Account Reconciliation (External) - Period {periodDisplay}
+								Current Account Reconciliation (Internal) {getSimpleMonthName(selectedMonth)} {selectedYear}
 							</h2>
 
 							<div className="flex justify-between text-xs mb-1">
@@ -903,10 +837,10 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 										{selectedCompany.compId})
 									</p>
 									<p>
-										<span className="font-bold">Account Code :</span> L9200
+										<span className="font-bold">Account Code :</span> L9100
 									</p>
 									<p>
-										<span className="font-bold">Sub Account / To Dept :</span> {subac}
+										<span className="font-bold">Sub Account :</span> {subac}
 									</p>
 								</div>
 								<div>
@@ -1045,4 +979,4 @@ const CurrAcctReconExtPeriod: React.FC = () => {
 	);
 };
 
-export default CurrAcctReconExtPeriod;
+export default CurrAcctReconInt;
