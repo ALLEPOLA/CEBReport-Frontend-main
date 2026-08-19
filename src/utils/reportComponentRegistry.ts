@@ -205,6 +205,7 @@ import JobRegisterCCReport from "../mainTopics/SMC/JobRegisterCCReport.tsx";
 import JobRegCCNCReport from "../mainTopics/SMC/JobRegCCNCReport.tsx";
 import SMCAllApplicationReport from "../mainTopics/SMC/SMCAllApplicationReport.tsx";
 import CompletedJobsCCReport from "../mainTopics/SMC/CompletedJobsCCReport.tsx";
+import PendingEstimationCCReport from "../mainTopics/SMC/PendingEstimationCCReport"
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -215,6 +216,7 @@ import JobFinBillNotGeneratedReport from "../mainTopics/SMC-ManagementInfo/JobFi
 //FIFO reports
 import IssueReceiptSummaryReport from "../mainTopics/fifo/IssueReceiptSummaryReport";
 import QuantityMatFIFOReport from "../mainTopics/fifo/QuantityMatFIFOReport";
+
 
 // Construction 
 import BulkConnectionDetailsReport from "../mainTopics/Construction/BulkConnectionDetailsReport";
@@ -229,6 +231,8 @@ import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingR
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
+import DocInquiryGlReport from "../mainTopics/GeneralLedger/DocInquiryGLReport.tsx";
+import GlInquiryByDocReport from "../mainTopics/GeneralLedger/GlInquiryByDocReport.tsx";
 import CurrentAccountReconciliationExternal from "../mainTopics/LedgerCard/CurrentAccountReconciliationExternal.tsx";
 import CurrAcctReconInt from "../mainTopics/LedgerCard/CurrAcctReconInt.tsx";
 import CurrAcctReconExtPeriod from "../mainTopics/LedgerCard/CurrAcctReconExtPeriod.tsx";
@@ -494,6 +498,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise new connection job register": JobRegCCNCReport,
 	"area wise smc all details": SMCAllApplicationReport,
 	"cost center wise completed jobs" : CompletedJobsCCReport,
+	"cost center wise pending estimation" : PendingEstimationCCReport,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
@@ -518,6 +523,8 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 
 	//General Ledger Reports
 	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
+	"document inquiry gl all transaction": DocInquiryGlReport,
+	"general ledger inquiry by document no": GlInquiryByDocReport,
 };
 
 /**
