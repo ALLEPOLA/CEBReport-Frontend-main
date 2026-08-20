@@ -236,6 +236,7 @@ import GlInquiryByDocReport from "../mainTopics/GeneralLedger/GlInquiryByDocRepo
 import CurrentAccountReconciliationExternal from "../mainTopics/LedgerCard/CurrentAccountReconciliationExternal.tsx";
 import CurrAcctReconInt from "../mainTopics/LedgerCard/CurrAcctReconInt.tsx";
 import CurrAcctReconExtPeriod from "../mainTopics/LedgerCard/CurrAcctReconExtPeriod.tsx";
+import CurrAcctReconOwnOther from "../mainTopics/LedgerCard/CurrAcctReconOwnOther.tsx";
 
 export type ReportComponentRegistry = Record<string, ComponentType>;
 
@@ -403,6 +404,23 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"sub accounts transactions for account code within selected company": DivisionalLedgerCard,
 	"cost center transfer vouchers": CostCenterTransferVouchers,
 	"71/8 report": Report71_8,
+	"current account reconciliation external": CurrentAccountReconciliationExternal,
+	"current account reconciliation internal": CurrAcctReconInt,
+	"current account reconciliation external period": CurrAcctReconExtPeriod,
+	"current account reconciliation own other": CurrAcctReconOwnOther,
+	"current account reconsiliation own other": CurrAcctReconOwnOther,
+	"current account reconsiliation(own /other)": CurrAcctReconOwnOther,
+	"current account reconciliation(own /other)": CurrAcctReconOwnOther,
+	"current account reconciliation (own / other)": CurrAcctReconOwnOther,
+	"current account reconsiliation (own / other)": CurrAcctReconOwnOther,
+	"current account balances both internal external": CurrAcctReconOwnOther,
+	"current account balances both internal & external": CurrAcctReconOwnOther,
+	"current account balances both internal and external": CurrAcctReconOwnOther,
+	"current account reconciliation (own /other)": CurrAcctReconOwnOther,
+	"current account reconsiliation (own /other)": CurrAcctReconOwnOther,
+	"gl 005": CurrAcctReconOwnOther,
+	"gl/005": CurrAcctReconOwnOther,
+	"gl005": CurrAcctReconOwnOther,
 
 
 	// Physical Verification FIFO reports
