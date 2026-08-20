@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -81,6 +82,27 @@ const SalesAndCollection: React.FC = () => {
     "w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent";
   const disabledSelectCls =
     "w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
+
+  // ── LBAC (level-based access control) ────────────────────────────────────────
+  const { level, locked } = useReportScope();
+
+  const isFullAccess = level >= 80;              // Entire CEB
+  const isRegionLocked = level >= 70 && level < 80;  // Region
+  const isProvinceLocked = level >= 60 && level < 70; // Province
+  const isAreaLocked = level < 60;                 // Area (finest scope; report has no Area mode, so pinned to own Province then client-filtered to own Area)
+
+  const lockedProvinceCode = locked["Province"]?.code || "";
+  const lockedProvinceName = locked["Province"]?.name || "";
+  const lockedRegionCode = locked["Region"]?.code || "";
+  const lockedAreaCode = locked["Area"]?.code || "";
+  const lockedAreaName = locked["Area"]?.name || "";
+
+  // Which "Select Category" tabs the user is allowed to pick
+  const allowedReportTypes: ReportType[] = isFullAccess
+    ? ["Province", "Region", "EntireCEB"]
+    : isRegionLocked
+    ? ["Region"]
+    : ["Province"]; // covers Province-level and Area-level users
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [billCycle, setBillCycle] = useState<string>("");
@@ -194,11 +216,21 @@ const SalesAndCollection: React.FC = () => {
     fetchGeo();
   }, []);
 
-  // ── Reset sub-filters when reportType changes ────────────────────────────────
+  // ── Reset sub-filters when reportType changes (respects LBAC locks) ─────────
   useEffect(() => {
-    setProvinceCode("");
-    setRegionCode("");
-  }, [reportType]);
+    setProvinceCode(reportType === "Province" && (isProvinceLocked || isAreaLocked) ? lockedProvinceCode : "");
+    setRegionCode(reportType === "Region" && isRegionLocked ? lockedRegionCode : "");
+  }, [reportType, isProvinceLocked, isAreaLocked, isRegionLocked, lockedProvinceCode, lockedRegionCode]);
+
+  // ── Enforce LBAC: pin the category itself for restricted levels ─────────────
+  useEffect(() => {
+    if (isRegionLocked) {
+      setReportType("Region");
+    } else if (isProvinceLocked || isAreaLocked) {
+      setReportType("Province");
+    }
+    // Full-access users keep whatever category they've picked
+  }, [level, isRegionLocked, isProvinceLocked, isAreaLocked]);
 
   // ── Submit guard ───────────────────────────────────────────────────────────
   const canSubmit =
@@ -279,7 +311,19 @@ const SalesAndCollection: React.FC = () => {
         };
       });
 
-      setReportData(rows);
+      // Area-level users only ever see their own area's row, even though the
+      // API call itself is scoped at Province granularity.
+      const scopedRows =
+        isAreaLocked && lockedAreaCode
+          ? rows.filter((r) => r.areaCode.trim().toLowerCase() === lockedAreaCode.trim().toLowerCase())
+          : rows;
+
+      if (isAreaLocked && !scopedRows.length) {
+        setReportError("No data available for your area in the selected criteria.");
+        return;
+      }
+
+      setReportData(scopedRows);
       setReportVisible(true);
 
       const opt = billCycleOptions.find((o) => o.code === billCycle);
@@ -609,11 +653,17 @@ const SalesAndCollection: React.FC = () => {
             {/* Report Type */}
             <div className="flex flex-col">
               <label className={`text-xs font-medium mb-1 ${maroon}`}>Select Category:</label>
-              <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={selectCls}>
-                <option value="Province">Province</option>
-                <option value="Region">Region</option>
-                <option value="EntireCEB">Entire CEB</option>
-              </select>
+              {allowedReportTypes.length > 1 ? (
+                <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)} className={selectCls}>
+                  {allowedReportTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t === "EntireCEB" ? "Entire CEB" : t}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className={disabledSelectCls}>{reportType === "EntireCEB" ? "Entire CEB" : reportType}</div>
+              )}
             </div>
 
             {/* Province / Region dropdown (conditional) */}
@@ -624,7 +674,12 @@ const SalesAndCollection: React.FC = () => {
                 </label>
 
                 {reportType === "Province" &&
-                  (isLoadingGeo ? (
+                  (isProvinceLocked || isAreaLocked ? (
+                    <div className={disabledSelectCls}>
+                      {lockedProvinceName || lockedProvinceCode || "—"}
+                      {isAreaLocked && lockedAreaName ? ` (${lockedAreaName})` : ""}
+                    </div>
+                  ) : isLoadingGeo ? (
                     <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading provinces...</div>
                   ) : (
                     <select value={provinceCode} onChange={(e) => setProvinceCode(e.target.value)} className={selectCls}>
@@ -638,7 +693,9 @@ const SalesAndCollection: React.FC = () => {
                   ))}
 
                 {reportType === "Region" &&
-                  (isLoadingGeo ? (
+                  (isRegionLocked ? (
+                    <div className={disabledSelectCls}>{lockedRegionCode || "—"}</div>
+                  ) : isLoadingGeo ? (
                     <div className={selectCls + " bg-gray-50 text-gray-500"}>Loading regions...</div>
                   ) : (
                     <select value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={selectCls}>
