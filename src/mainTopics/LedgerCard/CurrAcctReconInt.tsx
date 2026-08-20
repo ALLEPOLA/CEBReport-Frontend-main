@@ -39,7 +39,7 @@ interface ReportItem {
 	CompNm: string;
 }
 
-/* ────── Number formatting – negative → (123.45) ────── */
+/* â”€â”€â”€â”€â”€â”€ Number formatting â€“ negative â†’ (123.45) â”€â”€â”€â”€â”€â”€ */
 const formatNumber = (num: number | string | null | undefined): string => {
 	const n = num === null || num === undefined ? NaN : Number(num);
 	if (isNaN(n) || n === 0) return "0.00";
@@ -52,14 +52,14 @@ const formatNumber = (num: number | string | null | undefined): string => {
 	return n < 0 ? `(-${formatted})` : formatted;
 };
 
-/* ────── Date formatting ────── */
+/* â”€â”€â”€â”€â”€â”€ Date formatting â”€â”€â”€â”€â”€â”€ */
 const formatDate = (dateStr: string | null): string => {
 	if (!dateStr) return "";
 	const date = new Date(dateStr);
 	return date.toLocaleDateString("en-GB");
 };
 
-/* ────── CSV safe escape ────── */
+/* â”€â”€â”€â”€â”€â”€ CSV safe escape â”€â”€â”€â”€â”€â”€ */
 const csvEscape = (val: string | null | undefined): string => {
 	if (val == null) return "";
 	const str = String(val);
@@ -69,8 +69,8 @@ const csvEscape = (val: string | null | undefined): string => {
 	return str;
 };
 
-/* ────── MAIN COMPONENT ────── */
-const CurrentAccountReconciliationExternal: React.FC = () => {
+/* â”€â”€â”€â”€â”€â”€ MAIN COMPONENT â”€â”€â”€â”€â”€â”€ */
+const CurrAcctReconInt: React.FC = () => {
 	const { user } = useUser();
 	const epfNo = user?.Userno || "";
 
@@ -217,7 +217,7 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 		return monthNames[monthNum - 1] || "";
 	};
 
-	/* ────── HANDLE VIEW CLICK ────── */
+	/* â”€â”€â”€â”€â”€â”€ HANDLE VIEW CLICK â”€â”€â”€â”€â”€â”€ */
 	const handleCompanySelect = async (company: Company) => {
 		setSelectedCompany(company);
 
@@ -242,7 +242,7 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 
 		try {
 			const resp = await fetch(
-				`/misapi/api/ledgercard/current-account-reconciliation-external?compId=${encodeURIComponent(targetCompany.compId)}&repyear=${selectedYear}&repmonth=${selectedMonth}&subac=${encodeURIComponent(subac.trim())}`,
+				`/misapi/api/ledgercard/current-account-reconciliation-internal?REGION=${encodeURIComponent(targetCompany.compId)}&YEAR=${selectedYear}&MONTH=${selectedMonth}&SUBAC=${encodeURIComponent(subac.trim())}`,
 				{
 					method: "GET",
 					headers: {
@@ -296,14 +296,14 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 		setPage(1);
 	};
 
-	/* ────── CLOSE REPORT (reset selectedCompany) ────── */
+	/* â”€â”€â”€â”€â”€â”€ CLOSE REPORT (reset selectedCompany) â”€â”€â”€â”€â”€â”€ */
 	const closeReport = () => {
 		setShowReport(false);
 		setReportData([]);
 		setSelectedCompany(null);
 	};
 
-	/* ────── PRINT (PDF) ────── */
+	/* â”€â”€â”€â”€â”€â”€ PRINT (PDF) â”€â”€â”€â”€â”€â”€ */
 	const printPDF = () => {
 		if (reportData.length === 0 || !iframeRef.current || !selectedCompany)
 			return;
@@ -364,12 +364,12 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="title">Current Account Reconciliation (External) ${monthName} ${selectedYear}</div>
+  <div class="title">Current Account Reconciliation (Internal) ${monthName} ${selectedYear}</div>
 
   <div class="info">
     <div>
       <p><span style="font-weight:bold;">Company :</span> ${selectedCompany.CompName} (${selectedCompany.compId})</p>
-      <p><span style="font-weight:bold;">Account Code :</span> L9200</p>
+      <p><span style="font-weight:bold;">Account Code :</span> L9100</p>
       <p><span style="font-weight:bold;">Sub Account :</span> ${subac}</p>
     </div>
 	<div>
@@ -425,17 +425,17 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 		}
 	};
 
-	/* ────── CSV DOWNLOAD ────── */
+	/* â”€â”€â”€â”€â”€â”€ CSV DOWNLOAD â”€â”€â”€â”€â”€â”€ */
 	const handleDownloadCSV = () => {
 		if (reportData.length === 0 || !selectedCompany) return;
 
 		const monthName = getSimpleMonthName(selectedMonth);
 
 		const titleRows = [
-			`Current Account Reconciliation (External)`,
+			`Current Account Reconciliation (Internal)`,
 			`Company: ${selectedCompany.CompName} (${selectedCompany.compId})`,
 			`Period: ${monthName} ${selectedYear}`,
-			`Account Code: L9200`,
+			`Account Code: L9100`,
 			`Sub Account: ${subac}`,
 			`Opening Balance: ${formatNumber(reportData[0]?.OpBal)}`,
 			`Closing Balance: ${formatNumber(reportData[0]?.ClBal)}`,
@@ -597,12 +597,12 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 	const totalDr = reportData.reduce((acc, curr) => acc + (curr.DrAmt || 0), 0);
 	const totalCr = reportData.reduce((acc, curr) => acc + (curr.CrAmt || 0), 0);
 
-	/* ────── RENDER ────── */
+	/* â”€â”€â”€â”€â”€â”€ RENDER â”€â”€â”€â”€â”€â”€ */
 	return (
 		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
 			<div className="flex justify-between items-center mb-4">
 				<h2 className={`text-xl font-bold ${maroon}`}>
-					Current Account Reconciliation (External)
+					Current Account Reconciliation (Internal)
 				</h2>
 			</div>
 
@@ -826,7 +826,7 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 							<h2
 								className={`text-lg font-bold text-center mb-1 ${maroon}`}
 							>
-								Current Account Reconciliation (External) {getSimpleMonthName(selectedMonth)} {selectedYear}
+								Current Account Reconciliation (Internal) {getSimpleMonthName(selectedMonth)} {selectedYear}
 							</h2>
 
 							<div className="flex justify-between text-xs mb-1">
@@ -837,7 +837,7 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 										{selectedCompany.compId})
 									</p>
 									<p>
-										<span className="font-bold">Account Code :</span> L9200
+										<span className="font-bold">Account Code :</span> L9100
 									</p>
 									<p>
 										<span className="font-bold">Sub Account :</span> {subac}
@@ -979,4 +979,4 @@ const CurrentAccountReconciliationExternal: React.FC = () => {
 	);
 };
 
-export default CurrentAccountReconciliationExternal;
+export default CurrAcctReconInt;

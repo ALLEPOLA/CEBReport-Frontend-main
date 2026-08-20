@@ -44,122 +44,30 @@ const getMonthName = (monthNumber: number | string): string => {
 	return months[index] || String(monthNumber);
 };
 
-interface SearchableSelectProps {
-	label: string;
-	value: string;
-	onChange: (val: string) => void;
-	options: Company[];
-	placeholder: string;
-	loading?: boolean;
-}
-
-const SearchableSelect: React.FC<SearchableSelectProps> = ({
-	label,
-	value,
-	onChange,
-	options,
-	placeholder,
-	loading = false,
-}) => {
-	const [isOpen, setIsOpen] = useState(false);
-	const [searchTerm, setSearchTerm] = useState("");
-	const dropdownRef = useRef<HTMLDivElement>(null);
-
-	const maroon = "text-[#7A0000]";
-
-	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-				setIsOpen(false);
-			}
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
-
-	const filteredOptions = options.filter(
-		(opt) =>
-			opt.compId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			opt.CompName.toLowerCase().includes(searchTerm.toLowerCase())
-	);
-
-	const selectedOption = options.find((opt) => opt.compId === value);
-
-	return (
-		<div className="relative" ref={dropdownRef}>
-			<label className={`block text-xs md:text-sm font-bold ${maroon} mb-1`}>
-				{label}
-			</label>
-			<div
-				onClick={() => setIsOpen(!isOpen)}
-				className="w-full flex items-center justify-between pl-3 pr-2 py-1.5 rounded-md border border-gray-300 bg-white cursor-pointer focus-within:ring-2 focus-within:ring-[#7A0000] text-xs md:text-sm"
-			>
-				<span className={selectedOption ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-					{selectedOption
-						? `${selectedOption.compId} - ${selectedOption.CompName}`
-						: value || placeholder}
-				</span>
-				<ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-1" />
-			</div>
-
-			{isOpen && (
-				<div className="absolute z-50 mt-1 w-max min-w-full max-w-[90vw] md:max-w-[450px] bg-white rounded-md shadow-lg border border-gray-200 py-1 text-xs md:text-sm max-h-60 overflow-hidden flex flex-col left-0">
-					<div className="p-2 border-b border-gray-100 relative">
-						<Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-						<input
-							type="text"
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							placeholder="Search by ID or Name..."
-							className="w-full pl-8 pr-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#7A0000]"
-							autoFocus
-						/>
-					</div>
-
-					<div className="overflow-y-auto max-h-48">
-						{loading ? (
-							<div className="p-3 text-center text-gray-500">Loading divisions...</div>
-						) : filteredOptions.length === 0 ? (
-							<div className="p-3 text-center text-gray-500">No divisions found</div>
-						) : (
-							filteredOptions.map((opt) => (
-								<div
-									key={opt.compId}
-									onClick={() => {
-										onChange(opt.compId);
-										setIsOpen(false);
-										setSearchTerm("");
-									}}
-									className={`px-3 py-2 cursor-pointer hover:bg-red-50 hover:text-[#7A0000] flex justify-between items-center gap-3 transition ${
-										value === opt.compId ? "bg-red-50 text-[#7A0000] font-bold" : "text-gray-700"
-									}`}
-								>
-									<span className="font-mono font-semibold shrink-0">{opt.compId}</span>
-									<span className="text-gray-500 text-xs truncate max-w-[220px] md:max-w-[320px] text-right">{opt.CompName}</span>
-								</div>
-							))
-						)}
-					</div>
-				</div>
-			)}
-		</div>
-	);
-};
-
 const Report71_8: React.FC = () => {
 	const { user } = useUser();
 	const epfNo = user?.Userno || "";
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 
+	// Company list state
 	const [companies, setCompanies] = useState<Company[]>([]);
-	const [loadingCompanies, setLoadingCompanies] = useState<boolean>(false);
+	const [searchId, setSearchId] = useState("");
+	const [searchName, setSearchName] = useState("");
+	const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+	const [loadingCompanies, setLoadingCompanies] = useState<boolean>(true);
+	const [companiesError, setCompaniesError] = useState<string | null>(null);
+	const [page, setPage] = useState(1);
+	const pageSize = 50;
 
-	const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+	// Selected parameters
+	const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 	const [year, setYear] = useState<string>("");
 	const [month, setMonth] = useState<string>("");
+
+	// Report data state
 	const [data, setData] = useState<Report71_8Item[]>([]);
-	const [loading, setLoading] = useState<boolean>(false);
-	const [error, setError] = useState<string | null>(null);
+	const [loadingReport, setLoadingReport] = useState<boolean>(false);
+	const [reportError, setReportError] = useState<string | null>(null);
 	const [showReport, setShowReport] = useState<boolean>(false);
 	const [summaryInfo, setSummaryInfo] = useState<{
 		cctName?: string;
@@ -167,14 +75,38 @@ const Report71_8: React.FC = () => {
 		totalCredit?: number;
 	}>({});
 
+	// Dropdown states
+	const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+	const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
+
 	const maroon = "text-[#7A0000]";
 	const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
 	const currentYear = new Date().getFullYear();
+	const years = Array.from({ length: 21 }, (_, i) => currentYear - i);
+	const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
+	// Close dropdowns on outside click
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			if (!target.closest(".year-dropdown") && !target.closest(".month-dropdown")) {
+				setYearDropdownOpen(false);
+				setMonthDropdownOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
+
+	// Fetch companies on mount
 	useEffect(() => {
 		const fetchCompanies = async () => {
-			if (!epfNo) return;
+			if (!epfNo) {
+				setCompaniesError("No EPF number available. Please login again.");
+				setLoadingCompanies(false);
+				return;
+			}
 			setLoadingCompanies(true);
 			try {
 				const res = await fetch(`/misapi/api/incomeexpenditure/Usercompanies/${epfNo}/70`);
@@ -196,8 +128,11 @@ const Report71_8: React.FC = () => {
 				}));
 
 				setCompanies(final);
+				setFilteredCompanies(final);
 			} catch (err: any) {
 				console.error("Error loading companies:", err);
+				setCompaniesError(err.message);
+				toast.error("Failed to load company codes");
 			} finally {
 				setLoadingCompanies(false);
 			}
@@ -206,28 +141,49 @@ const Report71_8: React.FC = () => {
 		fetchCompanies();
 	}, [epfNo]);
 
-	const handleViewClick = async () => {
-		if (!selectedCompanyId.trim()) {
-			toast.error("Please select Division / Region.");
-			return;
-		}
-		if (!year || isNaN(+year)) {
-			toast.error("Please select a valid year.");
+	// Filter companies
+	useEffect(() => {
+		const filtered = companies.filter(
+			(c) =>
+				(!searchId || c.compId.toLowerCase().includes(searchId.toLowerCase())) &&
+				(!searchName || c.CompName.toLowerCase().includes(searchName.toLowerCase()))
+		);
+		setFilteredCompanies(filtered);
+		setPage(1);
+	}, [searchId, searchName, companies]);
+
+	const paginatedCompanies = filteredCompanies.slice((page - 1) * pageSize, page * pageSize);
+
+	// Handle company click
+	const handleCompanySelect = async (comp: Company) => {
+		if (!year) {
+			toast.error("Please select a Year first.");
 			return;
 		}
 		if (!month) {
-			toast.error("Please select a month.");
+			toast.error("Please select a Month first.");
 			return;
 		}
 
-		setLoading(true);
-		setError(null);
+		setSelectedCompany(comp);
+		await fetchReportData(comp);
+	};
+
+	const fetchReportData = async (targetComp?: Company) => {
+		const comp = targetComp || selectedCompany;
+		if (!comp || !year || !month) {
+			toast.error("Please select Year, Month, and Company.");
+			return;
+		}
+
+		setLoadingReport(true);
+		setReportError(null);
 		setData([]);
 		setShowReport(false);
 
 		try {
 			const url = `/misapi/api/ledgercard/report-71-8?compId=${encodeURIComponent(
-				selectedCompanyId.trim()
+				comp.compId.trim()
 			)}&repyear=${year}&repmonth=${month}`;
 
 			const response = await fetch(url, {
@@ -261,37 +217,44 @@ const Report71_8: React.FC = () => {
 			const msg = err.message.includes("Failed to fetch")
 				? "Cannot connect to server. Please check your connection."
 				: err.message;
-			setError(msg);
+			setReportError(msg);
 			toast.error(msg);
 		} finally {
-			setLoading(false);
+			setLoadingReport(false);
 		}
 	};
 
-	const clearFilters = () => {
-		setSelectedCompanyId("");
+	const clearSearch = () => {
+		setSearchId("");
+		setSearchName("");
+	};
+
+	const clearAll = () => {
+		setSelectedCompany(null);
 		setYear("");
 		setMonth("");
+		setSearchId("");
+		setSearchName("");
 		setData([]);
 		setShowReport(false);
-		setError(null);
+		setReportError(null);
 	};
 
 	const grandTotalDr = useMemo(() => data.reduce((sum, item) => sum + (item.DrAmt || 0), 0), [data]);
 	const grandTotalCr = useMemo(() => data.reduce((sum, item) => sum + (item.CrAmt || 0), 0), [data]);
 
 	const handleDownloadCSV = () => {
-		if (data.length === 0) return;
+		if (data.length === 0 || !selectedCompany) return;
 
 		const escapeCsv = (value: any) =>
 			`"${String(value ?? "").replace(/"/g, '""')}"`;
 
 		const monthDisplay = getMonthName(month);
-		const compName = summaryInfo.cctName || companies.find((c) => c.compId === selectedCompanyId)?.CompName || "";
+		const compName = summaryInfo.cctName || selectedCompany.CompName || "";
 
 		const csvLines: string[] = [
 			`Divisional (71/8) Report for ${monthDisplay} / ${year}`,
-			`Division / Region: ${selectedCompanyId} ${compName ? `/ ${compName}` : ""}`,
+			`Company Code: ${selectedCompany.compId} ${compName ? `/ ${compName}` : ""}`,
 			"",
 			["Gl Cd", "Sub Acc.", "Document No", "Remarks", "Acct. Date", "Reference 1", "Reference 2", "Doc. PF", "Dr Amount", "Cr Amount"]
 				.map(escapeCsv)
@@ -336,16 +299,16 @@ const Report71_8: React.FC = () => {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `Divisional_71_8_Report_${selectedCompanyId}_${year}_${month}.csv`;
+		a.download = `Divisional_71_8_Report_${selectedCompany.compId}_${year}_${month}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
 
 	const printPDF = () => {
-		if (data.length === 0 || !iframeRef.current) return;
+		if (data.length === 0 || !selectedCompany || !iframeRef.current) return;
 
 		const monthDisplay = getMonthName(month);
-		const compName = summaryInfo.cctName || companies.find((c) => c.compId === selectedCompanyId)?.CompName || "";
+		const compName = summaryInfo.cctName || selectedCompany.CompName || "";
 
 		let tableRows = "";
 
@@ -385,7 +348,7 @@ const Report71_8: React.FC = () => {
 			</head>
 			<body>
 				<div class="header-title">Divisional (71/8) Report for ${monthDisplay} / ${year}</div>
-				<div class="header-sub">Division / Region: ${selectedCompanyId} ${compName ? `/ ${compName}` : ""}</div>
+				<div class="header-sub">Company Code: ${selectedCompany.compId} ${compName ? `/ ${compName}` : ""}</div>
 				
 				<table>
 					<thead>
@@ -427,89 +390,251 @@ const Report71_8: React.FC = () => {
 	};
 
 	return (
-		<div className="max-w-[95%] mx-auto p-2 md:p-4 bg-white rounded-xl shadow border border-gray-200 text-sm md:text-base font-sans min-h-[350px] pb-28">
-			<h2 className={`text-lg md:text-xl font-bold mb-4 ${maroon}`}>
-				Divisional (71/8) Report
-			</h2>
+		<div className="max-w-7xl mx-auto p-6 bg-white rounded-xl shadow border border-gray-200 text-sm font-sans">
+			<div className="flex justify-between items-center mb-4">
+				<h2 className={`text-xl font-bold ${maroon}`}>
+					Divisional (71/8) Report
+				</h2>
+			</div>
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-				<SearchableSelect
-					label="Division / Region"
-					value={selectedCompanyId}
-					onChange={setSelectedCompanyId}
-					options={companies}
-					placeholder="Select Division / Region"
-					loading={loadingCompanies}
-				/>
+			{/* Search and Date Selection Section */}
+			<div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200 relative z-30">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end mb-3">
+					{/* Year Dropdown */}
+					<div className="year-dropdown relative z-40">
+						<label className="block text-xs font-medium text-gray-700 mb-1">
+							Year
+						</label>
+						<button
+							type="button"
+							onClick={() => {
+								setYearDropdownOpen(!yearDropdownOpen);
+								setMonthDropdownOpen(false);
+							}}
+							className="w-full flex justify-between items-center px-3 py-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-[#7A0000]"
+						>
+							<span>{year || "Select Year"}</span>
+							<ChevronDown
+								className={`w-3 h-3 text-gray-400 transition-transform ${
+									yearDropdownOpen ? "rotate-180" : ""
+								}`}
+							/>
+						</button>
 
-				<div>
-					<label className={`block text-xs md:text-sm font-bold ${maroon} mb-1`}>
-						Year
-					</label>
-					<select
-						value={year}
-						onChange={(e) => setYear(e.target.value)}
-						className="w-full pl-3 pr-2 py-1.5 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] text-xs md:text-sm bg-white"
-					>
-						<option value="">Select Year</option>
-						{Array.from({ length: 21 }, (_, i) => currentYear - i).map((y) => (
-							<option key={y} value={y}>
-								{y}
-							</option>
-						))}
-					</select>
+						{yearDropdownOpen && (
+							<div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-xl max-h-56 overflow-y-auto">
+								{years.map((y) => (
+									<button
+										key={y}
+										type="button"
+										onClick={() => {
+											setYear(y.toString());
+											setYearDropdownOpen(false);
+										}}
+										className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+											year === y.toString()
+												? "bg-[#7A0000] text-white font-medium"
+												: "text-gray-700"
+										}`}
+									>
+										{y}
+									</button>
+								))}
+							</div>
+						)}
+					</div>
+
+					{/* Month Dropdown */}
+					<div className="month-dropdown relative z-40">
+						<label className="block text-xs font-medium text-gray-700 mb-1">
+							Month
+						</label>
+						<button
+							type="button"
+							onClick={() => {
+								setMonthDropdownOpen(!monthDropdownOpen);
+								setYearDropdownOpen(false);
+							}}
+							className="w-full flex justify-between items-center px-3 py-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-[#7A0000]"
+						>
+							<span>{month ? `${month} - ${getMonthName(month)}` : "Select Month"}</span>
+							<ChevronDown
+								className={`w-3 h-3 text-gray-400 transition-transform ${
+									monthDropdownOpen ? "rotate-180" : ""
+								}`}
+							/>
+						</button>
+
+						{monthDropdownOpen && (
+							<div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-xl max-h-56 overflow-y-auto">
+								{months.map((m) => (
+									<button
+										key={m}
+										type="button"
+										onClick={() => {
+											setMonth(m.toString());
+											setMonthDropdownOpen(false);
+										}}
+										className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+											month === m.toString()
+												? "bg-[#7A0000] text-white font-medium"
+												: "text-gray-700"
+										}`}
+									>
+										{m} - {getMonthName(m)}
+									</button>
+								))}
+							</div>
+						)}
+					</div>
 				</div>
 
-				<div>
-					<label className={`block text-xs md:text-sm font-bold ${maroon} mb-1`}>
-						Month
-					</label>
-					<select
-						value={month}
-						onChange={(e) => setMonth(e.target.value)}
-						className="w-full pl-3 pr-2 py-1.5 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7A0000] text-xs md:text-sm"
-					>
-						<option value="">Select Month</option>
-						{Array.from({ length: 12 }, (_, i) => (
-							<option key={i + 1} value={i + 1}>
-								{i + 1} - {new Date(0, i).toLocaleString("en", { month: "long" })}
-							</option>
-						))}
-					</select>
+				{/* Search Inputs & Clear Buttons */}
+				<div className="flex flex-wrap justify-between items-center gap-3 pt-2 border-t border-gray-200">
+					<div className="flex flex-wrap gap-4">
+						<div className="relative">
+							<Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+							<input
+								type="text"
+								value={searchId}
+								placeholder="Search by Code"
+								onChange={(e) => setSearchId(e.target.value)}
+								className="pl-8 pr-2 py-1.5 w-44 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+							/>
+						</div>
+
+						<div className="relative">
+							<Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+							<input
+								type="text"
+								value={searchName}
+								placeholder="Search by Name"
+								onChange={(e) => setSearchName(e.target.value)}
+								className="pl-8 pr-2 py-1.5 w-44 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#7A0000] transition text-sm"
+							/>
+						</div>
+					</div>
+
+					<div className="flex gap-2">
+						{(searchId || searchName) && (
+							<button
+								onClick={clearSearch}
+								className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm"
+							>
+								<RotateCcw className="w-3.5 h-3.5" /> Clear Search
+							</button>
+						)}
+						<button
+							onClick={clearAll}
+							className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm"
+						>
+							<RotateCcw className="w-3.5 h-3.5" /> Clear All
+						</button>
+					</div>
 				</div>
 			</div>
 
-			<div className="flex flex-wrap gap-2 mb-4 justify-end">
-				<button
-					onClick={handleViewClick}
-					disabled={loading}
-					className={`flex items-center gap-1 px-3 py-1.5 ${maroonGrad} text-white rounded-md text-xs md:text-sm font-medium hover:brightness-110 transition shadow ${
-						loading ? "opacity-50 cursor-not-allowed" : ""
-					}`}
-				>
-					<Eye className="w-4 h-4" /> View
-				</button>
-				<button
-					onClick={clearFilters}
-					className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs md:text-sm"
-				>
-					<RotateCcw className="w-4 h-4" /> Clear
-				</button>
-			</div>
-
-			{loading && (
+			{/* LOADING / ERROR */}
+			{loadingCompanies && (
 				<div className="text-center py-8">
 					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7A0000] mx-auto"></div>
-					<p className="mt-2 text-gray-600">Loading report data...</p>
+					<p className="mt-2 text-gray-600">Loading company codes...</p>
 				</div>
 			)}
 
-			{error && (
+			{companiesError && (
 				<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-					Error: {error}
+					Error: {companiesError}
 				</div>
 			)}
 
+			{!loadingCompanies && !companiesError && filteredCompanies.length === 0 && (
+				<div className="text-gray-600 bg-gray-100 p-4 rounded text-center">
+					No company codes found matching criteria.
+				</div>
+			)}
+
+			{/* COMPANY CODE TABLE */}
+			{!loadingCompanies && !companiesError && filteredCompanies.length > 0 && (
+				<>
+					<div className="overflow-x-auto rounded-lg border border-gray-200">
+						<div className="max-h-[60vh] overflow-y-auto">
+							<table className="w-full table-fixed text-left text-gray-700 text-sm">
+								<thead className={`${maroonGrad} text-white sticky top-0 z-10`}>
+									<tr>
+										<th className="px-4 py-2.5 w-1/4">Company Code</th>
+										<th className="px-4 py-2.5 w-1/2">Company Name</th>
+										<th className="px-4 py-2.5 w-1/4 text-center">Action</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-gray-200">
+									{paginatedCompanies.map((company, i) => (
+										<tr
+											key={company.compId || i}
+											className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+										>
+											<td className="px-4 py-2.5 font-mono font-medium truncate">
+												{company.compId}
+											</td>
+											<td className="px-4 py-2.5 truncate">
+												{company.CompName}
+											</td>
+											<td className="px-4 py-2.5 text-center">
+												<button
+													onClick={() => handleCompanySelect(company)}
+													disabled={!year || !month || loadingReport}
+													className={`px-3 py-1.5 ${
+														selectedCompany?.compId === company.compId
+															? "bg-green-600 text-white"
+															: maroonGrad + " text-white"
+													} rounded text-xs font-medium hover:brightness-110 transition shadow disabled:opacity-50 disabled:cursor-not-allowed`}
+												>
+													<Eye className="inline-block mr-1 w-3.5 h-3.5" />
+													{selectedCompany?.compId === company.compId && loadingReport
+														? "Loading..."
+														: selectedCompany?.compId === company.compId
+														? "Viewing"
+														: "View"}
+												</button>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					{/* Pagination */}
+					<div className="flex justify-end items-center gap-3 mt-3">
+						<button
+							onClick={() => setPage((p) => Math.max(1, p - 1))}
+							disabled={page === 1}
+							className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
+						>
+							Previous
+						</button>
+						<span className="text-xs text-gray-500">
+							Page {page} of {Math.ceil(filteredCompanies.length / pageSize)}
+						</span>
+						<button
+							onClick={() =>
+								setPage((p) =>
+									Math.min(
+										Math.ceil(filteredCompanies.length / pageSize),
+										p + 1
+									)
+								)
+							}
+							disabled={page >= Math.ceil(filteredCompanies.length / pageSize)}
+							className="px-3 py-1 border rounded bg-white text-gray-600 text-xs hover:bg-gray-100 disabled:opacity-40"
+						>
+							Next
+						</button>
+					</div>
+				</>
+			)}
+
+			{/* REPORT RESULTS MODAL */}
 			{showReport && data.length > 0 && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/90 print:static print:inset-auto print:p-0 print:bg-white">
 					<div className="relative bg-white w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[75vw] max-w-7xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden mt-20 md:mt-32 lg:mt-40 lg:ml-64 mx-auto print:relative print:w-full print:max-w-none print:rounded-none print:shadow-none print:border-none print:overflow-visible">
@@ -542,8 +667,8 @@ const Report71_8: React.FC = () => {
 							<div className="grid grid-cols-1 md:grid-cols-2 text-sm mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
 								<div>
 									<p>
-										<span className="font-bold">Division / Region :</span>{" "}
-										{selectedCompanyId} {summaryInfo.cctName || companies.find((c) => c.compId === selectedCompanyId)?.CompName ? `/ ${summaryInfo.cctName || companies.find((c) => c.compId === selectedCompanyId)?.CompName}` : ""}
+										<span className="font-bold">Company Code :</span>{" "}
+										{selectedCompany?.compId} {summaryInfo.cctName || selectedCompany?.CompName ? `/ ${summaryInfo.cctName || selectedCompany?.CompName}` : ""}
 									</p>
 								</div>
 								<div className="text-right font-semibold text-gray-600">
