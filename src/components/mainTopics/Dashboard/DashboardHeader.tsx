@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUser } from "../../../contexts/UserContext";
 
 interface DashboardHeaderProps {
@@ -31,23 +31,51 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const setDivision = onDivisionChange || setInternalDivision;
   const { user } = useUser();
 
-  const provinces = [
-    { code: "1", name: "Western Province North" },
-    { code: "2", name: "Western Province South" },
-    { code: "3", name: "Colombo City" },
-    { code: "4", name: "Northern Province" },
-    { code: "5", name: "Central Province" },
-    { code: "6", name: "Uva Province" },
-    { code: "7", name: "Eastern Province" },
-    { code: "8", name: "North Western Province" },
-    { code: "9", name: "Sabaragamuwa Province" },
-    { code: "A", name: "North Central Province" },
-    { code: "B", name: "Southern Province" },
-    { code: "C", name: "Western Province South 2" },
-    { code: "D", name: "North Western Province 2" },
-    { code: "E", name: "Central Province 2" },
-    { code: "F", name: "Southern Province 2" }
-  ];
+  const [provinces, setProvinces] = useState<{ code: string; name: string }[]>([]);
+  const [provinceMap, setProvinceMap] = useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const fetchMetadata = async () => {
+      try {
+        const [provRes, areasRes] = await Promise.all([
+          fetch("/misapi/api/ordinary/province", { headers: { Accept: "application/json" } }),
+          fetch("/misapi/api/ordinary/areas", { headers: { Accept: "application/json" } })
+        ]);
+        if (!active) return;
+
+        if (provRes.ok && areasRes.ok) {
+          const provJson = await provRes.json();
+          const areasJson = await areasRes.json();
+          
+          const provData = provJson?.data || [];
+          const areasData = areasJson?.data || [];
+          
+          setProvinces(provData.map((p: any) => ({ code: p.ProvinceCode, name: p.ProvinceName })));
+          
+          const map = new Map<string, string>();
+          areasData.forEach((area: any) => {
+            const pCode = area.ProvCode || area.provCode;
+            const region = area.Region || area.region;
+            if (pCode && region) {
+              const match = /^R?(\d+)$/i.exec(region.trim());
+              if (match) {
+                map.set(pCode.trim().toUpperCase(), `d${match[1]}`.toLowerCase());
+              }
+            }
+          });
+          setProvinceMap(map);
+        }
+      } catch (err) {
+        console.error("DashboardHeader: failed to load dynamic mappings:", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    fetchMetadata();
+    return () => { active = false; };
+  }, []);
 
   const divisions = [
     { id: "all", label: "All Divisions" },
@@ -59,17 +87,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   const getProvinceDivision = (provinceCode?: string): string | null => {
     if (!provinceCode) return null;
-    const code = provinceCode.trim().toUpperCase();
-    const d1 = ["1", "3", "8", "D"];
-    const d2 = ["5", "7", "A", "E"];
-    const d3 = ["2", "6", "9", "C"];
-    const d4 = ["4", "B", "F"];
-
-    if (d1.includes(code)) return "d1";
-    if (d2.includes(code)) return "d2";
-    if (d3.includes(code)) return "d3";
-    if (d4.includes(code)) return "d4";
-    return null;
+    return provinceMap.get(provinceCode.trim().toUpperCase()) || null;
   };
 
   const getProvincesForRegion = (regionCode?: string) => {
@@ -78,11 +96,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     if (!match) return provinces;
     const regionNum = match[1];
 
-    if (regionNum === "1") return provinces.filter(p => ["1", "3", "8", "D"].includes(p.code));
-    if (regionNum === "2") return provinces.filter(p => ["5", "7", "A", "E"].includes(p.code));
-    if (regionNum === "3") return provinces.filter(p => ["2", "6", "9", "C"].includes(p.code));
-    if (regionNum === "4") return provinces.filter(p => ["4", "B", "F"].includes(p.code));
-    return provinces;
+    const regionDiv = `d${regionNum}`.toLowerCase();
+    return provinces.filter(p => provinceMap.get(p.code.trim().toUpperCase()) === regionDiv);
   };
 
   const showProvinceDropdown = user?.Level === 70 || user?.Level === 60 || user?.Level === 50;
@@ -146,15 +161,21 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               <select
                 value={selectedProvince || ""}
                 onChange={(e) => onProvinceChange?.(e.target.value)}
-                disabled={user?.Level === 60 || user?.Level === 50}
+                disabled={user?.Level === 60 || user?.Level === 50 || loading}
                 className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7A0000] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 cursor-pointer disabled:cursor-not-allowed"
               >
-                {isRegionUser && <option value="">Select Province (All)</option>}
-                {allowedProvinces.map((p) => (
-                  <option key={p.code} value={p.code}>
-                    {p.name}
-                  </option>
-                ))}
+                {loading ? (
+                  <option>Loading Provinces...</option>
+                ) : (
+                  <>
+                    {isRegionUser && <option value="">Select Province (All)</option>}
+                    {allowedProvinces.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             )}
 

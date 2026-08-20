@@ -428,19 +428,44 @@ const DefaultDashboardPage: React.FC = () => {
     );
   }
 
+  const [provinceMap, setProvinceMap] = useState<Map<string, string>>(new Map());
+  const [loadingMapping, setLoadingMapping] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const fetchMapping = async () => {
+      try {
+        const res = await fetch("/misapi/api/ordinary/areas", { headers: { Accept: "application/json" } });
+        if (!active) return;
+        if (res.ok) {
+          const json = await res.json();
+          const areasData = json?.data || [];
+          const map = new Map<string, string>();
+          areasData.forEach((area: any) => {
+            const pCode = area.ProvCode || area.provCode;
+            const region = area.Region || area.region;
+            if (pCode && region) {
+              const match = /^R?(\d+)$/i.exec(region.trim());
+              if (match) {
+                map.set(pCode.trim().toUpperCase(), `d${match[1]}`.toLowerCase());
+              }
+            }
+          });
+          setProvinceMap(map);
+        }
+      } catch (err) {
+        console.error("DefaultDashboardPage: failed to load dynamic mappings:", err);
+      } finally {
+        if (active) setLoadingMapping(false);
+      }
+    };
+    fetchMapping();
+    return () => { active = false; };
+  }, []);
+
   const getProvinceDivision = (provinceCode?: string): string | null => {
     if (!provinceCode) return null;
-    const code = provinceCode.trim().toUpperCase();
-    const d1 = ["1", "3", "8", "D"];
-    const d2 = ["5", "7", "A", "E"];
-    const d3 = ["2", "6", "9", "C"];
-    const d4 = ["4", "B", "F"];
-    
-    if (d1.includes(code)) return "d1";
-    if (d2.includes(code)) return "d2";
-    if (d3.includes(code)) return "d3";
-    if (d4.includes(code)) return "d4";
-    return null;
+    return provinceMap.get(provinceCode.trim().toUpperCase()) || null;
   };
 
   const [selectedDivision, setSelectedDivision] = useState(() => {
@@ -451,13 +476,28 @@ const DefaultDashboardPage: React.FC = () => {
           return `d${match[1]}`.toLowerCase();
         }
       }
-      if (user?.ProvinceCode) {
-        const div = getProvinceDivision(user.ProvinceCode);
-        if (div) return div;
-      }
     }
     return "all";
   });
+
+  useEffect(() => {
+    if (loadingMapping) return;
+    if (user?.Level !== 80) {
+      if (user?.RegionCode) {
+        const match = /^R(\d+)$/i.exec(user.RegionCode.trim());
+        if (match) {
+          setSelectedDivision(`d${match[1]}`.toLowerCase());
+          return;
+        }
+      }
+      if (user?.ProvinceCode) {
+        const div = getProvinceDivision(user.ProvinceCode);
+        if (div) {
+          setSelectedDivision(div);
+        }
+      }
+    }
+  }, [loadingMapping, provinceMap, user]);
 
   const [selectedProvince, setSelectedProvince] = useState(() => {
     if ((user?.Level === 60 || user?.Level === 50) && user?.ProvinceCode) {
@@ -564,7 +604,7 @@ const DefaultDashboardPage: React.FC = () => {
   }, [selectedProvince]);
 
   useEffect(() => {
-    if (user?.Level !== 50 || !user?.AreaCode) return;
+    if (user?.Level !== 50 || !user?.AreaCode || loadingMapping) return;
 
     let active = true;
     const resolveAreaParent = async () => {
@@ -600,7 +640,7 @@ const DefaultDashboardPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, loadingMapping]);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isLoaded, setIsLoaded]               = useState(false);
