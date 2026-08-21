@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
-import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -103,55 +102,6 @@ const SuspensePaymentDetails: React.FC = () => {
   const selectCls =
     "w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent";
 
-  // ── Access scope (level based access control) ──────────────────────────
-  const { level, locked } = useReportScope();
-  const [allowedAreaCodes, setAllowedAreaCodes] = useState<Set<string> | null>(null);
-  const [scopeLoading, setScopeLoading] = useState(false);
-
-  const lockedRegionCode = locked["Region"]?.code;
-  const lockedProvinceCode = locked["Province"]?.code;
-  const lockedAreaCode = locked["Area"]?.code;
-
-  useEffect(() => {
-    let active = true;
-    const fetchScopeAreas = async () => {
-      // Only need the areas list for Province (60) or Region (70) level users,
-      // since Area level (<60) is a single fixed area and Entire CEB/level 80+
-      // has no restriction.
-      if (level !== 60 && level !== 70) return;
-
-      setScopeLoading(true);
-      try {
-        let url = "/misapi/api/ordinary/areas";
-        if (level === 70 && lockedRegionCode) {
-          url += `?regionCode=${encodeURIComponent(lockedRegionCode)}`;
-        } else if (level === 60 && lockedProvinceCode) {
-          url += `?provCode=${encodeURIComponent(lockedProvinceCode)}`;
-        }
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to fetch areas for scope");
-        const payload = await res.json();
-
-        if (active && payload?.data) {
-          const areaCodes = new Set<string>(
-            payload.data.map((a: any) => String(a.AreaCode || a.areaCode || "").trim().toLowerCase())
-          );
-          setAllowedAreaCodes(areaCodes);
-        }
-      } catch (err) {
-        console.error("Error fetching scope areas:", err);
-      } finally {
-        if (active) setScopeLoading(false);
-      }
-    };
-
-    fetchScopeAreas();
-    return () => {
-      active = false;
-    };
-  }, [level, lockedRegionCode, lockedProvinceCode]);
-
   // ── Form state ──────────────────────────────────────────────────────────
   const [billType, setBillType] = useState<"O" | "B">("B"); // Bulk selected by default, matches sample
   const [fromDate, setFromDate] = useState("");
@@ -199,7 +149,7 @@ const SuspensePaymentDetails: React.FC = () => {
         return;
       }
 
-      let rows: SuspenseRow[] = arr.map((item) => ({
+      const rows: SuspenseRow[] = arr.map((item) => ({
         province: item.Province ?? item.province ?? "",
         areaCode: item.AreaCode ?? item.areaCode ?? "",
         areaName: item.AreaName ?? item.areaName ?? "",
@@ -214,19 +164,6 @@ const SuspensePaymentDetails: React.FC = () => {
         counterNo: item.CounterNo ?? item.counterNo ?? "",
       }));
 
-      // ── Apply level based access control ──────────────────────────────
-      if (level < 60 && lockedAreaCode) {
-        const targetArea = lockedAreaCode.trim().toLowerCase();
-        rows = rows.filter((r) => r.areaCode.trim().toLowerCase() === targetArea);
-      } else if ((level === 60 || level === 70) && allowedAreaCodes) {
-        rows = rows.filter((r) => allowedAreaCodes.has(r.areaCode.trim().toLowerCase()));
-      }
-
-      if (!rows.length) {
-        setReportError("No data found for the selected criteria.");
-        return;
-      }
-
       setReportData(rows);
       setResolvedFromDate(fromDate);
       setResolvedToDate(toDate);
@@ -237,7 +174,7 @@ const SuspensePaymentDetails: React.FC = () => {
     } finally {
       setLoadingReport(false);
     }
-  }, [fromDate, toDate, billType, level, lockedAreaCode, allowedAreaCodes]);
+  }, [fromDate, toDate, billType]);
 
   const groups = buildGroups(reportData);
   const grandTotal = reportData.reduce((s, r) => s + r.suspenseAmount, 0);
@@ -391,7 +328,7 @@ const SuspensePaymentDetails: React.FC = () => {
     }, 250);
   };
 
-  const canSubmit = !!fromDate && !!toDate && !loadingReport && !scopeLoading;
+  const canSubmit = !!fromDate && !!toDate && !loadingReport;
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -458,8 +395,6 @@ const SuspensePaymentDetails: React.FC = () => {
                   </svg>
                   Loading...
                 </span>
-              ) : scopeLoading ? (
-                "Preparing Access..."
               ) : (
                 "Generate Report"
               )}
