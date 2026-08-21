@@ -12,6 +12,7 @@ interface DashboardHeaderProps {
   onAreaChange?: (code: string) => void;
   areas?: { AreaCode: string; AreaName: string }[];
   areasLoading?: boolean;
+  isDefaultDashboard?: boolean;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -25,6 +26,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onAreaChange,
   areas = [],
   areasLoading = false,
+  isDefaultDashboard = false,
 }) => {
   const [internalDivision, setInternalDivision] = useState("all");
   const selectedDivision = externalDivision !== undefined ? externalDivision : internalDivision;
@@ -100,10 +102,19 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     return provinces.filter(p => provinceMap.get(p.code.trim().toUpperCase()) === regionDiv);
   };
 
-  const showProvinceDropdown = user?.Level === 70 || user?.Level === 60 || user?.Level === 50;
+  const showProvinceDropdown =
+    user?.Level === 70 ||
+    user?.Level === 60 ||
+    user?.Level === 50 ||
+    (user?.Level === 80 && isDefaultDashboard);
+
   const isRegionUser = user?.Level === 70;
   const isProvinceUser = user?.Level === 60 || user?.Level === 50;
-  const showAreaDropdown = user?.Level === 60 || user?.Level === 50;
+
+  const showAreaDropdown =
+    user?.Level === 60 ||
+    user?.Level === 50 ||
+    (user?.Level === 80 && isDefaultDashboard);
 
   const allowedProvinces = (() => {
     if (user?.Level === 50 && selectedProvince) {
@@ -114,6 +125,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     }
     if (isRegionUser) {
       return getProvincesForRegion(user?.RegionCode);
+    }
+    if (user?.Level === 80 && isDefaultDashboard && selectedDivision && selectedDivision !== "all") {
+      const match = /^d(\d+)$/i.exec(selectedDivision);
+      const reg = match ? `R${match[1]}` : undefined;
+      return getProvincesForRegion(reg);
     }
     return provinces;
   })();
@@ -168,7 +184,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   <option>Loading Provinces...</option>
                 ) : (
                   <>
-                    {isRegionUser && <option value="">Select Province (All)</option>}
+                    {(isRegionUser || user?.Level === 80) && <option value="">Select Province (All)</option>}
                     {allowedProvinces.map((p) => (
                       <option key={p.code} value={p.code}>
                         {p.name}
@@ -186,7 +202,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 disabled={user?.Level === 50 || areasLoading}
                 className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7A0000] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 cursor-pointer disabled:cursor-not-allowed"
               >
-                {user?.Level === 60 && <option value="">{areasLoading ? "Loading Areas..." : "Select Area (All)"}</option>}
+                {(user?.Level === 60 || user?.Level === 80) && <option value="">{areasLoading ? "Loading Areas..." : "Select Area (All)"}</option>}
                 {user?.Level === 50 && user?.AreaCode && !areas.some(a => a.AreaCode === user.AreaCode) && (
                   <option value={user.AreaCode}>{user.AreaName || user.AreaCode}</option>
                 )}
