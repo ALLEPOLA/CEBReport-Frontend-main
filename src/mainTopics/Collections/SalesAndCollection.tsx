@@ -627,7 +627,7 @@ const SalesAndCollection: React.FC = () => {
       {/* ── FORM ────────────────────────────────────────────────────────────── */}
       {!reportVisible && (
         <>
-          <h1 className={`text-xl font-bold ${maroon} mb-4`}>Sales &amp; Collection – Region Wise</h1>
+          <h1 className={`text-xl font-bold ${maroon} mb-4`}>Sales &amp; Collection </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Bill Cycle */}
