@@ -513,8 +513,14 @@ const DefaultDashboardPage: React.FC = () => {
     return "";
   });
 
-  const [areas, setAreas] = useState<{ AreaCode: string; AreaName: string }[]>([]);
+  const [areas, setAreas] = useState<{ AreaCode: string; AreaName: string; ProvCode?: string; provCode?: string }[]>([]);
   const [areasLoading, setAreasLoading] = useState(false);
+
+  const handleDivisionChange = (divisionId: string) => {
+    setSelectedDivision(divisionId);
+    setSelectedProvince("");
+    setSelectedArea("");
+  };
 
   const handleProvinceChange = (code: string) => {
     setSelectedProvince(code);
@@ -549,6 +555,19 @@ const DefaultDashboardPage: React.FC = () => {
 
   const handleAreaChange = (code: string) => {
     setSelectedArea(code);
+    if (code && user?.Level === 80) {
+      const matched = areas.find(a => a.AreaCode === code);
+      if (matched) {
+        const pCode = matched.ProvCode || matched.provCode || "";
+        if (pCode) {
+          setSelectedProvince(pCode);
+          const div = getProvinceDivision(pCode);
+          if (div) {
+            setSelectedDivision(div);
+          }
+        }
+      }
+    }
   };
 
   const toRegion = (division: string) => {
@@ -576,13 +595,16 @@ const DefaultDashboardPage: React.FC = () => {
   useEffect(() => {
     let active = true;
     const fetchAreas = async () => {
-      if (!selectedProvince) {
+      if (!selectedProvince && user?.Level !== 80) {
         setAreas([]);
         return;
       }
       setAreasLoading(true);
       try {
-        const res = await fetch(`/misapi/api/ordinary/areas?provCode=${encodeURIComponent(selectedProvince)}`, {
+        const url = selectedProvince
+          ? `/misapi/api/ordinary/areas?provCode=${encodeURIComponent(selectedProvince)}`
+          : `/misapi/api/ordinary/areas`;
+        const res = await fetch(url, {
           headers: { Accept: "application/json" },
         });
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
@@ -601,7 +623,7 @@ const DefaultDashboardPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [selectedProvince]);
+  }, [selectedProvince, user]);
 
   useEffect(() => {
     if (user?.Level !== 50 || !user?.AreaCode || loadingMapping) return;
@@ -1382,13 +1404,14 @@ const DefaultDashboardPage: React.FC = () => {
               <DashboardHeader
                 title="Dashboard"
                 selectedDivision={selectedDivision}
-                onDivisionChange={setSelectedDivision}
+                onDivisionChange={handleDivisionChange}
                 selectedProvince={selectedProvince}
                 onProvinceChange={handleProvinceChange}
                 selectedArea={selectedArea}
                 onAreaChange={handleAreaChange}
                 areas={areas}
                 areasLoading={areasLoading}
+                isDefaultDashboard={true}
               />
 
               <div className="max-w-7xl mx-auto px-4 py-6">
