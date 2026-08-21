@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { FaFileDownload, FaPrint } from "react-icons/fa";
-import { useUser } from "../../contexts/UserContext";
-import { useReportScope } from "../../hooks/useReportScope";
 
 interface Division {
     RegionCode: string;
@@ -74,9 +72,6 @@ interface SolarCustomersCardProps {
 const SolarCustomersCard: React.FC<SolarCustomersCardProps> = ({ reportLabel, apiUrl }) => {
     const maroon = "text-[#7A0000]";
     const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
-
-    const { user } = useUser();
-    const { locked } = useReportScope();
 
     // Form state
     const [region, setRegion] = useState<string>("");
@@ -233,13 +228,6 @@ const SolarCustomersCard: React.FC<SolarCustomersCardProps> = ({ reportLabel, ap
 
         fetchDivisions();
     }, []);
-
-    // Sync region with locked region code if present
-    useEffect(() => {
-        if (locked["Region"]) {
-            setRegion(locked["Region"].code);
-        }
-    }, [locked, user.RegionCode]);
 
     const canSubmit = () => {
         if (!region || !fromBillCycle || !toBillCycle) return false;
@@ -718,39 +706,26 @@ const SolarCustomersCard: React.FC<SolarCustomersCardProps> = ({ reportLabel, ap
                                 >
                                     Region:
                                 </label>
-                                {locked["Region"] ? (
-                                    <select
-                                        disabled
-                                        id={`region-${reportLabel}`}
-                                        value={locked["Region"].code}
-                                        className="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                    >
-                                        <option value={locked["Region"].code}>
-                                            {locked["Region"].code}
-                                        </option>
-                                    </select>
-                                ) : (
-                                    <select
-                                        id={`region-${reportLabel}`}
-                                        value={region}
-                                        onChange={(e) => setRegion(e.target.value)}
-                                        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white"
-                                        required
-                                    >
-                                        <option value="">Select Region</option>
-                                        {isLoadingDivisions ? (
-                                            <option value="">Loading...</option>
-                                        ) : divisionError ? (
-                                            <option value="">Error loading regions</option>
-                                        ) : (
-                                            divisions.map((division) => (
-                                                <option key={division.RegionCode} value={division.RegionCode}>
-                                                    {division.RegionCode}
-                                                </option>
-                                            ))
-                                        )}
-                                    </select>
-                                )}
+                                <select
+                                    id={`region-${reportLabel}`}
+                                    value={region}
+                                    onChange={(e) => setRegion(e.target.value)}
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-[#7A0000] focus:border-transparent bg-white"
+                                    required
+                                >
+                                    <option value="">Select Region</option>
+                                    {isLoadingDivisions ? (
+                                        <option value="">Loading...</option>
+                                    ) : divisionError ? (
+                                        <option value="">Error loading regions</option>
+                                    ) : (
+                                        divisions.map((division) => (
+                                            <option key={division.RegionCode} value={division.RegionCode}>
+                                                {division.RegionCode}
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
                             </div>
 
                             {/* From Bill Cycle */}
@@ -929,19 +904,6 @@ const SolarCustomersCard: React.FC<SolarCustomersCardProps> = ({ reportLabel, ap
 };
 
 const PUCSLSolarCustomers: React.FC = () => {
-    const { user } = useUser();
-
-    if (!user?.Level || user.Level < 70) {
-        return (
-            <div className="p-6 bg-white rounded-lg shadow-sm text-center">
-                <h2 className="text-lg font-bold text-[#7A0000] mb-2">Access Restricted</h2>
-                <p className="text-sm text-gray-600">
-                    This report isn't available at your access level.
-                </p>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-6">
             {/* Bulk card */}
