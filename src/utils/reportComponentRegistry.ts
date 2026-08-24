@@ -205,7 +205,10 @@ import JobRegisterCCReport from "../mainTopics/SMC/JobRegisterCCReport.tsx";
 import JobRegCCNCReport from "../mainTopics/SMC/JobRegCCNCReport.tsx";
 import SMCAllApplicationReport from "../mainTopics/SMC/SMCAllApplicationReport.tsx";
 import CompletedJobsCCReport from "../mainTopics/SMC/CompletedJobsCCReport.tsx";
-import PendingEstimationCCReport from "../mainTopics/SMC/PendingEstimationCCReport"
+import PendingEstimationCCReport from "../mainTopics/SMC/PendingEstimationCCReport.tsx";
+import FundSummaryReport from "../mainTopics/SMC/FundSummaryReport.tsx";
+import RegionSMCAllPIVReport from "../mainTopics/SMC/RegionSMCAllPIVReport.tsx";
+import SMCMatDetailsReport from "../mainTopics/SMC/SMCMatDetailsReport.tsx";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -522,6 +525,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"area wise smc all details": SMCAllApplicationReport,
 	"cost center wise completed jobs" : CompletedJobsCCReport,
 	"cost center wise pending estimation" : PendingEstimationCCReport,
+	"edl fund summary of new connection" : FundSummaryReport,
+	"divisional smc all application data without ea piv paid date" : RegionSMCAllPIVReport,
+	"division wise smc job material details" : SMCMatDetailsReport,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
