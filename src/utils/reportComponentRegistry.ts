@@ -231,6 +231,7 @@ import CCDocInquiryPendingReport from "../mainTopics/Common/CCDocInquiryPendingR
 import InquiryCashBookReport from "../mainTopics/Common/InquiryCashBookReport.tsx";
 import InquiryChequeRunReport from "../mainTopics/Common/InquiryCheckRunReport.tsx";
 import InquiryGeneralLedgerReport from "../mainTopics/Common/InquiryGeneralLedgerReport.tsx";
+import InquiryInventoryReport from "../mainTopics/Common/InquiryInventoryReport.tsx";
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
@@ -521,6 +522,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inquiry cash book pending cancellation": InquiryCashBookReport,
 	"inquiry cheque run": InquiryChequeRunReport,
 	"inquiry general ledger": InquiryGeneralLedgerReport,
+	"inquiry inventory": InquiryInventoryReport,
 
 	//General Ledger Reports
 	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
