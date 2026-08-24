@@ -1491,7 +1491,7 @@ useEffect(() => {
           {/* Info Text */}
           <div className="mt-3">
             <p className="text-xs text-yellow-600">
-              this option provides facility to access provincial server and extract information about payments
+              This option provides facility to access provincial server and extract information about payments
             </p>
           </div>
 
