@@ -71,6 +71,7 @@ import AreaWiseCashBookInquiryReport from "../mainTopics/CashBook/AreaWiseCashBo
 import CashbookInquiryDrCrReport from "../mainTopics/CashBook/CashBookInquiryDrCrReport.tsx";
 import ChequeCancellationDivisionReport from "../mainTopics/CashBook/ChequeCancellationDivisionReport.tsx";
 import ChequeDetailsInquiryReport from "../mainTopics/CashBook/ChequeDetailsInquiryReport.tsx";
+import InquiryCashBookUnpostedCancelReport from "../mainTopics/CashBook/InquiryCashBookUnpostedCancelReport.tsx";
 
 // General reports
 import ActiveCustomersSalesByTariff from "../mainTopics/general/ActiveCustomersSalesByTariff";
@@ -364,6 +365,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cash book inquiry debit credit": CashbookInquiryDrCrReport,
 	"Cheque cancellation division": ChequeCancellationDivisionReport,
 	"cheque details inquiry cheque no range": ChequeDetailsInquiryReport,
+	"inquiry cash book unpost and cancellation": InquiryCashBookUnpostedCancelReport,
 
 	// General reports
 	"tariff block wise consumption": TariffBlockWiseConsumption,
