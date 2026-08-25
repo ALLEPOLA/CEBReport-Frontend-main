@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from "react";
+import { useUser } from "../../contexts/UserContext";
+import { useReportScope } from "../../hooks/useReportScope";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -87,6 +89,18 @@ const TopCustomers: React.FC = () => {
   const maroon     = "text-[#7A0000]";
   const maroonGrad = "bg-gradient-to-r from-[#7A0000] to-[#A52A2A]";
 
+  // ── User / Level context ──────────────────────────────────────────────────
+  useUser();
+  const { level, locked } = useReportScope();
+
+  // ── Scope Label helper ──────────────────────────────────────────────────────
+  const getScopeLabel = () => {
+    if (level >= 80) return "Entire CEB";
+    if (level >= 70) return `Region: ${locked.Region?.code || "—"}`;
+    if (level >= 60) return `Province: ${locked.Province?.name || locked.Province?.code || "—"}`;
+    return `Area: ${locked.Area?.name || locked.Area?.code || "—"}`;
+  };
+
   // ── Form state ──────────────────────────────────────────────────────────────
   const [takeCount, setTakeCount] = useState<number>(100);
 
@@ -110,9 +124,24 @@ const TopCustomers: React.FC = () => {
     setReportError("");
 
     try {
-      const response = await apiFetch<any>(
-        `/misapi/api/dashboard/top-customers/list?take=${takeSnapshot}`
-      );
+      let url = `/misapi/api/dashboard/top-customers/list?take=${takeSnapshot}`;
+      if (level >= 80) {
+        // No filter, Entire CEB
+      } else if (level >= 70) {
+        if (locked.Region?.code) {
+          url += `&region=${encodeURIComponent(locked.Region.code)}`;
+        }
+      } else if (level >= 60) {
+        if (locked.Province?.code) {
+          url += `&province=${encodeURIComponent(locked.Province.code)}`;
+        }
+      } else {
+        if (locked.Area?.code) {
+          url += `&area=${encodeURIComponent(locked.Area.code)}`;
+        }
+      }
+
+      const response = await apiFetch<any>(url);
 
       if (response.errorMessage) {
         setReportError(response.errorMessage);
@@ -144,7 +173,7 @@ const TopCustomers: React.FC = () => {
     } finally {
       setLoadingReport(false);
     }
-  }, [takeCount]);
+  }, [takeCount, level, locked]);
 
   // ── Filtered rows ─────────────────────────────────────────────────────────────
   const filteredData = searchQuery.trim()
@@ -185,6 +214,7 @@ const TopCustomers: React.FC = () => {
 
     const metaRows: (string | number)[][] = [
       ["Largest 100 Customers - Consumption Wise"],
+      ["Scope :", getScopeLabel()],
       ["Bill Cycle :", resolvedBillCycle],
       ["Customer Count :", reportData.length],
       [],
@@ -219,7 +249,7 @@ const TopCustomers: React.FC = () => {
   const handleExportPdf = () => {
     if (!reportData.length) { setReportError("No data to export."); return; }
     const title    = "Largest 100 Customers by Consumption";
-    const subtitle = `Bill Cycle: ${resolvedBillCycle} &nbsp;|&nbsp; Top ${reportData.length} Customers`;
+    const subtitle = `Scope: ${getScopeLabel()} &nbsp;|&nbsp; Bill Cycle: ${resolvedBillCycle} &nbsp;|&nbsp; Top ${reportData.length} Customers`;
     const totalKwh    = reportData.reduce((s, r) => s + r.kwh, 0);
     const totalAmount = reportData.reduce((s, r) => s + r.totalAmount, 0);
 
@@ -282,7 +312,7 @@ const TopCustomers: React.FC = () => {
               Largest 100 Customers – Consumption Wise
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Displays top customers for the latest bill cycle
+              Displays top customers for the latest bill cycle ({getScopeLabel()})
             </p>
           </div>
 
@@ -368,7 +398,7 @@ const TopCustomers: React.FC = () => {
                 Largest Customers – Consumption Wise
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Bill Cycle: {resolvedBillCycle} | Top {reportData.length} Customers
+                Scope: {getScopeLabel()} | Bill Cycle: {resolvedBillCycle} | Top {reportData.length} Customers
               </p>
             </div>
 
