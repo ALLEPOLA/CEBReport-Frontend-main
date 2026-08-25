@@ -67,7 +67,7 @@ const Report71_8: React.FC = () => {
 	// Report data state
 	const [data, setData] = useState<Report71_8Item[]>([]);
 	const [loadingReport, setLoadingReport] = useState<boolean>(false);
-	const [reportError, setReportError] = useState<string | null>(null);
+	const [, setReportError] = useState<string | null>(null);
 	const [showReport, setShowReport] = useState<boolean>(false);
 	const [summaryInfo, setSummaryInfo] = useState<{
 		cctName?: string;
