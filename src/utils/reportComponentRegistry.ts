@@ -209,6 +209,8 @@ import PendingEstimationCCReport from "../mainTopics/SMC/PendingEstimationCCRepo
 import FundSummaryReport from "../mainTopics/SMC/FundSummaryReport.tsx";
 import RegionSMCAllPIVReport from "../mainTopics/SMC/RegionSMCAllPIVReport.tsx";
 import SMCMatDetailsReport from "../mainTopics/SMC/SMCMatDetailsReport.tsx";
+import EnergizedNotAccountCCReport from "../mainTopics/SMC/EnergizedNotAccountCCReport.tsx";
+import EnergizeAgeAnalysisReport from "../mainTopics/SMC/EnergizeAgeAnalysisReport.tsx";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -500,7 +502,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"edl fund summary of new connection" : FundSummaryReport,
 	"divisional smc all application data without ea piv paid date" : RegionSMCAllPIVReport,
 	"division wise smc job material details" : SMCMatDetailsReport,
-
+	"cost center wise energized not account opened" : EnergizedNotAccountCCReport,
+	"cost center wise energized age analysis" : EnergizeAgeAnalysisReport,
+	
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
