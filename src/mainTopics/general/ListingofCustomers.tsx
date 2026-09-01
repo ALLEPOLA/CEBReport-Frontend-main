@@ -462,24 +462,6 @@ const ListingOfCustomers: React.FC = () => {
     );
   };
 
-  // Operator selector — disabled unless its row's checkbox is checked AND area is ready
-  const OpSel = ({
-    val, set, active,
-  }: { val: Operator; set: (v: Operator) => void; active: boolean }) => (
-    <select
-      value={val}
-      onChange={e => set(e.target.value as Operator)}
-      disabled={!active}
-      className="w-14 px-2 py-1.5 text-xs border border-gray-300 rounded-md
-                 focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
-                 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-    >
-      {(["=", ">", "<", ">=", "<="] as Operator[]).map(o => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
-  );
-
   // Row wrapper — checkbox is disabled while area/filters are still loading
   const Row = ({
     label, checked, onCheck, children,
