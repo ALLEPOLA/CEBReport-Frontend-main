@@ -211,6 +211,9 @@ import RegionSMCAllPIVReport from "../mainTopics/SMC/RegionSMCAllPIVReport.tsx";
 import SMCMatDetailsReport from "../mainTopics/SMC/SMCMatDetailsReport.tsx";
 import EnergizedNotAccountCCReport from "../mainTopics/SMC/EnergizedNotAccountCCReport.tsx";
 import EnergizeAgeAnalysisReport from "../mainTopics/SMC/EnergizeAgeAnalysisReport.tsx";
+import JobAllocatedEstimatesDetailsReport from "../mainTopics/SMC/JobAllocatedEstimatesDetailsReport.tsx";
+import JobEstimateDetailsCCReport from "../mainTopics/SMC/JobEstimateDetailsCCReport.tsx";
+//import JobStatusDocInquiryReport from "../mainTopics/SMC/JobStatusDocInquiryReport.tsx";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -504,7 +507,10 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"division wise smc job material details" : SMCMatDetailsReport,
 	"cost center wise energized not account opened" : EnergizedNotAccountCCReport,
 	"cost center wise energized age analysis" : EnergizeAgeAnalysisReport,
-	
+	"job allocated material quantities vs quantity on hand report" : JobAllocatedEstimatesDetailsReport,
+	"job estimate details within date range" : JobEstimateDetailsCCReport,
+	//"job status document inquiry application sub type wise" : JobStatusDocInquiryReport,
+
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
 	"cost center wise t1 t2 t3 report": CCT1T2T3Report,
