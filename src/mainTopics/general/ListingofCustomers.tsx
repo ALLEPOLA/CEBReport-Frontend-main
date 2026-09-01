@@ -209,6 +209,11 @@ const ListingOfCustomers: React.FC = () => {
           return;
         }
 
+        const numBc = parseInt(resolvedBc, 10);
+        if (!isNaN(numBc)) {
+          resolvedBc = String(numBc - 1);
+        }
+
         if (!cancelled) setBillCycle(resolvedBc);
 
         try {
@@ -617,7 +622,7 @@ const ListingOfCustomers: React.FC = () => {
                   active={ready && useDepot} opts={oDepot} />
               </Row>
 
-              {/* Balance */}
+              {/* Balance
               <Row label="Balance" checked={useBal}
                 onCheck={v => { setUseBal(v); if (!v) { setBalAmt(""); setBalOp("="); } }}>
                 <OpSel val={balOp} set={setBalOp} active={ready && useBal} />
@@ -630,9 +635,9 @@ const ListingOfCustomers: React.FC = () => {
                              focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
                              disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 />
-              </Row>
+              </Row> */}
 
-              {/* Last Payment Date */}
+              {/* Last Payment Date
               <Row label="Last Payment Date" checked={usePay}
                 onCheck={v => { setUsePay(v); if (!v) { setPayDate(""); setPayOp("="); } }}>
                 <OpSel val={payOp} set={setPayOp} active={ready && usePay} />
@@ -645,9 +650,9 @@ const ListingOfCustomers: React.FC = () => {
                              focus:ring-2 focus:ring-[#7A0000] focus:border-transparent
                              disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 />
-              </Row>
+              </Row> */}
 
-              {/* Arrears Position */}
+              {/* Arrears Position
               <Row label="Arrears Position" checked={useArr}
                 onCheck={v => { setUseArr(v); if (!v) { setArrPos("1"); setArrOp(">="); } }}>
                 <OpSel val={arrOp} set={setArrOp} active={ready && useArr} />
@@ -663,7 +668,7 @@ const ListingOfCustomers: React.FC = () => {
                     <option key={n} value={String(n)}>{n}</option>
                   ))}
                 </select>
-              </Row>
+              </Row> */}
 
             </div>{/* end filter rows */}
 
