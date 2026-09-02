@@ -1402,7 +1402,7 @@ const DefaultDashboardPage: React.FC = () => {
 
           <>
               <DashboardHeader
-                title="Dashboard"
+                title="Billing DashBoard"
                 selectedDivision={selectedDivision}
                 onDivisionChange={handleDivisionChange}
                 selectedProvince={selectedProvince}
