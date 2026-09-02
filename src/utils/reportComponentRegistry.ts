@@ -245,6 +245,11 @@ import InquiryChequeRunReport from "../mainTopics/Common/InquiryCheckRunReport.t
 import InquiryGeneralLedgerReport from "../mainTopics/Common/InquiryGeneralLedgerReport.tsx";
 import InquiryInventoryReport from "../mainTopics/Common/InquiryInventoryReport.tsx";
 import InquiryMaterialRequisitionReport from "../mainTopics/Common/InquiryMaterialRequisitionReport.tsx";
+import MaterialReqJobwiseReport from "../mainTopics/Common/MaterialReqJobwiseReport.tsx";
+import MaterialReqJobwiseNoMatReport from "../mainTopics/Common/MaterialReqJobwiseNoMatReport.tsx";
+import TransactionsPerCostCenterReport from "../mainTopics/Common/TransactionsPerCostCenterReport.tsx";
+import ProvinceMaterialReqSummaryReport from "../mainTopics/Common/ProvinceMaterialReqSummaryReport.tsx";
+import ProvinceMaterialReqDetailReport from "../mainTopics/Common/ProvinceMaterialReqDetailReport.tsx";
 
 //General Ledger Reports
 import CostCenterWiseGLDocumentReport from "../mainTopics/GeneralLedger/CostcenterwiseGlDocumentReport.tsx";
@@ -572,6 +577,11 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inquiry general ledger": InquiryGeneralLedgerReport,
 	"inquiry inventory": InquiryInventoryReport,
 	"inquiry material requisition": InquiryMaterialRequisitionReport,
+	"material requisition jobwise without materials": MaterialReqJobwiseNoMatReport,
+	"material requisition jobwise": MaterialReqJobwiseReport,
+	"no of transactions per cost center": TransactionsPerCostCenterReport,
+	"province wise material requisition summary inquiry": ProvinceMaterialReqSummaryReport,
+	"province wise material requisition details inquiry": ProvinceMaterialReqDetailReport,
 
 	//General Ledger Reports
 	"cost center wise gl document inquiry": CostCenterWiseGLDocumentReport,
