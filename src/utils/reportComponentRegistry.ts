@@ -213,7 +213,9 @@ import EnergizedNotAccountCCReport from "../mainTopics/SMC/EnergizedNotAccountCC
 import EnergizeAgeAnalysisReport from "../mainTopics/SMC/EnergizeAgeAnalysisReport.tsx";
 import JobAllocatedEstimatesDetailsReport from "../mainTopics/SMC/JobAllocatedEstimatesDetailsReport.tsx";
 import JobEstimateDetailsCCReport from "../mainTopics/SMC/JobEstimateDetailsCCReport.tsx";
-//import JobStatusDocInquiryReport from "../mainTopics/SMC/JobStatusDocInquiryReport.tsx";
+import JobStatusDocInquiryReport from "../mainTopics/SMC/JobStatusDocInquiryReport.tsx";
+import JobSummaryAllReport from "../mainTopics/SMC/JobSummaryAllReport.tsx";
+import JobSummaryPeriodReport from "../mainTopics/SMC/JobSummaryPeriodReport.tsx";
 
 //SMC - Management Information
 import SmcJobProgressReport from "../mainTopics/SMC-ManagementInfo/SMCJobProgressReport.tsx";
@@ -509,7 +511,9 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"cost center wise energized age analysis" : EnergizeAgeAnalysisReport,
 	"job allocated material quantities vs quantity on hand report" : JobAllocatedEstimatesDetailsReport,
 	"job estimate details within date range" : JobEstimateDetailsCCReport,
-	//"job status document inquiry application sub type wise" : JobStatusDocInquiryReport,
+	"job status document inquiry application sub type wise" : JobStatusDocInquiryReport,
+	"job summary new connection edl" : JobSummaryAllReport,
+	"job summary within period" : JobSummaryPeriodReport,
 
 	//SMC - Management Information
 	"smc job progress": SmcJobProgressReport,
