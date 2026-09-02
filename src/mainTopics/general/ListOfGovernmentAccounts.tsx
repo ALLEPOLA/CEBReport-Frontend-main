@@ -255,7 +255,9 @@ const ListOfGovernmentAccounts: React.FC = () => {
         const backendErr = json?.errorMessage ?? json?.ErrorMessage ?? null;
         if (backendErr) {
           const detail = json?.errorDetails ?? json?.ErrorDetails ?? "";
-          setReportError(detail ? `${backendErr} — ${detail}` : backendErr);
+          const cleanBackendErr = sanitizeServerMessage(backendErr);
+          const cleanDetail = sanitizeServerMessage(detail);
+          setReportError(cleanDetail ? `${cleanBackendErr} — ${cleanDetail}` : cleanBackendErr || "No records found for the selected criteria.");
           return;
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -335,6 +337,15 @@ const ListOfGovernmentAccounts: React.FC = () => {
   );
 
   // ── Export helpers ─────────────────────────────────────────────────────────
+  const sanitizeServerMessage = (message: string | null | undefined): string => {
+    if (!message) return "";
+    return message
+      .replace(/Please check the bill cycle, area code, and department code\.?/gi, "")
+      .replace(/\s*[-–—]\s*\s*$/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  };
+
   const escapeCsv = (v: unknown) => {
     const s = String(v ?? "");
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
