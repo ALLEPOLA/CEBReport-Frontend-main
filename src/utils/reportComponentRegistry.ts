@@ -242,6 +242,7 @@ import InquiryInventoryReport from "../mainTopics/Common/InquiryInventoryReport.
 import InquiryMaterialRequisitionReport from "../mainTopics/Common/InquiryMaterialRequisitionReport.tsx";
 import MaterialReqJobwiseReport from "../mainTopics/Common/MaterialReqJobwiseReport.tsx";
 import MaterialReqJobwiseNoMatReport from "../mainTopics/Common/MaterialReqJobwiseNoMatReport.tsx";
+import ProvinceMaterialReqSummaryReport from "../mainTopics/Common/ProvinceMaterialReqSummaryReport.tsx";
 import ProvinceMaterialReqDetailReport from "../mainTopics/Common/ProvinceMaterialReqDetailReport.tsx";
 
 //General Ledger Reports
@@ -567,6 +568,7 @@ export const reportComponentRegistry: ReportComponentRegistry = {
 	"inquiry material requisition": InquiryMaterialRequisitionReport,
 	"material requisition jobwise without materials": MaterialReqJobwiseNoMatReport,
 	"material requisition jobwise": MaterialReqJobwiseReport,
+	"province wise material requisition summary inquiry": ProvinceMaterialReqSummaryReport,
 	"province wise material requisition details inquiry": ProvinceMaterialReqDetailReport,
 
 	//General Ledger Reports
